@@ -378,47 +378,92 @@
   .setup-banner p { font-size: 13px; color: var(--muted); }
 
   /* ── PRICING ── */
-  #precios { padding: 96px 0; position: relative; overflow: hidden; }
-  .price-blob {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-    width: 600px; height: 600px;
-    background: rgba(0,224,150,0.035); border-radius: 50%; filter: blur(140px); pointer-events: none;
-  }
-  .price-wrap { max-width: 500px; margin: 0 auto; }
-  .price-popular {
-    text-align: center; margin-bottom: -16px; position: relative; z-index: 2;
-  }
-  .price-popular-badge {
-    display: inline-block; padding: 5px 18px; border-radius: 100px;
-    background: var(--em); color: var(--ink); font-size: 12px; font-weight: 700; letter-spacing: .04em;
-  }
-  .price-card { border-radius: 24px; overflow: hidden; }
-  .price-top { padding: 28px 28px 22px; border-bottom: 1px solid rgba(0,224,150,0.1); }
-  .price-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
-  .price-left p { font-size: 13px; color: var(--soft); margin-bottom: 6px; }
-  .price-amount { display: flex; align-items: baseline; gap: 4px; }
-  .price-num { font-family: 'Playfair Display', serif; font-size: 64px; font-weight: 700; color: var(--text); line-height: 1; }
-  .price-currency { font-size: 24px; color: var(--em); font-weight: 600; }
-  .price-period { font-size: 14px; color: var(--muted); }
-  .price-note { font-size: 11px; color: var(--muted); margin-top: 5px; }
-  .price-savings { background: rgba(0,224,150,0.1); border: 1px solid rgba(0,224,150,0.2); border-radius: 12px; padding: 14px; text-align: center; flex-shrink: 0; }
-  .price-savings .sv { font-size: 10px; color: var(--em); font-weight: 600; margin-bottom: 3px; }
-  .price-savings .sv-num { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 700; color: var(--text); }
-  .price-savings .sv-lbl { font-size: 9px; color: var(--muted); }
-  .price-body { padding: 24px 28px 28px; }
-  .price-feat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 16px; }
-  .price-feats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
-  .price-feats .check-item span { font-size: 13px; color: var(--soft); }
-  .price-cta { width: 100%; padding: 15px; border-radius: 14px; font-size: 15px; font-weight: 700; border-radius: 100px; }
-  .price-secure { text-align: center; font-size: 12px; color: var(--muted); margin-top: 12px; }
-  .guarantee { text-align: center; margin-top: 28px; }
-  .guarantee-inner {
-    display: inline-flex; align-items: center; gap: 12px;
-    padding: 14px 22px; border-radius: 100px;
-    background: var(--surf); border: 1px solid rgba(255,255,255,0.07);
-  }
-  .guarantee-inner span { font-size: 13px; color: var(--soft); }
-  .guarantee-inner strong { color: var(--text); }
+ <section id="precios">
+  <div class="price-blob"></div>
+  <div class="container" style="padding:96px 28px;">
+    
+    <div class="section-header reveal">
+      <span class="section-label">Precio</span>
+      <h2>Elige tu plan</h2>
+      <p>Ahorra más cuanto más tiempo automatizas tu negocio.</p>
+    </div>
+
+    <div class="price-wrap" style="max-width:1100px;margin:0 auto;">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
+
+        <!-- 1 MES -->
+        <div class="card-em price-card">
+          <div class="price-top">
+            <p>Plan mensual</p>
+            <div class="price-amount">
+              <span class="price-num">99</span>
+              <span class="price-currency">€</span>
+            </div>
+            <p class="price-note">Sin compromiso</p>
+          </div>
+          <div class="price-body">
+            <a href="https://buy.stripe.com/TU_LINK_1MES" class="btn-primary price-cta" style="justify-content:center;">
+              Empezar
+            </a>
+          </div>
+        </div>
+
+        <!-- 3 MESES -->
+        <div class="card-em price-card" style="border:2px solid #00E096;transform:scale(1.03);">
+          <div class="price-top">
+            <p>Plan trimestral</p>
+            <div class="price-amount">
+              <span class="price-num">270</span>
+              <span class="price-currency">€</span>
+            </div>
+            <p style="font-size:12px;color:#00E096;">Ahorra 10%</p>
+          </div>
+          <div class="price-body">
+            <a href="https://buy.stripe.com/TU_LINK_3MESES" class="btn-primary price-cta" style="justify-content:center;">
+              Más popular
+            </a>
+          </div>
+        </div>
+
+        <!-- 6 MESES -->
+        <div class="card-em price-card">
+          <div class="price-top">
+            <p>Plan semestral</p>
+            <div class="price-amount">
+              <span class="price-num">510</span>
+              <span class="price-currency">€</span>
+            </div>
+            <p style="font-size:12px;color:#00E096;">Ahorra 15%</p>
+          </div>
+          <div class="price-body">
+            <a href="https://buy.stripe.com/TU_LINK_6MESES" class="btn-primary price-cta" style="justify-content:center;">
+              Elegir
+            </a>
+          </div>
+        </div>
+
+        <!-- 12 MESES -->
+        <div class="card-em price-card">
+          <div class="price-top">
+            <p>Plan anual</p>
+            <div class="price-amount">
+              <span class="price-num">900</span>
+              <span class="price-currency">€</span>
+            </div>
+            <p style="font-size:12px;color:#00E096;">Ahorra 25%</p>
+          </div>
+          <div class="price-body">
+            <a href="https://buy.stripe.com/TU_LINK_12MESES" class="btn-primary price-cta" style="justify-content:center;">
+              Mejor valor
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</section>
 
   /* ── CTA FINAL ── */
   #cta-final { padding: 100px 0; background: var(--ink2); position: relative; overflow: hidden; }
