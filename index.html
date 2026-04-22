@@ -381,37 +381,100 @@
   #precios { padding: 96px 0; position: relative; overflow: hidden; }
   .price-blob {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-    width: 600px; height: 600px;
-    background: rgba(0,224,150,0.035); border-radius: 50%; filter: blur(140px); pointer-events: none;
+    width: 700px; height: 700px;
+    background: rgba(0,224,150,0.04); border-radius: 50%; filter: blur(150px); pointer-events: none;
   }
-  .price-wrap { max-width: 500px; margin: 0 auto; }
-  .price-popular {
-    text-align: center; margin-bottom: -16px; position: relative; z-index: 2;
+  /* Toggle tabs */
+  .price-toggle-wrap { display: flex; justify-content: center; margin-bottom: 48px; }
+  .price-toggle {
+    display: flex; gap: 4px; padding: 5px;
+    background: var(--surf); border: 1px solid var(--border); border-radius: 100px;
   }
-  .price-popular-badge {
-    display: inline-block; padding: 5px 18px; border-radius: 100px;
-    background: var(--em); color: var(--ink); font-size: 12px; font-weight: 700; letter-spacing: .04em;
+  .ptab {
+    padding: 8px 20px; border-radius: 100px; font-size: 13px; font-weight: 500;
+    color: var(--muted); cursor: pointer; border: none; background: transparent;
+    transition: all .25s; white-space: nowrap;
   }
-  .price-card { border-radius: 24px; overflow: hidden; }
-  .price-top { padding: 28px 28px 22px; border-bottom: 1px solid rgba(0,224,150,0.1); }
-  .price-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
-  .price-left p { font-size: 13px; color: var(--soft); margin-bottom: 6px; }
-  .price-amount { display: flex; align-items: baseline; gap: 4px; }
-  .price-num { font-family: 'Playfair Display', serif; font-size: 64px; font-weight: 700; color: var(--text); line-height: 1; }
-  .price-currency { font-size: 24px; color: var(--em); font-weight: 600; }
-  .price-period { font-size: 14px; color: var(--muted); }
-  .price-note { font-size: 11px; color: var(--muted); margin-top: 5px; }
-  .price-savings { background: rgba(0,224,150,0.1); border: 1px solid rgba(0,224,150,0.2); border-radius: 12px; padding: 14px; text-align: center; flex-shrink: 0; }
-  .price-savings .sv { font-size: 10px; color: var(--em); font-weight: 600; margin-bottom: 3px; }
-  .price-savings .sv-num { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 700; color: var(--text); }
-  .price-savings .sv-lbl { font-size: 9px; color: var(--muted); }
-  .price-body { padding: 24px 28px 28px; }
-  .price-feat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 16px; }
-  .price-feats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
-  .price-feats .check-item span { font-size: 13px; color: var(--soft); }
-  .price-cta { width: 100%; padding: 15px; border-radius: 14px; font-size: 15px; font-weight: 700; border-radius: 100px; }
-  .price-secure { text-align: center; font-size: 12px; color: var(--muted); margin-top: 12px; }
-  .guarantee { text-align: center; margin-top: 28px; }
+  .ptab.active {
+    background: var(--em); color: var(--ink); font-weight: 600;
+    box-shadow: 0 0 18px var(--em-glow);
+  }
+  .ptab:not(.active):hover { color: var(--text); background: rgba(255,255,255,0.05); }
+
+  /* Plan cards grid */
+  .plans-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    align-items: end;
+  }
+  .plan-card {
+    border-radius: 20px; overflow: hidden; position: relative;
+    transition: transform .3s, box-shadow .3s;
+    display: none;
+  }
+  .plan-card.active-plan { display: flex; flex-direction: column; }
+  .plan-card:hover { transform: translateY(-4px); }
+  .plan-card.featured { transform: translateY(-10px); }
+  .plan-card.featured:hover { transform: translateY(-14px); }
+
+  /* Featured glow ring */
+  .plan-card.featured { box-shadow: 0 0 0 1px var(--border-em), 0 24px 60px rgba(0,224,150,0.12); }
+
+  /* Popular ribbon */
+  .plan-ribbon {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 2;
+    text-align: center; padding: 7px 0;
+    background: var(--em); font-size: 11px; font-weight: 700;
+    color: var(--ink); letter-spacing: .06em; text-transform: uppercase;
+  }
+
+  /* Savings pill */
+  .saving-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 100px; font-size: 11px; font-weight: 600;
+    background: rgba(0,224,150,0.12); border: 1px solid rgba(0,224,150,0.25); color: var(--em);
+    margin-bottom: 14px;
+  }
+  .saving-pill.hot { background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.3); color: #FCD34D; }
+
+  .plan-header { padding: 24px 22px 18px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .plan-header.has-ribbon { padding-top: 44px; }
+  .plan-name { font-size: 12px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 10px; }
+  .plan-price { display: flex; align-items: baseline; gap: 3px; margin-bottom: 4px; }
+  .plan-price-num { font-family: 'Playfair Display', serif; font-size: 52px; font-weight: 700; color: var(--text); line-height: 1; }
+  .plan-price-num.featured-num { font-size: 62px; color: #fff; }
+  .plan-currency { font-size: 22px; font-weight: 600; color: var(--em); line-height: 1; align-self: flex-start; padding-top: 8px; }
+  .plan-period { font-size: 13px; color: var(--muted); align-self: flex-end; padding-bottom: 6px; }
+  .plan-total { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .plan-total strong { color: var(--soft); }
+
+  .plan-body { padding: 18px 22px 22px; flex: 1; display: flex; flex-direction: column; }
+  .plan-feats { display: flex; flex-direction: column; gap: 9px; margin-bottom: 20px; flex: 1; }
+  .plan-feats .check-item span { font-size: 13px; color: var(--soft); }
+  .plan-cta {
+    width: 100%; padding: 12px 16px; border-radius: 100px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.12); background: transparent; color: var(--text);
+    transition: all .25s; text-decoration: none; display: block; text-align: center;
+  }
+  .plan-cta:hover { border-color: var(--border-em); background: rgba(0,224,150,0.07); color: var(--em); }
+  .plan-cta.primary-cta {
+    background: linear-gradient(90deg, var(--em) 0%, #a8f0d0 50%, var(--em) 100%);
+    background-size: 200% auto; animation: shimmer 3s linear infinite;
+    color: var(--ink); border: none;
+  }
+  .plan-cta.primary-cta:hover { box-shadow: 0 0 28px var(--em-glow); transform: scale(1.02); }
+
+  /* Comparison bar */
+  .savings-bar {
+    margin-top: 40px; padding: 22px 28px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  }
+  .savings-bar-left { display: flex; align-items: center; gap: 14px; }
+  .savings-bar-icon { font-size: 24px; flex-shrink: 0; }
+  .savings-bar h3 { font-family: 'DM Sans',sans-serif; font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+  .savings-bar p { font-size: 13px; color: var(--muted); }
+
+  .guarantee { text-align: center; margin-top: 22px; }
   .guarantee-inner {
     display: inline-flex; align-items: center; gap: 12px;
     padding: 14px 22px; border-radius: 100px;
@@ -419,6 +482,17 @@
   }
   .guarantee-inner span { font-size: 13px; color: var(--soft); }
   .guarantee-inner strong { color: var(--text); }
+
+  @media (max-width: 900px) {
+    .plans-grid { grid-template-columns: 1fr 1fr; }
+    .plan-card.featured { transform: none; }
+    .plan-card.featured:hover { transform: translateY(-4px); }
+    .ptab { padding: 7px 14px; font-size: 12px; }
+  }
+  @media (max-width: 600px) {
+    .plans-grid { grid-template-columns: 1fr; }
+    .price-toggle { flex-wrap: wrap; justify-content: center; border-radius: 16px; }
+  }
 
   /* ── CTA FINAL ── */
   #cta-final { padding: 100px 0; background: var(--ink2); position: relative; overflow: hidden; }
@@ -821,59 +895,155 @@
 <section id="precios">
   <div class="price-blob"></div>
   <div class="container" style="padding:96px 28px;">
+
     <div class="section-header reveal">
-      <span class="section-label">Precio</span>
-      <h2>Un precio. Todo incluido.</h2>
-      <p>Sin sorpresas, sin extras. Todo lo que necesitas para automatizar tu negocio.</p>
+      <span class="section-label">Planes y precios</span>
+      <h2>Elige tu compromiso,<br><span class="gradient-text">cuanto más, más ahorras</span></h2>
+      <p>Todas las funcionalidades incluidas en cada plan. Solo eliges cuántos meses quieres disfrutar de Omnira.</p>
     </div>
-    <div class="price-wrap reveal">
-      <div class="price-popular"><span class="price-popular-badge">✦ El plan todo-en-uno</span></div>
-      <div class="card-em price-card animate-pulse-glow">
-        <div class="price-top">
-          <div class="price-row">
-            <div class="price-left">
-              <p>Plan Profesional</p>
-              <div class="price-amount">
-                <span class="price-num">99</span>
-                <div><span class="price-currency">€</span><span class="price-period">/mes</span></div>
-              </div>
-              <p class="price-note">IVA no incluido · Sin permanencia</p>
-            </div>
-            <div class="price-savings">
-              <div class="sv">Ahorra vs contratar</div>
-              <div class="sv-num">+800€/mes</div>
-              <div class="sv-lbl">vs. empleado a tiempo parcial</div>
-            </div>
-          </div>
-        </div>
-        <div class="price-body">
-          <p class="price-feat-label">Todo incluido:</p>
-          <div class="price-feats">
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span style="font-size:13px;color:var(--soft);">Respuestas ilimitadas</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span style="font-size:13px;color:var(--soft);">Gestión de reservas 24/7</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span style="font-size:13px;color:var(--soft);">WhatsApp Business</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span style="font-size:13px;color:var(--soft);">Panel de control completo</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span style="font-size:13px;color:var(--soft);">Recordatorios automáticos</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span style="font-size:13px;color:var(--soft);">Gestión de cancelaciones</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span style="font-size:13px;color:var(--soft);">Soporte prioritario</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span style="font-size:13px;color:var(--soft);">Configuración incluida</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span style="font-size:13px;color:var(--soft);">Actualizaciones gratuitas</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span style="font-size:13px;color:var(--soft);">Sin permanencia</span></div>
-          </div>
-          <!-- Stripe-ready button — replace href with your Stripe payment link -->
-          <a href="https://buy.stripe.com/REPLACE_WITH_YOUR_LINK" class="btn-primary price-cta" style="justify-content:center;">
-            Empezar ahora — 99€/mes
-          </a>
-          <p class="price-secure">🔒 Pago seguro con Stripe · Cancela en cualquier momento</p>
-        </div>
-      </div>
-      <div class="guarantee">
-        <div class="guarantee-inner">
-          <span style="font-size:20px;">🛡️</span>
-          <span><strong>14 días de prueba gratuita.</strong> Si no ves resultados, te devolvemos el dinero.</span>
-        </div>
+
+    <!-- Toggle tabs -->
+    <div class="price-toggle-wrap reveal">
+      <div class="price-toggle">
+        <button class="ptab active" onclick="switchPlan('1m',this)">1 mes</button>
+        <button class="ptab" onclick="switchPlan('3m',this)">3 meses</button>
+        <button class="ptab" onclick="switchPlan('6m',this)">6 meses</button>
+        <button class="ptab" onclick="switchPlan('12m',this)">12 meses</button>
       </div>
     </div>
+
+    <!-- PLAN CARDS (todos visibles, 4 columnas) -->
+    <div class="plans-grid reveal" id="plans-grid">
+
+      <!-- 1 MES -->
+      <div class="card plan-card active-plan" id="plan-1m">
+        <div class="plan-header">
+          <div class="plan-name">Mensual</div>
+          <div class="plan-price">
+            <span class="plan-currency">€</span>
+            <span class="plan-price-num">99</span>
+            <span class="plan-period">/mes</span>
+          </div>
+          <div class="plan-total" style="color:var(--muted);">Sin compromiso</div>
+        </div>
+        <div class="plan-body">
+          <div class="plan-feats">
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Respuestas ilimitadas</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Reservas 24/7</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>WhatsApp Business</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Panel de control</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Recordatorios auto.</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Soporte estándar</span></div>
+          </div>
+          <a href="https://buy.stripe.com/REPLACE_1M" class="plan-cta">Empezar ahora →</a>
+          <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px;">🔒 Pago seguro · Cancela cuando quieras</p>
+        </div>
+      </div>
+
+      <!-- 3 MESES -->
+      <div class="card plan-card active-plan" id="plan-3m">
+        <div class="plan-header">
+          <div class="saving-pill">✦ Ahorras 44€</div>
+          <div class="plan-name">Trimestral</div>
+          <div class="plan-price">
+            <span class="plan-currency">€</span>
+            <span class="plan-price-num">85</span>
+            <span class="plan-period">/mes</span>
+          </div>
+          <div class="plan-total">Total: <strong>253€</strong> · En lugar de 297€</div>
+        </div>
+        <div class="plan-body">
+          <div class="plan-feats">
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Todo del plan mensual</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Reservas 24/7</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>WhatsApp Business</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Panel de control</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Recordatorios auto.</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Soporte prioritario</span></div>
+          </div>
+          <a href="https://buy.stripe.com/REPLACE_3M" class="plan-cta">Empezar ahora →</a>
+          <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px;">🔒 Pago único trimestral</p>
+        </div>
+      </div>
+
+      <!-- 6 MESES — FEATURED -->
+      <div class="card-em plan-card active-plan featured animate-pulse-glow" id="plan-6m">
+        <div class="plan-ribbon">⚡ Más popular</div>
+        <div class="plan-header has-ribbon">
+          <div class="saving-pill">✦ Ahorras 114€</div>
+          <div class="plan-name" style="color:var(--em);">Semestral</div>
+          <div class="plan-price">
+            <span class="plan-currency">€</span>
+            <span class="plan-price-num featured-num">81</span>
+            <span class="plan-period">/mes</span>
+          </div>
+          <div class="plan-total">Total: <strong>480€</strong> · En lugar de 594€</div>
+        </div>
+        <div class="plan-body">
+          <div class="plan-feats">
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Todo del plan mensual</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Reservas 24/7</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>WhatsApp Business</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Panel de control</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Recordatorios auto.</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Soporte prioritario VIP</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Onboarding personalizado</span></div>
+          </div>
+          <a href="https://buy.stripe.com/REPLACE_6M" class="plan-cta primary-cta">Empezar ahora →</a>
+          <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px;">🔒 Pago único semestral</p>
+        </div>
+      </div>
+
+      <!-- 12 MESES -->
+      <div class="card plan-card active-plan" id="plan-12m">
+        <div class="plan-header">
+          <div class="saving-pill hot">🔥 Máximo ahorro — 238€</div>
+          <div class="plan-name">Anual</div>
+          <div class="plan-price">
+            <span class="plan-currency">€</span>
+            <span class="plan-price-num">75</span>
+            <span class="plan-period">/mes</span>
+          </div>
+          <div class="plan-total">Total: <strong>900€</strong> · En lugar de 1.188€</div>
+        </div>
+        <div class="plan-body">
+          <div class="plan-feats">
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Todo del plan mensual</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Reservas 24/7</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>WhatsApp Business</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Panel de control</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Recordatorios auto.</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Soporte prioritario VIP</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Onboarding personalizado</span></div>
+            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#FCD34D" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span style="color:#FCD34D;font-weight:500;">Consultoría mensual 1h</span></div>
+          </div>
+          <a href="https://buy.stripe.com/REPLACE_12M" class="plan-cta">Empezar ahora →</a>
+          <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px;">🔒 Pago único anual</p>
+        </div>
+      </div>
+
+    </div><!-- /plans-grid -->
+
+    <!-- Savings comparison bar -->
+    <div class="card-em savings-bar reveal">
+      <div class="savings-bar-left">
+        <div class="savings-bar-icon">💡</div>
+        <div>
+          <h3>¿Qué plan te conviene?</h3>
+          <p>Empieza mensual para probar. Si Omnira te funciona — y lo hará — cambia al anual y ahorra <strong style="color:var(--em);">hasta 238€ al año</strong>.</p>
+        </div>
+      </div>
+      <a href="#cta-final" class="btn-outline" style="white-space:nowrap;flex-shrink:0;">Solicitar demo gratis →</a>
+    </div>
+
+    <!-- Guarantee -->
+    <div class="guarantee">
+      <div class="guarantee-inner">
+        <span style="font-size:20px;">🛡️</span>
+        <span><strong>14 días de prueba gratuita en cualquier plan.</strong> Si no ves resultados, te devolvemos el dinero.</span>
+      </div>
+    </div>
+
   </div>
 </section>
 
@@ -944,6 +1114,27 @@
 </a>
 
 <script>
+  // Pricing tab switch — highlight active tab, all cards always visible
+  function switchPlan(plan, btn) {
+    document.querySelectorAll('.ptab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    // Highlight the corresponding card with a subtle ring
+    document.querySelectorAll('.plan-card').forEach(c => {
+      c.style.outline = 'none';
+      c.style.outlineOffset = '0';
+    });
+    const target = document.getElementById('plan-' + plan);
+    if (target) {
+      target.style.outline = '2px solid rgba(0,224,150,0.5)';
+      target.style.outlineOffset = '3px';
+      target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+    // Clear highlight after 1.8s
+    setTimeout(() => {
+      if (target) { target.style.outline = 'none'; }
+    }, 1800);
+  }
+
   // Navbar scroll effect
   const navbar = document.getElementById('navbar');
   window.addEventListener('scroll', () => {
