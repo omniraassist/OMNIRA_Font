@@ -212,7 +212,14 @@
   .phone-avatar svg { width: 18px; height: 18px; fill: var(--em); }
   .phone-contact p:first-child { font-size: 12px; font-weight: 600; color: var(--text); }
   .phone-contact p:last-child { font-size: 10px; color: var(--em); }
-  .phone-body { padding: 14px; min-height: 280px; background: #0F1923; }
+  .phone-body {
+    padding: 14px; height: 320px;
+    background: #0F1923;
+    overflow-y: auto;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    scrollbar-width: none;
+  }
+  .phone-body::-webkit-scrollbar { display: none; }
   .phone-footer {
     background: var(--surf2); padding: 10px 12px;
     display: flex; align-items: center; gap: 8px;
