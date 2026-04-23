@@ -195,10 +195,11 @@
   .social-text p:first-child { font-size: 12px; color: var(--muted); }
   .hero-phone-wrap { opacity: 0; animation: fadeIn .8s ease .4s forwards; display: flex; justify-content: center; }
   .phone-frame {
+    position: absolute; top: 0; left: 0;
     width: 290px; height: 480px; border-radius: 30px; overflow: hidden;
     background: var(--surf); border: 1px solid rgba(255,255,255,0.09);
     box-shadow: 0 40px 80px rgba(0,0,0,0.55);
-    display: flex; flex-direction: column; flex-shrink: 0;
+    display: flex; flex-direction: column;
   }
   .phone-header {
     background: var(--surf2); padding: 12px 16px;
@@ -598,7 +599,8 @@
     .hero-btns { flex-direction: column; }
     .hero-btns a { width: 100%; justify-content: center; }
     .cta-btns { flex-direction: column; align-items: center; }
-    .phone-frame { width: 260px; }
+    .phone-frame { width: 260px; height: 440px; }
+    .hero-phone-wrap > div { width: 260px !important; height: 440px !important; }
     .stats-bar { grid-template-columns: 1fr 1fr; }
   }
 </style>
@@ -670,7 +672,7 @@
       </div>
 
       <div class="hero-phone-wrap">
-        <div style="position:relative;">
+        <div style="position:relative; width:290px; height:480px; flex-shrink:0;">
           <div class="phone-frame animate-float">
             <div class="phone-header">
               <div class="phone-contact">
