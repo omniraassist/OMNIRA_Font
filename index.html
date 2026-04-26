@@ -10,6 +10,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- Meta Pixel Code -->
+<script src="db.js"></script>
+
 <script>
 !function(f,b,e,v,n,t,s)
 {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -2469,19 +2471,7 @@ fbq('track', 'PageView');
    - Twilio se activa/desactiva según user.botActive
    ═══════════════════════════════════════════════════════════ */
 
-const USE_FIREBASE = false; // ← Cambiar a true cuando configures Firebase
-
-const FIREBASE_CONFIG = {
-  // Pega aquí tu configuración de Firebase:
-  // apiKey: "...",
-  // authDomain: "...",
-  // projectId: "...",
-  // storageBucket: "...",
-  // messagingSenderId: "...",
-  // appId: "..."
-};
-
-const API_BASE = ''; // ← URL backend alternativo (si no usas Firebase)
+const API_BASE = ''; // ← URL backend alternativo (si no usas Firebase directamente)
 
 /* Límites por plan */
 const PLAN_LIMITS = {
@@ -2492,19 +2482,6 @@ const PLAN_LIMITS = {
 const panelApi = {
   _db: null,
   _auth: null,
-
-  async init() {
-    if (USE_FIREBASE && FIREBASE_CONFIG.apiKey && !this._db) {
-      // Carga Firebase dinámicamente
-      const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
-      const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
-      const { getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, addDoc, deleteDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-      const app = initializeApp(FIREBASE_CONFIG);
-      this._auth = getAuth(app);
-      this._db = getFirestore(app);
-      this._fb = { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, addDoc, deleteDoc, serverTimestamp };
-    }
-  },
 
   /* ─── AUTH ─── */
   async register(data) {
@@ -2526,25 +2503,16 @@ const panelApi = {
       const token = await cred.user.getIdToken();
       return { user: userData, token };
     }
-    // Modo localStorage
-    const users = JSON.parse(localStorage.getItem('omnira_users')||'[]');
+    // Firebase Auth + Firestore
     const norm = data.email.toLowerCase().trim();
-    if (users.find(u => u.email.toLowerCase() === norm))
-      throw new Error('Ese email ya está registrado. ¿Quieres iniciar sesión?');
-    const user = {
-      id: 'user_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),
+    return await OmniraDB.registerWithFirebase(norm, data.password, {
       businessName: data.businessName,
       email: norm,
       phone: data.phone || '',
-      password: data.password,
       plan: 'free',
       botActive: false,
       status: 'active',
-      createdAt: new Date().toISOString()
-    };
-    users.push(user);
-    localStorage.setItem('omnira_users', JSON.stringify(users));
-    return { user: this._pub(user), token: 'demo-'+user.id };
+    });
   },
 
   async login(email, password) {
@@ -2563,13 +2531,8 @@ const panelApi = {
       const token = await cred.user.getIdToken();
       return { user: userData, token };
     }
-    // Modo localStorage
-    const users = JSON.parse(localStorage.getItem('omnira_users')||'[]');
-    const norm = email.toLowerCase().trim();
-    const exists = users.find(u => u.email.toLowerCase() === norm);
-    if (!exists) throw new Error('No existe ninguna cuenta con ese email.');
-    if (exists.password !== password) throw new Error('Contraseña incorrecta.');
-    return { user: this._pub(exists), token: 'demo-'+exists.id };
+    // Firebase Auth
+    return await OmniraDB.loginWithFirebase(email.toLowerCase().trim(), password);
   },
 
   async getMe() {
@@ -2579,21 +2542,24 @@ const panelApi = {
       const snap = await this._fb.getDoc(this._fb.doc(this._db, 'users', uid));
       return { user: snap.data() };
     }
-    // Modo localStorage: refresca datos del usuario desde el store
+    // Firebase: revalidar sesión actual
+    const fbUser = await OmniraDB.getCurrentFirebaseUser();
+    if (fbUser) {
+      const fresh = await OmniraDB.getUserById(fbUser.uid);
+      if (fresh) return { user: this._pub ? this._pub(fresh) : fresh };
+    }
+    // Fallback: sesión localStorage
     const session = JSON.parse(localStorage.getItem('omnira_session')||'{}');
     if (!session.user) throw new Error('No hay sesión');
-    const users = JSON.parse(localStorage.getItem('omnira_users')||'[]');
-    const fresh = users.find(u => u.id === session.user.id);
+    const fresh = await OmniraDB.getUserById(session.user.id);
     if (!fresh) throw new Error('Sesión inválida');
-    return { user: this._pub(fresh) };
+    return { user: fresh };
   },
 
   async logout() {
     await this.init();
     localStorage.removeItem('omnira_session');
-    if (USE_FIREBASE && this._auth) {
-      try { await this._fb.signOut(this._auth); } catch(e) {}
-    }
+    await OmniraDB.logoutFirebase();
   },
 
   /* ─── PLANES ─── */
@@ -2650,7 +2616,7 @@ const panelApi = {
       const snap = await this._fb.getDocs(q);
       return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     }
-    return JSON.parse(localStorage.getItem('omnira_events_'+this._uid())||'[]');
+    return await OmniraDB.getEvents(this._uid());
   },
 
   async saveEvent(ev, user) {
@@ -2677,20 +2643,8 @@ const panelApi = {
         return { ...ev, id: ref.id };
       }
     }
-    // localStorage
-    const all = JSON.parse(localStorage.getItem('omnira_events_'+this._uid())||'[]');
-    if (ev.id) {
-      const idx = all.findIndex(e => e.id === ev.id);
-      if (idx >= 0) all[idx] = { ...all[idx], ...ev, updatedAt: new Date().toISOString() };
-    } else {
-      ev.id = 'ev_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
-      ev.source = ev.source || 'manual';
-      ev.status = ev.status || 'confirmed';
-      ev.createdAt = new Date().toISOString();
-      all.push(ev);
-    }
-    localStorage.setItem('omnira_events_'+this._uid(), JSON.stringify(all));
-    return ev;
+    // OmniraDB (encriptado)
+    return await OmniraDB.saveEvent(this._uid(), ev);
   },
 
   async deleteEvent(id) {
@@ -2699,9 +2653,7 @@ const panelApi = {
       await this._fb.deleteDoc(this._fb.doc(this._db, 'events', id));
       return { success: true };
     }
-    const all = JSON.parse(localStorage.getItem('omnira_events_'+this._uid())||'[]')
-      .filter(e => e.id !== id);
-    localStorage.setItem('omnira_events_'+this._uid(), JSON.stringify(all));
+    await OmniraDB.deleteEvent(this._uid(), id);
     return { success: true };
   },
 
@@ -2713,7 +2665,7 @@ const panelApi = {
       const snap = await this._fb.getDoc(this._fb.doc(this._db, 'business', uid));
       return snap.exists() ? snap.data() : {};
     }
-    return JSON.parse(localStorage.getItem('omnira_business_'+this._uid())||'{}');
+    return await OmniraDB.getBusiness(this._uid());
   },
   async saveBusiness(data) {
     await this.init();
@@ -2723,7 +2675,7 @@ const panelApi = {
       await this._fb.setDoc(this._fb.doc(this._db, 'business', uid), payload, { merge: true });
       return { success: true };
     }
-    localStorage.setItem('omnira_business_'+this._uid(), JSON.stringify(payload));
+    await OmniraDB.saveBusiness(this._uid(), payload);
     return { success: true };
   },
 
@@ -2735,7 +2687,7 @@ const panelApi = {
       const snap = await this._fb.getDoc(this._fb.doc(this._db, 'bot', uid));
       return snap.exists() ? snap.data() : {};
     }
-    return JSON.parse(localStorage.getItem('omnira_bot_'+this._uid())||'{}');
+    return await OmniraDB.getBot(this._uid());
   },
   async saveBot(data) {
     await this.init();
@@ -2745,7 +2697,7 @@ const panelApi = {
       await this._fb.setDoc(this._fb.doc(this._db, 'bot', uid), payload, { merge: true });
       return { success: true };
     }
-    localStorage.setItem('omnira_bot_'+this._uid(), JSON.stringify(payload));
+    await OmniraDB.saveBot(this._uid(), payload);
     return { success: true };
   },
 
@@ -3158,28 +3110,7 @@ async function handleForgotPassword(e){
   const email = document.getElementById('forgotEmail').value.toLowerCase().trim();
 
   try {
-    if (USE_FIREBASE && FIREBASE_CONFIG.apiKey) {
-      await panelApi.init();
-      const { sendPasswordResetEmail } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
-      await sendPasswordResetEmail(panelApi._auth, email);
-    } else {
-      // Modo demo: simular envío
-      const users = JSON.parse(localStorage.getItem('omnira_users')||'[]');
-      const user = users.find(u => u.email.toLowerCase() === email);
-      if (!user) throw new Error('No existe ninguna cuenta con ese email.');
-      // En modo demo generamos una "contraseña temporal" visible
-      const tempPass = Math.random().toString(36).slice(2,10);
-      user.password = tempPass;
-      localStorage.setItem('omnira_users', JSON.stringify(users));
-      okBox.innerHTML = `
-        <strong>Modo demo:</strong> Tu nueva contraseña temporal es:<br>
-        <strong style="font-size:16px;letter-spacing:2px;">${tempPass}</strong><br>
-        <small>Guárdala y cámbiala desde tu perfil.</small>`;
-      okBox.style.display = 'block';
-      btn.disabled = false;
-      btn.innerHTML = orig;
-      return;
-    }
+    await OmniraDB.sendPasswordReset(email);
     okBox.innerHTML = 'Te hemos enviado un email con el enlace de recuperación. Revisa también la carpeta de spam.';
     okBox.style.display = 'block';
   } catch(err) {

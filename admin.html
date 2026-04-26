@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Omnira — Panel de Administración</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="db.js"></script>
+<style>
+:root {
+  --em:#00E096;--em-dim:#00C47A;--em-glow:rgba(0,224,150,0.18);--em-glow2:rgba(0,224,150,0.08);
+  --ink:#080B0F;--ink2:#0D1117;--surf:#141B24;--surf2:#1A2330;
+  --border:rgba(255,255,255,0.07);--border-em:rgba(0,224,150,0.22);
+  --muted:#6B7A8D;--soft:#A8B4C0;--text:#E8EDF2;
+  --red:#EF4444;--yellow:#F59E0B;--blue:#3B82F6;
+}
+html.light {
+  --em:#00A86B;--em-dim:#007A4D;--em-glow:rgba(0,168,107,0.15);--em-glow2:rgba(0,168,107,0.07);
+  --ink:#F4F7FA;--ink2:#EAF0F6;--surf:#FFFFFF;--surf2:#F0F4F8;
+  --border:rgba(0,0,0,0.08);--border-em:rgba(0,168,107,0.25);
+  --muted:#8A9BB0;--soft:#4A5568;--text:#1A202C;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--ink);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;}
+html.light body{background:var(--ink);}
+h1,h2,h3,h4{font-family:'Playfair Display',serif;}
+
+/* ── DOTS BG ── */
+.dots-bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:radial-gradient(circle,rgba(255,255,255,0.025) 1px,transparent 1px);
+  background-size:30px 30px;}
+.glow-orb{position:fixed;border-radius:50%;filter:blur(120px);pointer-events:none;z-index:0;}
+
+/* ── LOGIN ── */
+#loginScreen{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:24px;position:relative;z-index:1;
+}
+.login-card{
+  width:100%;max-width:420px;
+  background:rgba(20,27,36,0.85);border:1px solid var(--border);
+  border-radius:20px;backdrop-filter:blur(20px);
+  padding:40px 36px;box-shadow:0 30px 60px rgba(0,0,0,0.5);
+}
+html.light .login-card{background:rgba(255,255,255,0.95);}
+.login-logo{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:28px;}
+.logo-box{width:40px;height:40px;border-radius:11px;background:var(--em);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 24px var(--em-glow);}
+.logo-box svg{width:20px;height:20px;fill:var(--ink);}
+.logo-name{font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:var(--text);}
+.admin-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 12px;border-radius:100px;
+  background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);
+  font-size:11px;color:#FCA5A5;font-weight:500;
+  margin:0 auto 20px;display:flex;justify-content:center;width:fit-content;
+}
+.login-title{font-size:26px;font-weight:700;text-align:center;color:var(--text);margin-bottom:6px;}
+.login-sub{font-size:13px;color:var(--muted);text-align:center;margin-bottom:28px;}
+.form-group{margin-bottom:16px;}
+.form-label{display:block;font-size:11px;font-weight:600;color:var(--soft);
+  margin-bottom:7px;text-transform:uppercase;letter-spacing:.06em;}
+.form-input{
+  width:100%;padding:13px 16px;
+  background:rgba(8,11,15,0.6);border:1px solid var(--border);
+  border-radius:12px;color:var(--text);font-size:14px;
+  font-family:'DM Sans',sans-serif;transition:border-color .2s,box-shadow .2s;
+}
+html.light .form-input{background:rgba(255,255,255,0.8);border-color:rgba(0,0,0,0.12);}
+.form-input:focus{outline:none;border-color:var(--em);box-shadow:0 0 0 3px var(--em-glow2);}
+.form-input::placeholder{color:var(--muted);}
+.btn-login{
+  width:100%;padding:14px;border-radius:100px;
+  background:linear-gradient(90deg,var(--em),#a8f0d0 50%,var(--em));
+  background-size:200%;color:var(--ink);font-weight:700;font-size:14px;
+  border:none;cursor:pointer;font-family:'DM Sans',sans-serif;
+  transition:transform .2s,box-shadow .2s;
+}
+.btn-login:hover{transform:scale(1.02);box-shadow:0 0 30px var(--em-glow);}
+.login-error{
+  background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);
+  color:#FCA5A5;padding:10px 14px;border-radius:10px;
+  font-size:13px;margin-bottom:14px;display:none;
+}
+.login-error.visible{display:block;}
+.login-hint{
+  text-align:center;margin-top:20px;font-size:12px;color:var(--muted);
+  padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;
+}
+html.light .login-hint{background:rgba(0,0,0,0.03);}
+
+/* ── DASHBOARD LAYOUT ── */
+#adminPanel{display:none;min-height:100vh;position:relative;z-index:1;}
+#adminPanel.active{display:flex;}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:220px;flex-shrink:0;
+  background:rgba(13,17,23,0.9);
+  border-right:1px solid var(--border);
+  backdrop-filter:blur(20px);
+  display:flex;flex-direction:column;
+  height:100vh;position:sticky;top:0;
+}
+html.light .sidebar{background:rgba(234,240,246,0.95);border-color:rgba(0,0,0,0.08);}
+.sb-header{padding:20px 16px;border-bottom:1px solid var(--border);}
+html.light .sb-header{border-color:rgba(0,0,0,0.08);}
+.sb-logo{display:flex;align-items:center;gap:9px;}
+.sb-logo-box{width:30px;height:30px;border-radius:8px;background:var(--em);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 14px var(--em-glow);}
+.sb-logo-box svg{width:15px;height:15px;fill:var(--ink);}
+.sb-logo-name{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:var(--text);}
+.sb-admin-tag{font-size:10px;color:var(--muted);margin-top:2px;}
+.sb-menu{flex:1;padding:14px 10px;overflow-y:auto;}
+.sb-section-lbl{font-size:10px;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.1em;padding:8px 10px;margin-top:4px;}
+.sb-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 10px;border-radius:8px;
+  color:var(--soft);font-size:13px;
+  cursor:pointer;transition:all .15s;
+  border:none;background:none;width:100%;
+  font-family:'DM Sans',sans-serif;text-align:left;
+  position:relative;
+}
+.sb-item:hover{background:rgba(255,255,255,0.04);color:var(--text);}
+.sb-item.active{background:var(--em-glow2);color:var(--em);}
+html.light .sb-item:hover{background:rgba(0,0,0,0.04);}
+html.light .sb-item.active{background:rgba(0,168,107,0.08);}
+.sb-item.active::before{content:'';position:absolute;left:-10px;
+  width:3px;height:18px;background:var(--em);border-radius:0 3px 3px 0;}
+.sb-icon{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0;}
+.sb-footer{padding:14px 10px;border-top:1px solid var(--border);}
+html.light .sb-footer{border-color:rgba(0,0,0,0.08);}
+.admin-user{
+  display:flex;align-items:center;gap:9px;
+  padding:9px 10px;border-radius:8px;
+  background:rgba(255,255,255,0.03);margin-bottom:6px;
+}
+html.light .admin-user{background:rgba(0,0,0,0.03);}
+.admin-avatar{
+  width:32px;height:32px;border-radius:50%;
+  background:linear-gradient(135deg,var(--em),#a8f0d0);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--ink);font-weight:700;font-size:13px;flex-shrink:0;
+}
+
+/* ── MAIN ── */
+.main{flex:1;padding:28px 36px;overflow-y:auto;height:100vh;}
+@media(max-width:768px){.main{padding:20px 16px;}}
+.page-section{display:none;}
+.page-section.active{display:block;}
+.page-title{font-size:28px;font-weight:700;color:var(--text);margin-bottom:4px;}
+.page-sub{font-size:13px;color:var(--soft);margin-bottom:24px;}
+
+/* ── STATS ── */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+@media(max-width:900px){.stats-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:500px){.stats-grid{grid-template-columns:1fr;}}
+.stat-card{
+  background:rgba(20,27,36,0.7);border:1px solid var(--border);
+  border-radius:14px;padding:18px;backdrop-filter:blur(10px);
+}
+html.light .stat-card{background:rgba(255,255,255,0.9);}
+.stat-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.stat-icon{
+  width:34px;height:34px;border-radius:9px;
+  background:var(--em-glow2);border:1px solid var(--border-em);
+  display:flex;align-items:center;justify-content:center;
+}
+.stat-icon svg{width:17px;height:17px;stroke:var(--em);fill:none;stroke-width:2;}
+.stat-trend{font-size:11px;color:var(--em);font-weight:600;}
+.stat-val{font-family:'Playfair Display',serif;font-size:30px;font-weight:700;color:var(--text);line-height:1;}
+.stat-lbl{font-size:12px;color:var(--muted);margin-top:5px;}
+
+/* ── CARD ── */
+.card{
+  background:rgba(20,27,36,0.7);border:1px solid var(--border);
+  border-radius:14px;padding:22px;backdrop-filter:blur(10px);margin-bottom:18px;
+}
+html.light .card{background:rgba(255,255,255,0.9);}
+.card-header{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:18px;flex-wrap:wrap;gap:10px;}
+.card-title{font-size:15px;font-weight:600;color:var(--text);}
+
+/* ── BUTTONS ── */
+.btn-em{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:9px 18px;border-radius:100px;
+  background:var(--em);color:var(--ink);
+  font-weight:600;font-size:13px;border:none;cursor:pointer;
+  font-family:'DM Sans',sans-serif;transition:transform .2s,box-shadow .2s;
+}
+.btn-em:hover{transform:scale(1.03);box-shadow:0 0 18px var(--em-glow);}
+.btn-outline{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:9px 18px;border-radius:100px;
+  background:transparent;border:1px solid var(--border);
+  color:var(--text);font-size:13px;cursor:pointer;
+  font-family:'DM Sans',sans-serif;transition:all .2s;
+}
+.btn-outline:hover{border-color:var(--border-em);background:var(--em-glow2);}
+.btn-red{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:7px 14px;border-radius:100px;
+  background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);
+  color:#FCA5A5;font-size:12px;cursor:pointer;
+  font-family:'DM Sans',sans-serif;transition:all .2s;
+}
+.btn-red:hover{background:rgba(239,68,68,0.2);}
+.btn-sm{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 12px;border-radius:100px;
+  background:var(--em-glow2);border:1px solid var(--border-em);
+  color:var(--em);font-size:12px;cursor:pointer;
+  font-family:'DM Sans',sans-serif;transition:all .2s;
+}
+.btn-sm:hover{background:rgba(0,224,150,0.15);}
+
+/* ── TABLE ── */
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;}
+th{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.08em;padding:8px 14px;text-align:left;
+  border-bottom:1px solid var(--border);}
+td{padding:13px 14px;font-size:13px;color:var(--soft);
+  border-bottom:1px solid rgba(255,255,255,0.04);}
+html.light td{border-color:rgba(0,0,0,0.05);}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,0.02);}
+html.light tr:hover td{background:rgba(0,0,0,0.02);}
+.td-name{color:var(--text);font-weight:500;}
+.td-em{color:var(--em);font-weight:500;}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;gap:4px;
+  padding:3px 10px;border-radius:100px;font-size:11px;font-weight:500;}
+.badge-pro{background:rgba(0,224,150,0.15);color:var(--em);border:1px solid var(--border-em);}
+.badge-free{background:rgba(107,122,141,0.15);color:var(--muted);border:1px solid rgba(107,122,141,0.2);}
+.badge-active{background:rgba(0,224,150,0.15);color:var(--em);}
+.badge-inactive{background:rgba(107,122,141,0.1);color:var(--muted);}
+.badge-dot{width:5px;height:5px;border-radius:50%;background:currentColor;}
+
+/* ── SEARCH ── */
+.search-input{
+  padding:10px 16px 10px 38px;
+  background:rgba(8,11,15,0.6);border:1px solid var(--border);
+  border-radius:100px;color:var(--text);font-size:13px;
+  font-family:'DM Sans',sans-serif;transition:all .2s;width:220px;
+}
+html.light .search-input{background:rgba(255,255,255,0.8);border-color:rgba(0,0,0,0.12);}
+.search-input:focus{outline:none;border-color:var(--em);width:260px;}
+.search-wrap{position:relative;}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);
+  width:14px;height:14px;stroke:var(--muted);fill:none;stroke-width:2;}
+
+/* ── MODAL ── */
+.modal-overlay{
+  position:fixed;inset:0;z-index:1000;
+  background:rgba(8,11,15,0.8);backdrop-filter:blur(8px);
+  display:none;align-items:center;justify-content:center;padding:20px;
+}
+.modal-overlay.active{display:flex;}
+.modal{
+  width:100%;max-width:500px;
+  background:var(--surf);border:1px solid var(--border);
+  border-radius:18px;padding:26px;
+  max-height:90vh;overflow-y:auto;
+}
+html.light .modal{background:#fff;}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.modal-title{font-family:'Playfair Display',serif;font-size:20px;font-weight:600;color:var(--text);}
+.modal-close{
+  width:30px;height:30px;border-radius:50%;
+  background:rgba(255,255,255,0.04);border:1px solid var(--border);
+  color:var(--soft);cursor:pointer;font-size:18px;
+  display:flex;align-items:center;justify-content:center;transition:all .2s;
+}
+html.light .modal-close{background:rgba(0,0,0,0.04);}
+.modal-close:hover{background:rgba(255,255,255,0.08);color:var(--text);}
+.modal-actions{display:flex;gap:8px;margin-top:20px;}
+.modal-actions button{flex:1;}
+
+/* ── EMPTY STATE ── */
+.empty{text-align:center;padding:40px 20px;color:var(--muted);}
+.empty svg{width:40px;height:40px;stroke:var(--muted);fill:none;margin-bottom:12px;stroke-width:1.5;}
+.empty p{font-size:13px;}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;top:20px;right:20px;z-index:2000;
+  background:var(--surf);border:1px solid var(--border-em);
+  border-radius:10px;padding:12px 18px;
+  color:var(--text);font-size:13px;
+  box-shadow:0 10px 40px rgba(0,0,0,0.4);
+  transform:translateX(120%);transition:transform .3s;
+}
+.toast.visible{transform:translateX(0);}
+.toast.error{border-color:rgba(239,68,68,0.4);}
+
+/* ── THEME TOGGLE ── */
+.theme-toggle{
+  width:32px;height:32px;border-radius:50%;
+  background:rgba(255,255,255,0.04);border:1px solid var(--border);
+  color:var(--soft);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .2s;
+}
+html.light .theme-toggle{background:rgba(0,0,0,0.04);}
+.theme-toggle:hover{border-color:var(--border-em);color:var(--em);}
+.theme-toggle svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;}
+.icon-sun{display:none;}.icon-moon{display:block;}
+html.light .icon-sun{display:block;}html.light .icon-moon{display:none;}
+
+/* ── CLIENT DETAIL MODAL ── */
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media(max-width:500px){.detail-grid{grid-template-columns:1fr;}}
+.detail-item label{display:block;font-size:11px;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
+.detail-item span{font-size:14px;color:var(--text);}
+.detail-divider{height:1px;background:var(--border);margin:14px 0;grid-column:1/-1;}
+
+/* ── MOBILE ── */
+@media(max-width:768px){
+  #adminPanel{flex-direction:column;}
+  .sidebar{width:100%;height:auto;position:relative;}
+  .sb-menu{display:flex;flex-wrap:wrap;gap:4px;padding:10px;}
+  .sb-item{flex:1;min-width:120px;justify-content:center;font-size:12px;padding:8px 6px;}
+  .sb-item.active::before{display:none;}
+  .sb-section-lbl{display:none;}
+  .sb-footer{display:none;}
+  .main{height:auto;}
+  .stats-grid{grid-template-columns:repeat(2,1fr);}
+}
+
+/* ── SPINNER ── */
+.spinner{width:20px;height:20px;border-radius:50%;
+  border:2px solid rgba(0,224,150,.2);border-top-color:var(--em);
+  animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.5;}}
+</style>
+</head>
+<body>
+<div class="dots-bg"></div>
+<div class="glow-orb" style="width:400px;height:400px;background:rgba(0,224,150,0.07);top:-100px;left:-80px;"></div>
+<div class="glow-orb" style="width:300px;height:300px;background:rgba(0,224,150,0.05);bottom:-60px;right:-60px;"></div>
+
+<!-- ═══════ LOGIN ═══════ -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="logo-box"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="5" height="14" rx="1"/><rect x="14" y="5" width="5" height="14" rx="1"/></svg></div>
+      <span class="logo-name">Omnira</span>
+    </div>
+    <div class="admin-badge" style="margin:0 auto 20px;">Panel de Administración</div>
+    <h1 class="login-title">Acceso restringido</h1>
+    <p class="login-sub">Solo para el equipo de Omnira</p>
+    <div id="loginError" class="login-error"></div>
+    <form onsubmit="handleAdminLogin(event)">
+      <div class="form-group">
+        <label class="form-label">Usuario</label>
+        <input class="form-input" type="text" id="adminUser" placeholder="admin" required autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contraseña</label>
+        <input class="form-input" type="password" id="adminPass" placeholder="••••••••" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn-login" id="loginBtn">Entrar al panel →</button>
+    </form>
+    <div class="login-hint">
+      Acceso por defecto: <strong>admin</strong> / <strong>Omnira2025!</strong><br>
+      Cámbiala desde Ajustes una vez dentro.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ ADMIN PANEL ═══════ -->
+<div id="adminPanel">
+  <aside class="sidebar">
+    <div class="sb-header">
+      <div class="sb-logo">
+        <div class="sb-logo-box"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="5" height="14" rx="1"/><rect x="14" y="5" width="5" height="14" rx="1"/></svg></div>
+        <div>
+          <div class="sb-logo-name">Omnira</div>
+          <div class="sb-admin-tag">Master Admin</div>
+        </div>
+      </div>
+    </div>
+    <nav class="sb-menu">
+      <div class="sb-section-lbl">Panel</div>
+      <button class="sb-item active" onclick="showSection('overview',this)">
+        <svg class="sb-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Resumen
+      </button>
+      <button class="sb-item" onclick="showSection('clients',this)">
+        <svg class="sb-icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Clientes
+      </button>
+      <button class="sb-item" onclick="showSection('calendar',this)">
+        <svg class="sb-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Reservas
+      </button>
+      <button class="sb-item" onclick="showSection('revenue',this)">
+        <svg class="sb-icon" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Ingresos
+      </button>
+      <div class="sb-section-lbl">Gestión</div>
+      <button class="sb-item" onclick="showSection('settings',this)">
+        <svg class="sb-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Ajustes
+      </button>
+    </nav>
+    <div class="sb-footer">
+      <div class="admin-user">
+        <div class="admin-avatar" id="adminAvatar">A</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;color:var(--text);font-weight:500;" id="adminName">Admin</div>
+          <div style="font-size:11px;color:var(--muted);">Administrador</div>
+        </div>
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Cambiar tema">
+          <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+      </div>
+      <button class="sb-item" onclick="adminLogout()">
+        <svg class="sb-icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Cerrar sesión
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- ── RESUMEN ── -->
+    <div id="section-overview" class="page-section active">
+      <h1 class="page-title">Resumen</h1>
+      <p class="page-sub">Vista general del negocio Omnira.</p>
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div><span class="stat-trend">Total</span></div><div class="stat-val" id="s-total">—</div><div class="stat-lbl">Clientes registrados</div></div>
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><span class="stat-trend" style="color:var(--em);">Activos</span></div><div class="stat-val" id="s-pro">—</div><div class="stat-lbl">Clientes Pro</div></div>
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg></div><span class="stat-trend">Este mes</span></div><div class="stat-val" id="s-events">—</div><div class="stat-lbl">Reservas totales</div></div>
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><span class="stat-trend" style="color:#F59E0B;">MRR</span></div><div class="stat-val" id="s-revenue">—</div><div class="stat-lbl">Ingresos mensuales</div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:18px;">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Últimos clientes registrados</h3>
+            <button class="btn-sm" onclick="showSection('clients',document.querySelector('.sb-item:nth-child(2))'))">Ver todos</button>
+          </div>
+          <div id="recentClients">
+            <div class="empty"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>Sin clientes todavía</p></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3 class="card-title">Distribución de planes</h3></div>
+          <div id="planDist" style="padding:10px 0;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CLIENTES ── -->
+    <div id="section-clients" class="page-section">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:6px;">
+        <div>
+          <h1 class="page-title">Clientes</h1>
+          <p class="page-sub">Gestiona todos los clientes registrados.</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <div class="search-wrap">
+            <svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input class="search-input" type="text" placeholder="Buscar cliente..." oninput="filterClients(this.value)" id="searchInput">
+          </div>
+          <button class="btn-em" onclick="openAddClientModal()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Añadir cliente
+          </button>
+        </div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Negocio</th>
+                <th>Email</th>
+                <th>Plan</th>
+                <th>Bot</th>
+                <th>Reservas</th>
+                <th>Registro</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="clientsTableBody">
+              <tr><td colspan="7"><div class="empty"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>Sin clientes todavía</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── RESERVAS ── -->
+    <div id="section-calendar" class="page-section">
+      <h1 class="page-title">Reservas</h1>
+      <p class="page-sub">Todas las citas de todos los clientes.</p>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>Paciente</th>
+                <th>Servicio</th>
+                <th>Fecha y hora</th>
+                <th>Origen</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="allEventsBody">
+              <tr><td colspan="6"><div class="empty"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/></svg><p>Sin reservas todavía</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── INGRESOS ── -->
+    <div id="section-revenue" class="page-section">
+      <h1 class="page-title">Ingresos</h1>
+      <p class="page-sub">Resumen financiero de Omnira.</p>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><span class="stat-trend" style="color:#F59E0B;">Mensual</span></div><div class="stat-val" id="r-mrr">—</div><div class="stat-lbl">MRR (ingresos recurrentes)</div></div>
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div><span class="stat-trend">Pro</span></div><div class="stat-val" id="r-pro">—</div><div class="stat-lbl">Clientes de pago</div></div>
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div><span class="stat-trend" style="color:var(--em);">Anual</span></div><div class="stat-val" id="r-arr">—</div><div class="stat-lbl">ARR proyectado</div></div>
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div><span class="stat-trend">Media</span></div><div class="stat-val" id="r-arpu">—</div><div class="stat-lbl">ARPU mensual</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3 class="card-title">Clientes de pago</h3></div>
+        <div id="proClientsList"></div>
+      </div>
+    </div>
+
+    <!-- ── AJUSTES ── -->
+    <div id="section-settings" class="page-section">
+      <h1 class="page-title">Ajustes</h1>
+      <p class="page-sub">Configuración del panel de administración.</p>
+
+      <div class="card" style="max-width:480px;">
+        <div class="card-header"><h3 class="card-title">Cambiar contraseña</h3></div>
+        <form onsubmit="handleChangePassword(event)">
+          <div class="form-group">
+            <label class="form-label">Contraseña actual</label>
+            <input class="form-input" type="password" id="currentPass" placeholder="••••••••" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nueva contraseña</label>
+            <input class="form-input" type="password" id="newPass" placeholder="Mínimo 8 caracteres" required minlength="8">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirmar nueva contraseña</label>
+            <input class="form-input" type="password" id="confirmPass" placeholder="Repite la contraseña" required>
+          </div>
+          <button type="submit" class="btn-em">Cambiar contraseña</button>
+        </form>
+      </div>
+
+      <div class="card" style="max-width:480px;margin-top:18px;">
+        <div class="card-header"><h3 class="card-title">Base de datos</h3></div>
+        <p style="font-size:13px;color:var(--soft);margin-bottom:14px;line-height:1.6;">
+          Todos los datos están encriptados con AES-256-GCM en el navegador.
+          Nadie puede leerlos sin la clave maestra.
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn-outline" onclick="exportData()">Exportar datos JSON</button>
+          <button class="btn-red" onclick="confirmClearDB()">Limpiar base de datos</button>
+        </div>
+      </div>
+
+      <div class="card" style="max-width:480px;margin-top:18px;">
+        <div class="card-header"><h3 class="card-title">Información del sistema</h3></div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;">
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Versión</span><span style="color:var(--text);">Omnira Admin v1.0</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Encriptación</span><span style="color:var(--em);">AES-256-GCM ✓</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Almacenamiento</span><span style="color:var(--text);">localStorage (encriptado)</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Web Crypto API</span><span style="color:var(--em);" id="cryptoStatus">Comprobando...</span></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ═══════ MODAL: Añadir/editar cliente ═══════ -->
+<div id="clientModal" class="modal-overlay">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header">
+      <h3 class="modal-title" id="clientModalTitle">Añadir cliente</h3>
+      <button class="modal-close" onclick="closeClientModal()">×</button>
+    </div>
+    <form id="clientForm" onsubmit="handleSaveClient(event)">
+      <input type="hidden" id="clientId">
+      <div class="detail-grid">
+        <div class="form-group">
+          <label class="form-label">Nombre del negocio *</label>
+          <input class="form-input" type="text" id="cBusiness" placeholder="Clínica Dental" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo de negocio</label>
+          <select class="form-input" id="cType" style="cursor:pointer;">
+            <option value="">Seleccionar...</option>
+            <option value="clinica_dental">Clínica dental</option>
+            <option value="estetica">Centro de estética</option>
+            <option value="fisioterapia">Fisioterapia</option>
+            <option value="psicologia">Psicología</option>
+            <option value="nutricion">Nutrición</option>
+            <option value="veterinaria">Veterinaria</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email *</label>
+          <input class="form-input" type="email" id="cEmail" placeholder="contacto@negocio.com" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Teléfono / WhatsApp</label>
+          <input class="form-input" type="tel" id="cPhone" placeholder="+34 600 000 000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Contraseña (panel cliente)</label>
+          <input class="form-input" type="password" id="cPassword" placeholder="Mínimo 8 caracteres">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Plan</label>
+          <select class="form-input" id="cPlan" style="cursor:pointer;">
+            <option value="free">Gratis</option>
+            <option value="pro">Pro — 99€/mes</option>
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label class="form-label">Número WhatsApp Business (bot)</label>
+          <input class="form-input" type="text" id="cWhatsapp" placeholder="+34 600 000 000 (número del bot)">
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;gap:10px;grid-column:1/-1;">
+          <input type="checkbox" id="cBotActive" style="width:16px;height:16px;accent-color:var(--em);">
+          <label for="cBotActive" style="font-size:13px;color:var(--soft);cursor:pointer;">Bot activo</label>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-outline" onclick="closeClientModal()">Cancelar</button>
+        <button type="button" class="btn-red" id="deleteClientBtn" style="display:none;" onclick="handleDeleteClient()">Eliminar</button>
+        <button type="submit" class="btn-em">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════ MODAL: Detalle cliente ═══════ -->
+<div id="detailModal" class="modal-overlay">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <h3 class="modal-title" id="detailTitle">Detalle del cliente</h3>
+      <button class="modal-close" onclick="document.getElementById('detailModal').classList.remove('active')">×</button>
+    </div>
+    <div id="detailContent"></div>
+    <div style="margin-top:18px;display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn-outline" onclick="document.getElementById('detailModal').classList.remove('active')">Cerrar</button>
+      <button class="btn-em" id="editFromDetailBtn">Editar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+/* ════════════════════════════════════════════════
+   OMNIRA ADMIN PANEL — JavaScript
+════════════════════════════════════════════════ */
+
+let _adminSession = null;
+let _allClients = [];
+let _currentClientId = null;
+
+// ── THEME ──────────────────────────────────────
+function toggleTheme(){
+  const isLight = document.documentElement.classList.toggle('light');
+  localStorage.setItem('omnira_admin_theme', isLight ? 'light' : 'dark');
+}
+(function initTheme(){
+  const saved = localStorage.getItem('omnira_admin_theme');
+  if (saved === 'light') document.documentElement.classList.add('light');
+  else if (!saved && window.matchMedia('(prefers-color-scheme:light)').matches)
+    document.documentElement.classList.add('light');
+})();
+
+// ── CRYPTO CHECK ──────────────────────────────
+window.addEventListener('load', () => {
+  const ok = window.crypto && window.crypto.subtle;
+  const el = document.getElementById('cryptoStatus');
+  if (el) el.textContent = ok ? 'Disponible ✓' : 'No disponible ✗';
+});
+
+// ── AUTH ──────────────────────────────────────
+async function handleAdminLogin(e){
+  e.preventDefault();
+  const btn = document.getElementById('loginBtn');
+  const err = document.getElementById('loginError');
+  err.style.display = 'none';
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="margin:0 auto;"></div>';
+  try {
+    const user = document.getElementById('adminUser').value.trim();
+    const pass = document.getElementById('adminPass').value;
+    const admin = await OmniraDB.loginAdmin(user, pass);
+    _adminSession = admin;
+    localStorage.setItem('omnira_admin_session', JSON.stringify({ username: admin.username, ts: Date.now() }));
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('adminPanel').classList.add('active');
+    document.getElementById('adminName').textContent = admin.name || admin.username;
+    document.getElementById('adminAvatar').textContent = (admin.name || admin.username)[0].toUpperCase();
+    loadAllData();
+  } catch(ex){
+    err.textContent = ex.message;
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Entrar al panel →';
+  }
+}
+
+function adminLogout(){
+  _adminSession = null;
+  localStorage.removeItem('omnira_admin_session');
+  document.getElementById('adminPanel').classList.remove('active');
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('adminUser').value = '';
+  document.getElementById('adminPass').value = '';
+}
+
+// Auto-login si la sesión es reciente (menos de 8 horas)
+(async function checkSession(){
+  const s = JSON.parse(localStorage.getItem('omnira_admin_session')||'{}');
+  if (s.username && Date.now() - s.ts < 8*60*60*1000) {
+    await OmniraDB.initAdmin();
+    _adminSession = { username: s.username };
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('adminPanel').classList.add('active');
+    document.getElementById('adminName').textContent = s.username;
+    document.getElementById('adminAvatar').textContent = s.username[0].toUpperCase();
+    loadAllData();
+  }
+})();
+
+// ── NAVIGATION ──────────────────────────────
+function showSection(name, btn){
+  document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+  document.getElementById('section-'+name).classList.add('active');
+  document.querySelectorAll('.sb-item').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (name === 'clients') loadClients();
+  if (name === 'calendar') loadAllEvents();
+  if (name === 'revenue') loadRevenue();
+  if (name === 'overview') loadOverview();
+}
+
+// ── LOAD DATA ────────────────────────────────
+async function loadAllData(){
+  await loadOverview();
+  _allClients = await OmniraDB.getUsers();
+}
+
+async function loadOverview(){
+  const stats = await OmniraDB.getGlobalStats();
+  document.getElementById('s-total').textContent = stats.totalUsers;
+  document.getElementById('s-pro').textContent = stats.proUsers;
+  document.getElementById('s-events').textContent = stats.monthlyEvents;
+  document.getElementById('s-revenue').textContent = stats.monthlyRevenue + '€';
+
+  // Recent clients
+  const users = await OmniraDB.getUsers();
+  const recent = [...users].sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt)).slice(0,5);
+  const rc = document.getElementById('recentClients');
+  if (!recent.length) {
+    rc.innerHTML = '<div class="empty"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>Sin clientes todavía</p></div>';
+  } else {
+    rc.innerHTML = recent.map(u => `
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--em-glow2);border:1px solid var(--border-em);
+          display:flex;align-items:center;justify-content:center;color:var(--em);font-weight:600;font-size:13px;flex-shrink:0;">
+          ${(u.businessName||'?')[0]}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;color:var(--text);font-weight:500;">${esc(u.businessName)}</div>
+          <div style="font-size:12px;color:var(--muted);">${esc(u.email)}</div>
+        </div>
+        <span class="badge ${u.plan==='pro'?'badge-pro':'badge-free'}">${u.plan==='pro'?'Pro':'Gratis'}</span>
+      </div>`).join('');
+  }
+
+  // Plan distribution
+  const pd = document.getElementById('planDist');
+  const pct = stats.totalUsers ? Math.round(stats.proUsers/stats.totalUsers*100) : 0;
+  pd.innerHTML = `
+    <div style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px;">
+        <span>Pro</span><span>${stats.proUsers} clientes (${pct}%)</span>
+      </div>
+      <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:var(--em);border-radius:3px;transition:width .5s;"></div>
+      </div>
+    </div>
+    <div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px;">
+        <span>Gratis</span><span>${stats.freeUsers} clientes (${100-pct}%)</span>
+      </div>
+      <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
+        <div style="height:100%;width:${100-pct}%;background:var(--muted);border-radius:3px;transition:width .5s;"></div>
+      </div>
+    </div>
+    <div style="margin-top:18px;padding:12px;background:var(--em-glow2);border:1px solid var(--border-em);border-radius:10px;text-align:center;">
+      <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:var(--em);">${stats.monthlyRevenue}€</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:3px;">Ingresos mensuales</div>
+    </div>`;
+}
+
+async function loadClients(){
+  _allClients = await OmniraDB.getUsers();
+  renderClientsTable(_allClients);
+}
+
+function renderClientsTable(users){
+  const tbody = document.getElementById('clientsTableBody');
+  if (!users.length) {
+    tbody.innerHTML = '<tr><td colspan="7"><div class="empty"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>Sin clientes</p></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = users.map(u => `
+    <tr>
+      <td><span class="td-name">${esc(u.businessName||'—')}</span></td>
+      <td>${esc(u.email)}</td>
+      <td><span class="badge ${u.plan==='pro'?'badge-pro':'badge-free'}">${u.plan==='pro'?'Pro':'Gratis'}</span></td>
+      <td><span class="badge ${u.botActive?'badge-active':'badge-inactive'}">
+        <span class="badge-dot"></span>${u.botActive?'Activo':'Inactivo'}
+      </span></td>
+      <td><span id="ev-${u.id}">—</span></td>
+      <td>${u.createdAt ? new Date(u.createdAt).toLocaleDateString('es-ES') : '—'}</td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn-sm" onclick="openDetail('${u.id}')">Ver</button>
+        <button class="btn-sm" onclick="openEditClientModal('${u.id}')">Editar</button>
+        <button class="btn-sm" onclick="toggleBot('${u.id}',${!u.botActive})" style="${u.botActive?'color:#FCA5A5;border-color:rgba(239,68,68,.3);':''}">
+          ${u.botActive?'Desactivar bot':'Activar bot'}
+        </button>
+        <button class="btn-sm" onclick="togglePlan('${u.id}','${u.plan==='pro'?'free':'pro'}')">
+          ${u.plan==='pro'?'→ Gratis':'→ Pro'}
+        </button>
+      </td>
+    </tr>`).join('');
+  // Load event counts async
+  users.forEach(async u => {
+    const count = await OmniraDB.getMonthlyEventCount(u.id);
+    const el = document.getElementById('ev-'+u.id);
+    if (el) el.textContent = count;
+  });
+}
+
+function filterClients(q){
+  if (!q) { renderClientsTable(_allClients); return; }
+  const f = q.toLowerCase();
+  renderClientsTable(_allClients.filter(u =>
+    (u.businessName||'').toLowerCase().includes(f) ||
+    (u.email||'').toLowerCase().includes(f)
+  ));
+}
+
+async function loadAllEvents(){
+  const events = await OmniraDB.getAllEvents();
+  const tbody = document.getElementById('allEventsBody');
+  if (!events.length){
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/></svg><p>Sin reservas</p></div></td></tr>';
+    return;
+  }
+  const sorted = [...events].sort((a,b) => new Date(b.datetime||b.createdAt)-new Date(a.datetime||a.createdAt));
+  tbody.innerHTML = sorted.map(e => {
+    const dt = new Date(e.datetime||e.createdAt);
+    const fecha = dt.toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'});
+    const hora = dt.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+    return `<tr>
+      <td><span class="td-name">${esc(e.userName||'—')}</span></td>
+      <td>${esc(e.name||'—')}</td>
+      <td>${esc(e.service||'—')}</td>
+      <td>${fecha} ${hora}</td>
+      <td><span class="badge ${e.source==='bot'?'badge-active':'badge-free'}">${e.source==='bot'?'Bot':'Manual'}</span></td>
+      <td><span class="badge ${e.status==='confirmed'?'badge-active':'badge-inactive'}">${e.status==='confirmed'?'Confirmada':'Pendiente'}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadRevenue(){
+  const stats = await OmniraDB.getGlobalStats();
+  document.getElementById('r-mrr').textContent = stats.monthlyRevenue + '€';
+  document.getElementById('r-pro').textContent = stats.proUsers;
+  document.getElementById('r-arr').textContent = (stats.monthlyRevenue * 12) + '€';
+  document.getElementById('r-arpu').textContent = stats.proUsers ? Math.round(stats.monthlyRevenue/stats.proUsers) + '€' : '—';
+  const users = await OmniraDB.getUsers();
+  const proUsers = users.filter(u => u.plan === 'pro');
+  const pl = document.getElementById('proClientsList');
+  if (!proUsers.length){
+    pl.innerHTML = '<div class="empty"><p>No hay clientes Pro todavía.</p></div>';
+    return;
+  }
+  pl.innerHTML = proUsers.map(u => `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);">
+      <div style="width:36px;height:36px;border-radius:50%;background:var(--em-glow2);border:1px solid var(--border-em);
+        display:flex;align-items:center;justify-content:center;color:var(--em);font-weight:700;font-size:13px;">
+        ${(u.businessName||'?')[0]}
+      </div>
+      <div style="flex:1;"><div style="font-size:13px;color:var(--text);font-weight:500;">${esc(u.businessName)}</div>
+        <div style="font-size:12px;color:var(--muted);">${esc(u.email)}</div></div>
+      <div style="text-align:right;">
+        <div style="font-family:'Playfair Display',serif;font-size:16px;color:var(--em);font-weight:600;">99€/mes</div>
+        <div style="font-size:11px;color:var(--muted);">desde ${u.createdAt?new Date(u.createdAt).toLocaleDateString('es-ES'):''}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── CLIENT MODAL ────────────────────────────
+function openAddClientModal(){
+  _currentClientId = null;
+  document.getElementById('clientModalTitle').textContent = 'Añadir cliente';
+  document.getElementById('clientForm').reset();
+  document.getElementById('clientId').value = '';
+  document.getElementById('deleteClientBtn').style.display = 'none';
+  document.getElementById('cPassword').required = true;
+  document.getElementById('cPassword').placeholder = 'Mínimo 8 caracteres';
+  document.getElementById('clientModal').classList.add('active');
+}
+
+async function openEditClientModal(id){
+  _currentClientId = id;
+  const u = await OmniraDB.getUserById(id);
+  if (!u) return;
+  document.getElementById('clientModalTitle').textContent = 'Editar cliente';
+  document.getElementById('clientId').value = id;
+  document.getElementById('cBusiness').value = u.businessName || '';
+  document.getElementById('cType').value = u.type || '';
+  document.getElementById('cEmail').value = u.email || '';
+  document.getElementById('cPhone').value = u.phone || '';
+  document.getElementById('cWhatsapp').value = u.whatsappNumber || '';
+  document.getElementById('cPlan').value = u.plan || 'free';
+  document.getElementById('cBotActive').checked = u.botActive || false;
+  document.getElementById('cPassword').required = false;
+  document.getElementById('cPassword').placeholder = 'Dejar vacío para no cambiar';
+  document.getElementById('deleteClientBtn').style.display = 'block';
+  document.getElementById('clientModal').classList.add('active');
+}
+
+function closeClientModal(){
+  document.getElementById('clientModal').classList.remove('active');
+  _currentClientId = null;
+}
+
+async function handleSaveClient(e){
+  e.preventDefault();
+  const id = document.getElementById('clientId').value;
+  const pass = document.getElementById('cPassword').value;
+  const userData = {
+    id: id || 'user_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+    businessName: document.getElementById('cBusiness').value,
+    type: document.getElementById('cType').value,
+    email: document.getElementById('cEmail').value.toLowerCase().trim(),
+    phone: document.getElementById('cPhone').value,
+    whatsappNumber: document.getElementById('cWhatsapp').value,
+    plan: document.getElementById('cPlan').value,
+    botActive: document.getElementById('cBotActive').checked,
+    status: 'active',
+  };
+  if (pass) userData.password = pass;
+  if (!id) { userData.createdAt = new Date().toISOString(); }
+
+  try {
+    await OmniraDB.saveUser(userData);
+    closeClientModal();
+    await loadClients();
+    await loadOverview();
+    showToast(id ? 'Cliente actualizado' : 'Cliente creado');
+  } catch(ex){
+    showToast('Error: '+ex.message, true);
+  }
+}
+
+async function handleDeleteClient(){
+  if (!_currentClientId) return;
+  if (!confirm('¿Eliminar este cliente y todos sus datos? Esta acción no se puede deshacer.')) return;
+  await OmniraDB.deleteUser(_currentClientId);
+  closeClientModal();
+  await loadClients();
+  await loadOverview();
+  showToast('Cliente eliminado');
+}
+
+// ── CLIENT DETAIL ────────────────────────────
+async function openDetail(id){
+  const u = await OmniraDB.getUserById(id);
+  if (!u) return;
+  const biz = await OmniraDB.getBusiness(id);
+  const events = await OmniraDB.getEvents(id);
+  const count = events.length;
+  const monthCount = await OmniraDB.getMonthlyEventCount(id);
+
+  document.getElementById('detailTitle').textContent = u.businessName || 'Detalle';
+  document.getElementById('detailContent').innerHTML = `
+    <div class="detail-grid">
+      <div class="detail-item"><label>Negocio</label><span>${esc(u.businessName||'—')}</span></div>
+      <div class="detail-item"><label>Tipo</label><span>${esc(u.type||'—')}</span></div>
+      <div class="detail-item"><label>Email</label><span>${esc(u.email||'—')}</span></div>
+      <div class="detail-item"><label>Teléfono</label><span>${esc(u.phone||'—')}</span></div>
+      <div class="detail-item"><label>Plan</label><span class="badge ${u.plan==='pro'?'badge-pro':'badge-free'}">${u.plan==='pro'?'Pro':'Gratis'}</span></div>
+      <div class="detail-item"><label>Bot</label><span class="badge ${u.botActive?'badge-active':'badge-inactive'}">${u.botActive?'Activo':'Inactivo'}</span></div>
+      <div class="detail-item"><label>WhatsApp bot</label><span>${esc(u.whatsappNumber||'No configurado')}</span></div>
+      <div class="detail-item"><label>Registro</label><span>${u.createdAt?new Date(u.createdAt).toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'}):'—'}</span></div>
+      <div class="detail-divider"></div>
+      <div class="detail-item"><label>Reservas totales</label><span>${count}</span></div>
+      <div class="detail-item"><label>Reservas este mes</label><span>${monthCount}</span></div>
+      ${biz.name?`<div class="detail-item"><label>Dirección</label><span>${esc(biz.address||'—')}</span></div>
+      <div class="detail-item"><label>Horario</label><span style="font-size:12px;">${esc(biz.hours||'—')}</span></div>`:''}
+    </div>`;
+  document.getElementById('editFromDetailBtn').onclick = () => {
+    document.getElementById('detailModal').classList.remove('active');
+    openEditClientModal(id);
+  };
+  document.getElementById('detailModal').classList.add('active');
+}
+
+// ── QUICK ACTIONS ────────────────────────────
+async function toggleBot(id, active){
+  const u = await OmniraDB.getUserById(id);
+  if (!u) return;
+  await OmniraDB.saveUser({ ...u, botActive: active });
+  await loadClients();
+  showToast('Bot ' + (active ? 'activado' : 'desactivado'));
+}
+
+async function togglePlan(id, plan){
+  const u = await OmniraDB.getUserById(id);
+  if (!u) return;
+  await OmniraDB.saveUser({ ...u, plan, botActive: plan === 'pro' ? true : u.botActive });
+  await loadClients();
+  await loadOverview();
+  showToast('Plan cambiado a ' + (plan === 'pro' ? 'Pro' : 'Gratis'));
+}
+
+// ── SETTINGS ─────────────────────────────────
+async function handleChangePassword(e){
+  e.preventDefault();
+  const curr = document.getElementById('currentPass').value;
+  const newP = document.getElementById('newPass').value;
+  const conf = document.getElementById('confirmPass').value;
+  if (newP !== conf) { showToast('Las contraseñas no coinciden', true); return; }
+  try {
+    await OmniraDB.updateAdminPassword(curr, newP);
+    document.getElementById('currentPass').value = '';
+    document.getElementById('newPass').value = '';
+    document.getElementById('confirmPass').value = '';
+    showToast('Contraseña actualizada correctamente');
+  } catch(ex){
+    showToast(ex.message, true);
+  }
+}
+
+async function exportData(){
+  const users = await OmniraDB.exportUsers();
+  const blob = new Blob([JSON.stringify(users, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'omnira-clientes-'+new Date().toISOString().split('T')[0]+'.json';
+  a.click();
+  showToast('Datos exportados');
+}
+
+function confirmClearDB(){
+  if (!confirm('¿Limpiar TODA la base de datos? Se perderán todos los clientes y datos. Esta acción es irreversible.')) return;
+  const keys = Object.keys(localStorage).filter(k => k.startsWith('omnira_'));
+  keys.forEach(k => localStorage.removeItem(k));
+  showToast('Base de datos limpiada');
+  setTimeout(() => location.reload(), 1500);
+}
+
+// ── HELPERS ──────────────────────────────────
+function showToast(msg, isErr=false){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (isErr ? ' error' : '');
+  setTimeout(() => t.classList.add('visible'), 10);
+  setTimeout(() => t.classList.remove('visible'), 3500);
+}
+function esc(s){ return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+</script>
+</body>
+</html>
