@@ -58,6 +58,37 @@ fbq("track", "PageView");
   html.light .divider { background: linear-gradient(90deg,transparent,rgba(0,0,0,0.08),transparent); }
   html.light .card, html.light .card-em { background: rgba(255,255,255,0.9); }
   html.light nav { background: var(--nav-bg); border-color: rgba(0,0,0,0.08); }
+  html.light footer { background: #EAF0F6; border-color: rgba(0,0,0,0.08); }
+  html.light .footer-copy { border-color: rgba(0,0,0,0.08); }
+  html.light .nav-logo span, html.light .footer-row .nav-logo span { color: var(--text); }
+  html.light .hero-dots { opacity: 0.4; }
+  html.light .badge { background: rgba(0,168,107,0.08); border-color: rgba(0,168,107,0.2); }
+  html.light .section-label { color: var(--em); }
+  html.light .plan-card { background: rgba(255,255,255,0.95); box-shadow: 0 2px 16px rgba(0,0,0,0.08); }
+  html.light .plan-card.featured { box-shadow: 0 0 0 1px var(--border-em), 0 16px 40px rgba(0,168,107,0.15); }
+  html.light .check-circle { background: rgba(0,168,107,0.1); border-color: rgba(0,168,107,0.3); }
+  html.light .btn-outline { border-color: rgba(0,0,0,0.18); color: var(--text); }
+  html.light .btn-outline:hover { border-color: var(--border-em); background: rgba(0,168,107,0.06); }
+  html.light .plan-ribbon { background: var(--em); }
+  html.light #clientPanel .auth-card { background: rgba(255,255,255,0.95); }
+  html.light #clientPanel .sidebar { background: rgba(240,244,248,0.95); border-color: rgba(0,0,0,0.08); }
+  html.light #clientPanel .menu-item:hover { background: rgba(0,0,0,0.04); }
+  html.light #clientPanel .menu-item.active { background: rgba(0,168,107,0.08); }
+  html.light #clientPanel .panel-card { background: rgba(255,255,255,0.95); }
+  html.light #clientPanel .form-input { background: rgba(255,255,255,0.8); border-color: rgba(0,0,0,0.12); color: var(--text); }
+  html.light #clientPanel .modal { background: #fff; }
+  html.light #clientPanel .cal-day { background: rgba(255,255,255,0.7); }
+  html.light #clientPanel .cal-day.today { background: rgba(0,168,107,0.07); border-color: var(--em); }
+  html.light #clientPanel .user-info { background: rgba(0,0,0,0.03); }
+  html.light .social-icon { background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.1); }
+  html.light .social-icon:hover { background: rgba(0,168,107,0.08); border-color: var(--em); }
+  html.light .price-toggle { background: rgba(0,0,0,0.06); }
+  html.light .ptab { color: var(--soft); }
+  html.light .ptab.active { background: #fff; color: var(--text); box-shadow: 0 1px 6px rgba(0,0,0,0.1); }
+  html.light .bubble-bot { background: #E8F0FA; color: var(--text); }
+  html.light .dash-row { border-color: rgba(0,0,0,0.06); }
+  html.light .phone-screen { background: #F8FAFC; }
+  html.light h1,html.light h2,html.light h3 { color: var(--text); }
   /* THEME TOGGLE */
   .theme-toggle {
     width:36px;height:36px;border-radius:50%;
@@ -508,7 +539,7 @@ fbq("track", "PageView");
     transition: transform .3s, box-shadow .3s;
     display: none;
   }
-  .plan-card.active-plan { display: flex; flex-direction: column; }
+  #precios .plan-card.active-plan { display: flex; flex-direction: column; }
   .plan-card:hover { transform: translateY(-4px); }
   .plan-card.featured { transform: translateY(-10px); }
   .plan-card.featured:hover { transform: translateY(-14px); }
@@ -1859,7 +1890,35 @@ fbq('track', 'PageView');
         </div>
         <button type="submit" class="panel-btn-primary" id="loginBtn">Iniciar sesión →</button>
       </form>
+      <p class="auth-toggle" style="margin-top:12px;">
+        <a onclick="showForgotPassword()" style="font-size:12px;color:var(--muted);">¿Olvidaste tu contraseña?</a>
+      </p>
       <p class="auth-toggle">¿No tienes cuenta? <a onclick="showPanelRegister()">Regístrate</a></p>
+    </div>
+  </div>
+
+  <!-- FORGOT PASSWORD -->
+  <div id="forgotScreen" class="auth-screen" style="display:none;">
+    <a class="auth-back" onclick="closeClientPanel()">← Volver a la web</a>
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="auth-logo-icon">
+          <svg viewBox="0 0 24 24"><rect x="5" y="5" width="5" height="14" rx="1"/><rect x="14" y="5" width="5" height="14" rx="1"/></svg>
+        </div>
+        <span class="auth-logo-text">Omnira</span>
+      </div>
+      <h1 class="auth-title">Recuperar contraseña</h1>
+      <p class="auth-subtitle">Te enviaremos un enlace para restablecer tu contraseña.</p>
+      <div id="forgotError" class="auth-error"></div>
+      <div id="forgotSuccess" class="auth-error" style="background:rgba(0,224,150,0.1);border-color:rgba(0,224,150,0.25);color:var(--em);display:none;"></div>
+      <form id="forgotForm" onsubmit="handleForgotPassword(event)">
+        <div class="form-group">
+          <label class="form-label" for="forgotEmail">Email de tu cuenta</label>
+          <input class="form-input" type="email" id="forgotEmail" placeholder="tu@negocio.com" required autocomplete="email">
+        </div>
+        <button type="submit" class="panel-btn-primary" id="forgotBtn">Enviar enlace →</button>
+      </form>
+      <p class="auth-toggle"><a onclick="showPanelLogin()">← Volver al inicio de sesión</a></p>
     </div>
   </div>
 
@@ -2333,6 +2392,43 @@ fbq('track', 'PageView');
   </div>
 
   <div id="toast" class="toast"></div>
+
+  <!-- MODAL UPGRADE (dentro del panel) -->
+  <div id="upgradeModal" class="modal-overlay" style="z-index:10002;position:absolute;">
+<div class="modal" style="max-width:520px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Activa el bot de WhatsApp</h3>
+      <button class="modal-close" onclick="closeUpgradeModal()">×</button>
+    </div>
+    <p style="font-size:13px;color:var(--soft);line-height:1.7;margin-bottom:20px;">
+      Con Omnira Pro, tu negocio responde automáticamente a cada mensaje, confirma citas y gestiona tu agenda <strong style="color:var(--text);">24/7 sin esfuerzo</strong>.
+    </p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+      <div class="panel-card" style="padding:16px;text-align:center;">
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Mensual</div>
+        <div style="font-family:'Playfair Display',serif;font-size:32px;font-weight:700;color:var(--text);">99€</div>
+        <div style="font-size:11px;color:var(--muted);">/mes</div>
+        <a href="https://wa.me/+34628072072?text=Quiero%20contratar%20Omnira%20Pro%20mensual" target="_blank" class="btn-save" style="display:flex;justify-content:center;margin-top:14px;width:100%;text-decoration:none;">Contratar</a>
+      </div>
+      <div class="panel-card" style="padding:16px;text-align:center;border-color:var(--em);background:rgba(0,224,150,0.05);">
+        <div style="font-size:11px;color:var(--em);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">⚡ Semestral</div>
+        <div style="font-family:'Playfair Display',serif;font-size:32px;font-weight:700;color:var(--text);">81€</div>
+        <div style="font-size:11px;color:var(--muted);">/mes · Total 480€</div>
+        <div style="font-size:10px;color:var(--em);margin-top:4px;">Ahorras 114€</div>
+        <a href="https://wa.me/+34628072072?text=Quiero%20contratar%20Omnira%20Pro%20semestral" target="_blank" class="btn-save" style="display:flex;justify-content:center;margin-top:10px;width:100%;text-decoration:none;">Contratar</a>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--soft);margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:700;">✓</span> Bot responde por WhatsApp 24/7</div>
+      <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:700;">✓</span> Reservas ilimitadas en el calendario</div>
+      <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:700;">✓</span> Recordatorios automáticos</div>
+      <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:700;">✓</span> Panel de control completo</div>
+      <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:700;">✓</span> 14 días de prueba gratis</div>
+    </div>
+    <button class="btn-cancel" onclick="closeUpgradeModal()" style="width:100%;">Ahora no, seguir con plan gratis</button>
+  </div>
+</div>
+</div>
 </div>
 
 <script>
@@ -3038,6 +3134,63 @@ function escapeHtml(s){
     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
+/* ─── RECUPERACIÓN DE CONTRASEÑA ─── */
+function showForgotPassword(){
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('registerScreen').style.display = 'none';
+  document.getElementById('forgotScreen').style.display = 'flex';
+  document.getElementById('forgotError').classList.remove('visible');
+  document.getElementById('forgotSuccess').style.display = 'none';
+  document.getElementById('forgotForm').reset();
+}
+
+async function handleForgotPassword(e){
+  e.preventDefault();
+  const btn = document.getElementById('forgotBtn');
+  const errBox = document.getElementById('forgotError');
+  const okBox = document.getElementById('forgotSuccess');
+  errBox.classList.remove('visible');
+  okBox.style.display = 'none';
+  btn.disabled = true;
+  const orig = btn.innerHTML;
+  btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;"></div>';
+
+  const email = document.getElementById('forgotEmail').value.toLowerCase().trim();
+
+  try {
+    if (USE_FIREBASE && FIREBASE_CONFIG.apiKey) {
+      await panelApi.init();
+      const { sendPasswordResetEmail } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+      await sendPasswordResetEmail(panelApi._auth, email);
+    } else {
+      // Modo demo: simular envío
+      const users = JSON.parse(localStorage.getItem('omnira_users')||'[]');
+      const user = users.find(u => u.email.toLowerCase() === email);
+      if (!user) throw new Error('No existe ninguna cuenta con ese email.');
+      // En modo demo generamos una "contraseña temporal" visible
+      const tempPass = Math.random().toString(36).slice(2,10);
+      user.password = tempPass;
+      localStorage.setItem('omnira_users', JSON.stringify(users));
+      okBox.innerHTML = `
+        <strong>Modo demo:</strong> Tu nueva contraseña temporal es:<br>
+        <strong style="font-size:16px;letter-spacing:2px;">${tempPass}</strong><br>
+        <small>Guárdala y cámbiala desde tu perfil.</small>`;
+      okBox.style.display = 'block';
+      btn.disabled = false;
+      btn.innerHTML = orig;
+      return;
+    }
+    okBox.innerHTML = 'Te hemos enviado un email con el enlace de recuperación. Revisa también la carpeta de spam.';
+    okBox.style.display = 'block';
+  } catch(err) {
+    errBox.textContent = err.message || 'Error al enviar el email. Inténtalo de nuevo.';
+    errBox.classList.add('visible');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+}
+
 /* ─── DEEP LINKING: ?panel=login o ?panel=register ─── */
 (function checkPanelDeepLink(){
   const params = new URLSearchParams(window.location.search);
@@ -3157,41 +3310,7 @@ function enterPanelDashboard(user){
 }
 </script>
 
-<!-- MODAL UPGRADE -->
-<div id="upgradeModal" class="modal-overlay" style="z-index:10002;">
-  <div class="modal" style="max-width:520px;">
-    <div class="modal-header">
-      <h3 class="modal-title">Activa el bot de WhatsApp</h3>
-      <button class="modal-close" onclick="closeUpgradeModal()">×</button>
-    </div>
-    <p style="font-size:13px;color:var(--soft);line-height:1.7;margin-bottom:20px;">
-      Con Omnira Pro, tu negocio responde automáticamente a cada mensaje, confirma citas y gestiona tu agenda <strong style="color:var(--text);">24/7 sin esfuerzo</strong>.
-    </p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
-      <div class="panel-card" style="padding:16px;text-align:center;">
-        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Mensual</div>
-        <div style="font-family:'Playfair Display',serif;font-size:32px;font-weight:700;color:var(--text);">99€</div>
-        <div style="font-size:11px;color:var(--muted);">/mes</div>
-        <a href="https://wa.me/+34628072072?text=Quiero%20contratar%20Omnira%20Pro%20mensual" target="_blank" class="btn-save" style="display:flex;justify-content:center;margin-top:14px;width:100%;text-decoration:none;">Contratar</a>
-      </div>
-      <div class="panel-card" style="padding:16px;text-align:center;border-color:var(--em);background:rgba(0,224,150,0.05);">
-        <div style="font-size:11px;color:var(--em);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">⚡ Semestral</div>
-        <div style="font-family:'Playfair Display',serif;font-size:32px;font-weight:700;color:var(--text);">81€</div>
-        <div style="font-size:11px;color:var(--muted);">/mes · Total 480€</div>
-        <div style="font-size:10px;color:var(--em);margin-top:4px;">Ahorras 114€</div>
-        <a href="https://wa.me/+34628072072?text=Quiero%20contratar%20Omnira%20Pro%20semestral" target="_blank" class="btn-save" style="display:flex;justify-content:center;margin-top:10px;width:100%;text-decoration:none;">Contratar</a>
-      </div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--soft);margin-bottom:16px;">
-      <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:700;">✓</span> Bot responde por WhatsApp 24/7</div>
-      <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:700;">✓</span> Reservas ilimitadas en el calendario</div>
-      <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:700;">✓</span> Recordatorios automáticos</div>
-      <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:700;">✓</span> Panel de control completo</div>
-      <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:700;">✓</span> 14 días de prueba gratis</div>
-    </div>
-    <button class="btn-cancel" onclick="closeUpgradeModal()" style="width:100%;">Ahora no, seguir con plan gratis</button>
-  </div>
-</div>
+
 
 </body>
 </html>
