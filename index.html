@@ -2236,62 +2236,176 @@ fbq('track', 'PageView');
 
 <script>
 /* ═══════════════════════════════════════════════════════════
-   API CLIENT — Centralizado para integración con backend.
-   El programador solo necesita cambiar API_BASE.
+   API CLIENT — Omnira Panel del Cliente
+   ─────────────────────────────────────────────────────────────
+   Prepara toda la comunicación con el backend del programador
+   para vinculación con el Master Admin Dashboard.
+
+   PARA ACTIVAR EL BACKEND REAL: cambiar API_BASE por la URL del servidor.
    Mientras esté vacío, todo funciona en modo demo con localStorage.
+
+   ENDPOINTS QUE EL PROGRAMADOR DEBE IMPLEMENTAR EN EL BACKEND:
+   ─────────────────────────────────────────────────────────────
+   AUTH:
+     POST   /api/auth/register      → { user, token } — crea registro en admin
+     POST   /api/auth/login         → { user, token }
+     POST   /api/auth/logout
+     GET    /api/auth/me            → { user } — re-validar sesión al volver
+
+   DATOS DEL CLIENTE:
+     GET    /api/dashboard          → { stats, recentReservations, recentConversations, botStatus, plan }
+     GET    /api/business           → datos del negocio
+     PUT    /api/business           → actualizar (sincroniza con Knowledge Base del bot)
+     GET    /api/bot                → config del bot
+     PUT    /api/bot                → actualizar config
+
+   CALENDARIO Y RESERVAS:
+     GET    /api/events?from=&to=   → todas las citas (fuente: bot o manual)
+     POST   /api/events             → crear cita manual
+     PUT    /api/events/:id         → actualizar cita
+     DELETE /api/events/:id         → eliminar cita
+     POST   /api/events/sync        → forzar sync con Google Calendar (futuro)
+
+   CONVERSACIONES:
+     GET    /api/conversations      → mensajes WhatsApp
+     GET    /api/conversations/:id/messages
+
+   FACTURACIÓN (Stripe):
+     GET    /api/billing            → plan, próximo cobro, método de pago
+     POST   /api/billing/portal     → URL al Stripe Customer Portal
+
+   IMPORTANTE PARA EL ADMIN PANEL:
+   ─────────────────────────────────────────────────────────────
+   - Cuando un cliente se REGISTRA aquí → debe crear automáticamente
+     un registro en el Master Admin con status 'pending_setup'
+   - Cuando el cliente PAGA en Stripe → status pasa a 'active'
+     y se activa el bot en Twilio (webhook Stripe)
+   - Cuando el cliente CANCELA → status pasa a 'cancelled'
+     y se desactiva el bot
+   - El admin puede ver/gestionar clientes desde el panel maestro
+     accediendo a esta misma base de datos
    ═══════════════════════════════════════════════════════════ */
-const API_BASE = ''; // ← URL del backend, ej: 'https://api.omnira.io'
+
+const API_BASE = ''; // ← Cambiar por la URL del backend (ej: 'https://api.omnira.io')
 
 const panelApi = {
-  async login(email, password) {
-    if (!API_BASE) {
-      const users = JSON.parse(localStorage.getItem('omnira_users')||'[]');
-      const user = users.find(u => u.email === email && u.password === password);
-      if (!user) throw new Error('Email o contraseña incorrectos');
-      return { user, token: 'demo-'+Date.now() };
-    }
-    const res = await fetch(`${API_BASE}/api/auth/login`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({email,password})
-    });
-    if (!res.ok) throw new Error((await res.json()).message || 'Error al iniciar sesión');
-    return res.json();
-  },
+  // ─── AUTH ───
   async register(data) {
     if (!API_BASE) {
       const users = JSON.parse(localStorage.getItem('omnira_users')||'[]');
-      if (users.find(u => u.email === data.email)) throw new Error('Ese email ya está registrado');
-      const user = { ...data, id: 'user_'+Date.now(), createdAt: new Date().toISOString() };
+      if (users.find(u => u.email.toLowerCase() === data.email.toLowerCase()))
+        throw new Error('Ese email ya está registrado. ¿Quieres iniciar sesión?');
+      const user = {
+        id: 'user_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),
+        businessName: data.businessName,
+        email: data.email.toLowerCase().trim(),
+        phone: data.phone,
+        password: data.password, // En producción hasheado en backend
+        status: 'pending_setup',
+        plan: null,
+        botActive: false,
+        createdAt: new Date().toISOString()
+      };
       users.push(user);
       localStorage.setItem('omnira_users', JSON.stringify(users));
-      return { user, token: 'demo-'+Date.now() };
+      return { user: this._publicUser(user), token: 'demo-'+user.id };
     }
     const res = await fetch(`${API_BASE}/api/auth/register`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify(data)
     });
-    if (!res.ok) throw new Error((await res.json()).message || 'Error al crear cuenta');
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({}));
+      throw new Error(err.message || 'Error al crear cuenta');
+    }
     return res.json();
   },
+
+  async login(email, password) {
+    if (!API_BASE) {
+      const users = JSON.parse(localStorage.getItem('omnira_users')||'[]');
+      const normalized = email.toLowerCase().trim();
+      const user = users.find(u =>
+        u.email.toLowerCase() === normalized && u.password === password
+      );
+      if (!user) {
+        // Mensaje claro: distingue email no existe vs contraseña incorrecta
+        const exists = users.find(u => u.email.toLowerCase() === normalized);
+        if (!exists) throw new Error('No existe ninguna cuenta con ese email.');
+        throw new Error('Contraseña incorrecta.');
+      }
+      return { user: this._publicUser(user), token: 'demo-'+user.id };
+    }
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({email,password})
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({}));
+      throw new Error(err.message || 'Email o contraseña incorrectos');
+    }
+    return res.json();
+  },
+
+  async getMe() {
+    // Re-valida la sesión al volver — útil para detectar tokens caducados
+    if (!API_BASE) {
+      const session = JSON.parse(localStorage.getItem('omnira_session')||'{}');
+      if (!session.user) throw new Error('No hay sesión');
+      // Verificar que el usuario todavía existe en localStorage (modo demo)
+      const users = JSON.parse(localStorage.getItem('omnira_users')||'[]');
+      const fresh = users.find(u => u.id === session.user.id);
+      if (!fresh) throw new Error('Sesión inválida');
+      return { user: this._publicUser(fresh) };
+    }
+    const res = await fetch(`${API_BASE}/api/auth/me`, { headers: this._h() });
+    if (!res.ok) throw new Error('Sesión expirada');
+    return res.json();
+  },
+
   async logout() {
     localStorage.removeItem('omnira_session');
-    if (API_BASE) await fetch(`${API_BASE}/api/auth/logout`,{method:'POST',headers:this._h()});
+    if (API_BASE) {
+      try { await fetch(`${API_BASE}/api/auth/logout`,{method:'POST',headers:this._h()}); } catch(e){}
+    }
   },
+
+  // ─── DASHBOARD ───
   async getDashboard() {
     if (!API_BASE) {
       const events = this._localEvents();
       const now = new Date();
       const month = now.getMonth();
-      const reservas = events.filter(e => new Date(e.datetime).getMonth() === month).length;
-      return { stats:{ reservas, mensajes: 0, respuesta:'2s', valoracion:'4.9' },
-               recentReservations:events.slice(0,4), recentConversations:[] };
+      const year = now.getFullYear();
+      const reservasMes = events.filter(e => {
+        const d = new Date(e.datetime);
+        return d.getMonth() === month && d.getFullYear() === year;
+      }).length;
+      return {
+        stats: {
+          reservas: reservasMes,
+          mensajes: 0,
+          respuesta: '2s',
+          valoracion: '4.9'
+        },
+        recentReservations: events
+          .filter(e => new Date(e.datetime) >= new Date())
+          .sort((a,b) => new Date(a.datetime) - new Date(b.datetime))
+          .slice(0,4),
+        recentConversations: [],
+        botStatus: 'active',
+        plan: { name: 'Mensual', price: 99, currency: 'EUR' }
+      };
     }
     const res = await fetch(`${API_BASE}/api/dashboard`,{headers:this._h()});
     return res.json();
   },
-  async getEvents() {
+
+  // ─── CALENDARIO Y RESERVAS ───
+  async getEvents(filters={}) {
     if (!API_BASE) return this._localEvents();
-    const res = await fetch(`${API_BASE}/api/events`,{headers:this._h()});
+    const params = new URLSearchParams(filters);
+    const res = await fetch(`${API_BASE}/api/events?${params}`,{headers:this._h()});
     return res.json();
   },
   async saveEvent(ev) {
@@ -2299,10 +2413,12 @@ const panelApi = {
       const all = this._localEvents();
       if (ev.id) {
         const idx = all.findIndex(e => e.id === ev.id);
-        if (idx >= 0) all[idx] = ev;
+        if (idx >= 0) all[idx] = { ...all[idx], ...ev, updatedAt: new Date().toISOString() };
       } else {
-        ev.id = 'ev_'+Date.now();
-        ev.source = 'manual';
+        ev.id = 'ev_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+        ev.source = ev.source || 'manual';
+        ev.status = ev.status || 'confirmed';
+        ev.createdAt = new Date().toISOString();
         all.push(ev);
       }
       localStorage.setItem('omnira_events_'+this._uid(), JSON.stringify(all));
@@ -2311,6 +2427,7 @@ const panelApi = {
     const method = ev.id ? 'PUT' : 'POST';
     const url = ev.id ? `${API_BASE}/api/events/${ev.id}` : `${API_BASE}/api/events`;
     const res = await fetch(url,{method,headers:this._h(),body:JSON.stringify(ev)});
+    if (!res.ok) throw new Error('Error al guardar la cita');
     return res.json();
   },
   async deleteEvent(id) {
@@ -2320,8 +2437,11 @@ const panelApi = {
       return { success:true };
     }
     const res = await fetch(`${API_BASE}/api/events/${id}`,{method:'DELETE',headers:this._h()});
+    if (!res.ok) throw new Error('Error al eliminar la cita');
     return res.json();
   },
+
+  // ─── DATOS DEL NEGOCIO ───
   async getBusiness() {
     if (!API_BASE) return JSON.parse(localStorage.getItem('omnira_business_'+this._uid())||'{}');
     const res = await fetch(`${API_BASE}/api/business`,{headers:this._h()});
@@ -2329,12 +2449,19 @@ const panelApi = {
   },
   async saveBusiness(data) {
     if (!API_BASE) {
-      localStorage.setItem('omnira_business_'+this._uid(), JSON.stringify(data));
+      localStorage.setItem('omnira_business_'+this._uid(), JSON.stringify({
+        ...data, updatedAt: new Date().toISOString()
+      }));
       return { success:true };
     }
-    const res = await fetch(`${API_BASE}/api/business`,{method:'PUT',headers:this._h(),body:JSON.stringify(data)});
+    const res = await fetch(`${API_BASE}/api/business`,{
+      method:'PUT', headers:this._h(), body:JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Error al guardar los datos del negocio');
     return res.json();
   },
+
+  // ─── CONFIG DEL BOT ───
   async getBot() {
     if (!API_BASE) return JSON.parse(localStorage.getItem('omnira_bot_'+this._uid())||'{}');
     const res = await fetch(`${API_BASE}/api/bot`,{headers:this._h()});
@@ -2342,12 +2469,49 @@ const panelApi = {
   },
   async saveBot(data) {
     if (!API_BASE) {
-      localStorage.setItem('omnira_bot_'+this._uid(), JSON.stringify(data));
+      localStorage.setItem('omnira_bot_'+this._uid(), JSON.stringify({
+        ...data, updatedAt: new Date().toISOString()
+      }));
       return { success:true };
     }
-    const res = await fetch(`${API_BASE}/api/bot`,{method:'PUT',headers:this._h(),body:JSON.stringify(data)});
+    const res = await fetch(`${API_BASE}/api/bot`,{
+      method:'PUT', headers:this._h(), body:JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Error al guardar la configuración del bot');
     return res.json();
   },
+
+  // ─── CONVERSACIONES ───
+  async getConversations() {
+    if (!API_BASE) return [];
+    const res = await fetch(`${API_BASE}/api/conversations`,{headers:this._h()});
+    return res.json();
+  },
+
+  // ─── FACTURACIÓN (Stripe) ───
+  async getBilling() {
+    if (!API_BASE) {
+      const next = new Date();
+      next.setMonth(next.getMonth() + 1);
+      return {
+        plan: { name: 'Mensual', price: 99, currency: 'EUR' },
+        nextBillingDate: next.toISOString(),
+        paymentMethod: { last4: '0000', brand: 'visa' },
+        invoices: []
+      };
+    }
+    const res = await fetch(`${API_BASE}/api/billing`,{headers:this._h()});
+    return res.json();
+  },
+  async getBillingPortalUrl() {
+    if (!API_BASE) return { url: '#' };
+    const res = await fetch(`${API_BASE}/api/billing/portal`,{
+      method:'POST', headers:this._h()
+    });
+    return res.json();
+  },
+
+  // ─── HELPERS PRIVADOS ───
   _h() {
     const s = JSON.parse(localStorage.getItem('omnira_session')||'{}');
     return {'Content-Type':'application/json','Authorization':`Bearer ${s.token||''}`};
@@ -2358,21 +2522,42 @@ const panelApi = {
   },
   _localEvents() {
     return JSON.parse(localStorage.getItem('omnira_events_'+this._uid())||'[]');
+  },
+  _publicUser(u) {
+    // Devuelve solo los campos públicos (sin password)
+    const { password, ...pub } = u;
+    return pub;
   }
 };
 
 /* ─── PANEL OPEN/CLOSE ─── */
-function openClientPanel(view){
+async function openClientPanel(view){
   document.getElementById('clientPanel').classList.add('active');
   document.body.style.overflow = 'hidden';
-  // Si hay sesión, ir directo al dashboard
+
+  // Si hay sesión guardada, validarla antes de entrar al dashboard
   const session = localStorage.getItem('omnira_session');
   if (session) {
     try {
       const data = JSON.parse(session);
-      if (data.user) { enterPanelDashboard(data.user); return; }
+      if (data.user && data.token) {
+        // Re-validar contra el backend (o localStorage en modo demo)
+        try {
+          const fresh = await panelApi.getMe();
+          // Actualizar datos del usuario con los más recientes
+          localStorage.setItem('omnira_session', JSON.stringify({
+            user: fresh.user, token: data.token
+          }));
+          enterPanelDashboard(fresh.user);
+          return;
+        } catch(err) {
+          // Sesión inválida o expirada — limpiar y mostrar login
+          localStorage.removeItem('omnira_session');
+        }
+      }
     } catch(e){}
   }
+
   if (view === 'register') showPanelRegister();
   else showPanelLogin();
 }
