@@ -664,6 +664,7 @@ fbq('track', 'PageView');
       </div>
       <div class="nav-cta">
         <a href="#precios" class="plain">Ver planes</a>
+        <a href="#" onclick="openClientPanel('login');return false;" class="btn-outline" style="padding:9px 20px;font-size:13px;">Iniciar sesión</a>
         <a href="#cta-final" class="btn-primary" style="padding:9px 20px;font-size:13px;">Solicitar demo</a>
       </div>
       <div class="hamburger" id="hamburger" onclick="toggleMenu()">
@@ -676,6 +677,7 @@ fbq('track', 'PageView');
     <a href="#solucion" onclick="closeMenu()">Solución</a>
     <a href="#como-funciona" onclick="closeMenu()">Cómo funciona</a>
     <a href="#precios" onclick="closeMenu()">Precios</a>
+    <a href="#" onclick="closeMenu();openClientPanel('login');return false;" style="color:var(--em);">Acceder a mi panel</a>
     <a href="#cta-final" class="btn-primary" onclick="closeMenu()" style="text-align:center;justify-content:center;">Solicitar demo</a>
   </div>
 </nav>
@@ -1239,5 +1241,1493 @@ fbq('track', 'PageView');
   }
   setTimeout(addMessage, 1200);
 </script>
+<!-- ═══════════════════════════════════════════════════════════
+     PANEL DEL CLIENTE — Login, registro, dashboard y calendario
+     Preparado para integración con backend del programador.
+     Cambiar API_BASE para conectar con el servidor real.
+     ═══════════════════════════════════════════════════════════ -->
+
+<style>
+/* ─── PANEL DEL CLIENTE ─── */
+#clientPanel{
+  position:fixed;inset:0;z-index:9999;
+  background:var(--ink);
+  display:none;
+  overflow:hidden;
+}
+#clientPanel.active{display:block;}
+#clientPanel *{box-sizing:border-box;}
+
+#clientPanel .panel-bg-glow{
+  position:fixed;border-radius:50%;
+  filter:blur(120px);pointer-events:none;z-index:0;
+}
+#clientPanel .panel-bg-glow.g1{width:500px;height:500px;background:rgba(0,224,150,0.08);top:-150px;left:-100px;}
+#clientPanel .panel-bg-glow.g2{width:400px;height:400px;background:rgba(0,224,150,0.05);bottom:-100px;right:-100px;}
+#clientPanel .panel-dots{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:radial-gradient(circle,rgba(255,255,255,0.025) 1px,transparent 1px);
+  background-size:32px 32px;
+}
+
+/* AUTH SCREENS */
+#clientPanel .auth-screen{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:40px 24px;position:relative;z-index:1;
+}
+#clientPanel .auth-card{
+  width:100%;max-width:440px;
+  background:rgba(20,27,36,0.85);
+  border:1px solid var(--border);
+  border-radius:20px;backdrop-filter:blur(20px);
+  padding:40px 36px;
+  box-shadow:0 30px 60px rgba(0,0,0,0.4);
+}
+#clientPanel .auth-logo{
+  display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:32px;
+}
+#clientPanel .auth-logo-icon{
+  width:36px;height:36px;border-radius:10px;background:var(--em);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 20px rgba(0,224,150,0.4);
+}
+#clientPanel .auth-logo-icon svg{width:18px;height:18px;fill:var(--ink);}
+#clientPanel .auth-logo-text{
+  font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:#fff;
+}
+#clientPanel .auth-title{
+  font-size:28px;font-weight:700;text-align:center;color:#fff;margin-bottom:8px;
+  font-family:'Playfair Display',serif;
+}
+#clientPanel .auth-subtitle{
+  font-size:14px;color:var(--soft);text-align:center;margin-bottom:32px;
+}
+#clientPanel .form-group{margin-bottom:18px;}
+#clientPanel .form-label{
+  display:block;font-size:12px;font-weight:500;color:var(--soft);
+  margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em;
+}
+#clientPanel .form-input{
+  width:100%;padding:14px 16px;
+  background:rgba(8,11,15,0.6);
+  border:1px solid var(--border);
+  border-radius:12px;
+  color:var(--text);font-size:14px;
+  font-family:'DM Sans',sans-serif;
+  transition:border-color 0.2s, box-shadow 0.2s;
+}
+#clientPanel .form-input:focus{
+  outline:none;border-color:var(--em);
+  box-shadow:0 0 0 3px var(--em-glow2);
+}
+#clientPanel .form-input::placeholder{color:var(--muted);}
+#clientPanel .panel-btn-primary{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;padding:14px 24px;border-radius:100px;
+  background:linear-gradient(90deg,var(--em) 0%,#a8f0d0 50%,var(--em) 100%);
+  background-size:200% auto;
+  color:var(--ink);font-weight:600;font-size:14px;
+  border:none;cursor:pointer;
+  transition:transform 0.25s,box-shadow 0.25s;
+  font-family:'DM Sans',sans-serif;
+}
+#clientPanel .panel-btn-primary:hover{transform:scale(1.02);box-shadow:0 0 30px var(--em-glow);}
+#clientPanel .panel-btn-primary:disabled{opacity:0.6;cursor:not-allowed;}
+#clientPanel .auth-toggle{
+  text-align:center;margin-top:24px;font-size:13px;color:var(--soft);
+}
+#clientPanel .auth-toggle a{color:var(--em);text-decoration:none;font-weight:500;cursor:pointer;}
+#clientPanel .auth-toggle a:hover{text-decoration:underline;}
+#clientPanel .auth-error{
+  background:rgba(239,68,68,0.1);
+  border:1px solid rgba(239,68,68,0.25);
+  color:#FCA5A5;padding:10px 14px;border-radius:10px;
+  font-size:13px;margin-bottom:16px;display:none;
+}
+#clientPanel .auth-error.visible{display:block;}
+#clientPanel .auth-back{
+  position:absolute;top:24px;left:24px;
+  display:flex;align-items:center;gap:6px;
+  color:var(--soft);font-size:13px;text-decoration:none;
+  background:rgba(255,255,255,0.04);
+  border:1px solid var(--border);
+  padding:8px 14px;border-radius:100px;
+  cursor:pointer;transition:all 0.2s;
+}
+#clientPanel .auth-back:hover{color:var(--text);border-color:var(--border-em);}
+
+/* DASHBOARD LAYOUT */
+#clientPanel .dashboard{display:none;min-height:100vh;position:relative;z-index:1;}
+#clientPanel .dashboard.active{display:flex;}
+
+#clientPanel .sidebar{
+  width:240px;flex-shrink:0;
+  background:rgba(13,17,23,0.85);
+  border-right:1px solid var(--border);
+  backdrop-filter:blur(20px);
+  display:flex;flex-direction:column;
+  height:100vh;position:sticky;top:0;
+}
+#clientPanel .sidebar-header{padding:24px 20px;border-bottom:1px solid var(--border);}
+#clientPanel .sidebar-logo{display:flex;align-items:center;gap:10px;}
+#clientPanel .sidebar-logo-icon{
+  width:32px;height:32px;border-radius:8px;background:var(--em);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 16px rgba(0,224,150,0.4);
+}
+#clientPanel .sidebar-logo-icon svg{width:16px;height:16px;fill:var(--ink);}
+#clientPanel .sidebar-logo-text{
+  font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:#fff;
+}
+#clientPanel .sidebar-menu{flex:1;padding:16px 12px;overflow-y:auto;}
+#clientPanel .menu-section{margin-bottom:8px;}
+#clientPanel .menu-label{
+  font-size:10px;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:0.1em;padding:8px 12px;
+}
+#clientPanel .menu-item{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 12px;border-radius:8px;
+  color:var(--soft);font-size:13px;
+  text-decoration:none;cursor:pointer;
+  transition:background 0.15s,color 0.15s;
+  border:none;background:none;width:100%;
+  font-family:'DM Sans',sans-serif;text-align:left;
+  position:relative;
+}
+#clientPanel .menu-item:hover{background:rgba(255,255,255,0.04);color:var(--text);}
+#clientPanel .menu-item.active{background:var(--em-glow2);color:var(--em);}
+#clientPanel .menu-item.active::before{
+  content:'';position:absolute;left:-12px;
+  width:3px;height:20px;background:var(--em);
+  border-radius:0 3px 3px 0;
+}
+#clientPanel .menu-item-icon{width:18px;height:18px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2;}
+#clientPanel .sidebar-footer{padding:16px 12px;border-top:1px solid var(--border);}
+#clientPanel .user-info{
+  display:flex;align-items:center;gap:10px;
+  padding:10px;border-radius:8px;
+  background:rgba(255,255,255,0.03);
+  margin-bottom:8px;
+}
+#clientPanel .user-avatar{
+  width:34px;height:34px;border-radius:50%;
+  background:linear-gradient(135deg,var(--em),#a8f0d0);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--ink);font-weight:700;font-size:14px;flex-shrink:0;
+}
+#clientPanel .user-name{font-size:13px;color:var(--text);font-weight:500;}
+#clientPanel .user-email{font-size:11px;color:var(--muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;}
+
+#clientPanel .main{flex:1;padding:32px 40px;overflow-y:auto;height:100vh;}
+#clientPanel .page-header{margin-bottom:28px;}
+#clientPanel .page-title{
+  font-size:32px;font-weight:700;color:#fff;margin-bottom:6px;
+  font-family:'Playfair Display',serif;
+}
+#clientPanel .page-subtitle{color:var(--soft);font-size:14px;}
+
+/* STATS */
+#clientPanel .stats-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;
+}
+#clientPanel .stat-card{
+  background:rgba(20,27,36,0.7);
+  border:1px solid var(--border);
+  border-radius:14px;backdrop-filter:blur(10px);padding:20px;
+}
+#clientPanel .stat-card-header{
+  display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;
+}
+#clientPanel .stat-icon{
+  width:36px;height:36px;border-radius:9px;
+  background:rgba(0,224,150,0.1);
+  border:1px solid rgba(0,224,150,0.2);
+  display:flex;align-items:center;justify-content:center;
+}
+#clientPanel .stat-icon svg{width:18px;height:18px;stroke:var(--em);fill:none;stroke-width:2;}
+#clientPanel .stat-trend{font-size:11px;color:var(--em);font-weight:600;}
+#clientPanel .stat-value{
+  font-family:'Playfair Display',serif;
+  font-size:32px;font-weight:700;color:#fff;line-height:1;
+}
+#clientPanel .stat-label{font-size:12px;color:var(--muted);margin-top:6px;}
+
+/* CARDS */
+#clientPanel .panel-card{
+  background:rgba(20,27,36,0.7);
+  border:1px solid var(--border);
+  border-radius:14px;
+  backdrop-filter:blur(10px);
+  padding:24px;
+}
+#clientPanel .panel-card-header{
+  display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;
+  flex-wrap:wrap;gap:12px;
+}
+#clientPanel .panel-card-title{
+  font-size:16px;font-weight:600;color:#fff;
+  font-family:'DM Sans',sans-serif;
+}
+#clientPanel .panel-card-link{
+  font-size:12px;color:var(--em);text-decoration:none;cursor:pointer;
+}
+#clientPanel .panel-card-link:hover{text-decoration:underline;}
+
+#clientPanel .content-grid{display:grid;grid-template-columns:2fr 1fr;gap:20px;}
+
+/* RES ITEMS */
+#clientPanel .res-item{
+  display:flex;align-items:center;gap:14px;padding:14px 0;
+  border-bottom:1px solid var(--border);
+}
+#clientPanel .res-item:last-child{border-bottom:none;}
+#clientPanel .res-avatar{
+  width:38px;height:38px;border-radius:50%;
+  background:linear-gradient(135deg,var(--em-glow),var(--em-glow2));
+  border:1px solid var(--border-em);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--em);font-weight:600;font-size:13px;flex-shrink:0;
+}
+#clientPanel .res-info{flex:1;min-width:0;}
+#clientPanel .res-name{font-size:14px;color:var(--text);font-weight:500;}
+#clientPanel .res-detail{font-size:12px;color:var(--muted);margin-top:2px;}
+#clientPanel .res-status{
+  padding:4px 10px;border-radius:100px;font-size:11px;font-weight:500;
+}
+#clientPanel .res-status.confirmed{background:rgba(0,224,150,0.15);color:var(--em);}
+#clientPanel .res-status.pending{background:rgba(245,158,11,0.15);color:#FCD34D;}
+#clientPanel .res-status.cancelled{background:rgba(239,68,68,0.15);color:#FCA5A5;}
+
+/* EMPTY */
+#clientPanel .empty-state{
+  text-align:center;padding:40px 20px;color:var(--muted);
+}
+#clientPanel .empty-icon{
+  width:60px;height:60px;border-radius:50%;
+  background:rgba(255,255,255,0.04);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 16px;
+}
+#clientPanel .empty-icon svg{stroke:var(--muted);}
+#clientPanel .empty-text{font-size:13px;}
+
+/* SETTINGS */
+#clientPanel .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+#clientPanel .settings-grid .full{grid-column:1/-1;}
+#clientPanel .btn-save{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:12px 24px;border-radius:100px;
+  background:var(--em);color:var(--ink);
+  font-weight:600;font-size:13px;
+  border:none;cursor:pointer;
+  transition:transform 0.2s,box-shadow 0.2s;
+  font-family:'DM Sans',sans-serif;
+}
+#clientPanel .btn-save:hover{transform:scale(1.02);box-shadow:0 0 20px var(--em-glow);}
+
+/* BOT STATUS */
+#clientPanel .bot-status{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:6px 14px;border-radius:100px;
+  background:rgba(0,224,150,0.1);
+  border:1px solid var(--border-em);
+  font-size:12px;color:var(--em);font-weight:500;
+}
+#clientPanel .bot-status-dot{
+  width:6px;height:6px;border-radius:50%;background:var(--em);
+  box-shadow:0 0 8px var(--em);
+  animation:blink 2s ease-in-out infinite;
+}
+
+/* PAGE SECTIONS */
+#clientPanel .page-section{display:none;}
+#clientPanel .page-section.active{display:block;}
+
+/* CONVERSATIONS */
+#clientPanel .conv-item{
+  display:flex;gap:12px;padding:14px 0;
+  border-bottom:1px solid var(--border);cursor:pointer;
+  transition:background 0.15s;border-radius:8px;
+  padding-left:12px;padding-right:12px;
+}
+#clientPanel .conv-item:hover{background:rgba(255,255,255,0.02);}
+#clientPanel .conv-item:last-child{border-bottom:none;}
+#clientPanel .conv-avatar{
+  width:40px;height:40px;border-radius:50%;
+  background:linear-gradient(135deg,var(--em-glow),var(--em-glow2));
+  border:1px solid var(--border-em);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--em);font-weight:600;font-size:14px;flex-shrink:0;
+}
+#clientPanel .conv-info{flex:1;min-width:0;}
+#clientPanel .conv-name{font-size:13px;color:var(--text);font-weight:500;}
+#clientPanel .conv-msg{font-size:12px;color:var(--muted);margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#clientPanel .conv-time{font-size:11px;color:var(--muted);flex-shrink:0;}
+
+/* SPINNER */
+#clientPanel .spinner{
+  width:32px;height:32px;border-radius:50%;
+  border:3px solid rgba(0,224,150,0.2);
+  border-top-color:var(--em);
+  animation:spin 0.8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* TOAST */
+#clientPanel .toast{
+  position:fixed;top:24px;right:24px;z-index:10000;
+  background:var(--surf);
+  border:1px solid var(--border-em);
+  border-radius:10px;padding:14px 20px;
+  color:var(--text);font-size:13px;
+  box-shadow:0 10px 40px rgba(0,0,0,0.4);
+  transform:translateX(120%);
+  transition:transform 0.3s;
+  font-family:'DM Sans',sans-serif;
+}
+#clientPanel .toast.visible{transform:translateX(0);}
+#clientPanel .toast.success{border-color:var(--em);}
+#clientPanel .toast.error{border-color:#EF4444;}
+
+/* ─── CALENDARIO ─── */
+#clientPanel .cal-toolbar{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:20px;gap:12px;flex-wrap:wrap;
+}
+#clientPanel .cal-nav{display:flex;align-items:center;gap:12px;}
+#clientPanel .cal-nav-btn{
+  width:36px;height:36px;border-radius:9px;
+  background:rgba(255,255,255,0.04);
+  border:1px solid var(--border);
+  color:var(--text);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.2s;
+}
+#clientPanel .cal-nav-btn:hover{background:var(--em-glow2);border-color:var(--border-em);color:var(--em);}
+#clientPanel .cal-nav-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;}
+#clientPanel .cal-month{
+  font-family:'Playfair Display',serif;
+  font-size:22px;font-weight:600;color:#fff;
+  min-width:200px;text-align:center;
+  text-transform:capitalize;
+}
+#clientPanel .cal-add-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:9px 18px;border-radius:100px;
+  background:var(--em);color:var(--ink);
+  font-weight:600;font-size:13px;
+  border:none;cursor:pointer;
+  font-family:'DM Sans',sans-serif;
+  transition:transform 0.2s,box-shadow 0.2s;
+}
+#clientPanel .cal-add-btn:hover{transform:scale(1.04);box-shadow:0 0 20px var(--em-glow);}
+#clientPanel .cal-grid{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:6px;
+}
+#clientPanel .cal-weekday{
+  font-size:11px;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:0.08em;
+  text-align:center;padding:8px 0;
+}
+#clientPanel .cal-day{
+  aspect-ratio:1;
+  background:rgba(20,27,36,0.4);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:8px;cursor:pointer;
+  display:flex;flex-direction:column;
+  transition:all 0.2s;
+  min-height:90px;position:relative;
+  overflow:hidden;
+}
+#clientPanel .cal-day:hover{
+  border-color:var(--border-em);
+  background:rgba(20,27,36,0.7);
+  transform:translateY(-2px);
+}
+#clientPanel .cal-day.empty{
+  opacity:0.25;cursor:default;background:transparent;border-color:transparent;
+}
+#clientPanel .cal-day.empty:hover{transform:none;background:transparent;border-color:transparent;}
+#clientPanel .cal-day.today{
+  border-color:var(--em);
+  background:var(--em-glow2);
+}
+#clientPanel .cal-day.today .cal-day-num{color:var(--em);font-weight:700;}
+#clientPanel .cal-day.has-events{
+  border-color:var(--border-em);
+}
+#clientPanel .cal-day-num{
+  font-size:13px;color:var(--text);font-weight:500;
+  margin-bottom:6px;
+}
+#clientPanel .cal-events{
+  display:flex;flex-direction:column;gap:3px;flex:1;
+  overflow:hidden;
+}
+#clientPanel .cal-event{
+  font-size:10px;padding:3px 6px;border-radius:5px;
+  background:var(--em-glow);color:var(--em);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-weight:500;
+}
+#clientPanel .cal-event.bot{background:rgba(0,224,150,0.18);color:var(--em);}
+#clientPanel .cal-event.manual{background:rgba(245,158,11,0.18);color:#FCD34D;}
+#clientPanel .cal-event-more{
+  font-size:10px;color:var(--muted);font-weight:500;
+}
+
+/* MODAL */
+#clientPanel .modal-overlay{
+  position:fixed;inset:0;z-index:10001;
+  background:rgba(8,11,15,0.75);
+  backdrop-filter:blur(8px);
+  display:none;align-items:center;justify-content:center;
+  padding:24px;
+}
+#clientPanel .modal-overlay.active{display:flex;}
+#clientPanel .modal{
+  width:100%;max-width:480px;
+  background:var(--surf);
+  border:1px solid var(--border);
+  border-radius:18px;padding:28px;
+  box-shadow:0 30px 80px rgba(0,0,0,0.5);
+  max-height:90vh;overflow-y:auto;
+}
+#clientPanel .modal-header{
+  display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;
+}
+#clientPanel .modal-title{
+  font-family:'Playfair Display',serif;
+  font-size:20px;font-weight:600;color:#fff;
+}
+#clientPanel .modal-close{
+  width:32px;height:32px;border-radius:50%;
+  background:rgba(255,255,255,0.04);
+  border:1px solid var(--border);
+  color:var(--soft);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.2s;
+}
+#clientPanel .modal-close:hover{background:rgba(255,255,255,0.08);color:var(--text);}
+#clientPanel .modal-actions{
+  display:flex;gap:8px;margin-top:24px;
+}
+#clientPanel .modal-actions button{flex:1;}
+#clientPanel .btn-cancel{
+  padding:12px 24px;border-radius:100px;
+  background:rgba(255,255,255,0.04);
+  border:1px solid var(--border);
+  color:var(--text);font-size:13px;
+  cursor:pointer;font-family:'DM Sans',sans-serif;
+}
+#clientPanel .btn-cancel:hover{background:rgba(255,255,255,0.08);}
+#clientPanel .btn-delete{
+  padding:12px 24px;border-radius:100px;
+  background:rgba(239,68,68,0.1);
+  border:1px solid rgba(239,68,68,0.3);
+  color:#FCA5A5;font-size:13px;
+  cursor:pointer;font-family:'DM Sans',sans-serif;
+}
+#clientPanel .btn-delete:hover{background:rgba(239,68,68,0.18);}
+
+/* RESPONSIVE */
+@media (max-width:900px){
+  #clientPanel .dashboard{flex-direction:column;}
+  #clientPanel .sidebar{width:100%;height:auto;position:relative;}
+  #clientPanel .sidebar-menu{display:flex;flex-wrap:wrap;gap:6px;}
+  #clientPanel .menu-item{flex:1;min-width:130px;justify-content:center;}
+  #clientPanel .stats-grid{grid-template-columns:repeat(2,1fr);}
+  #clientPanel .content-grid{grid-template-columns:1fr;}
+  #clientPanel .settings-grid{grid-template-columns:1fr;}
+  #clientPanel .main{padding:24px 20px;height:auto;}
+  #clientPanel .cal-day{min-height:60px;padding:6px;}
+  #clientPanel .cal-day-num{font-size:11px;}
+  #clientPanel .cal-event{font-size:9px;padding:2px 4px;}
+}
+@media (max-width:500px){
+  #clientPanel .stats-grid{grid-template-columns:1fr;}
+  #clientPanel .auth-card{padding:32px 24px;}
+  #clientPanel .cal-month{font-size:18px;min-width:auto;}
+  #clientPanel .cal-day{min-height:50px;padding:4px;}
+}
+</style>
+
+<div id="clientPanel">
+  <div class="panel-bg-glow g1"></div>
+  <div class="panel-bg-glow g2"></div>
+  <div class="panel-dots"></div>
+
+  <!-- LOGIN -->
+  <div id="loginScreen" class="auth-screen">
+    <a class="auth-back" onclick="closeClientPanel()">← Volver a la web</a>
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="auth-logo-icon">
+          <svg viewBox="0 0 24 24"><rect x="5" y="5" width="5" height="14" rx="1"/><rect x="14" y="5" width="5" height="14" rx="1"/></svg>
+        </div>
+        <span class="auth-logo-text">Omnira</span>
+      </div>
+      <h1 class="auth-title">Bienvenido de vuelta</h1>
+      <p class="auth-subtitle">Accede al panel de tu negocio</p>
+      <div id="loginError" class="auth-error"></div>
+      <form id="loginForm" onsubmit="handlePanelLogin(event)">
+        <div class="form-group">
+          <label class="form-label" for="loginEmail">Email</label>
+          <input class="form-input" type="email" id="loginEmail" placeholder="tu@negocio.com" required autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="loginPassword">Contraseña</label>
+          <input class="form-input" type="password" id="loginPassword" placeholder="••••••••" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="panel-btn-primary" id="loginBtn">Iniciar sesión →</button>
+      </form>
+      <p class="auth-toggle">¿No tienes cuenta? <a onclick="showPanelRegister()">Regístrate</a></p>
+    </div>
+  </div>
+
+  <!-- REGISTER -->
+  <div id="registerScreen" class="auth-screen" style="display:none;">
+    <a class="auth-back" onclick="closeClientPanel()">← Volver a la web</a>
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="auth-logo-icon">
+          <svg viewBox="0 0 24 24"><rect x="5" y="5" width="5" height="14" rx="1"/><rect x="14" y="5" width="5" height="14" rx="1"/></svg>
+        </div>
+        <span class="auth-logo-text">Omnira</span>
+      </div>
+      <h1 class="auth-title">Crea tu cuenta</h1>
+      <p class="auth-subtitle">Empieza a automatizar tu agenda en 5 minutos</p>
+      <div id="registerError" class="auth-error"></div>
+      <form id="registerForm" onsubmit="handlePanelRegister(event)">
+        <div class="form-group">
+          <label class="form-label" for="regBusiness">Nombre del negocio</label>
+          <input class="form-input" type="text" id="regBusiness" placeholder="Clínica Dental Sonrisas" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="regEmail">Email</label>
+          <input class="form-input" type="email" id="regEmail" placeholder="tu@negocio.com" required autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="regPhone">WhatsApp</label>
+          <input class="form-input" type="tel" id="regPhone" placeholder="+34 600 000 000" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="regPassword">Contraseña</label>
+          <input class="form-input" type="password" id="regPassword" placeholder="Mínimo 8 caracteres" required minlength="8" autocomplete="new-password">
+        </div>
+        <button type="submit" class="panel-btn-primary" id="registerBtn">Crear cuenta →</button>
+      </form>
+      <p class="auth-toggle">¿Ya tienes cuenta? <a onclick="showPanelLogin()">Inicia sesión</a></p>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard" class="dashboard">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <div class="sidebar-logo-icon">
+            <svg viewBox="0 0 24 24"><rect x="5" y="5" width="5" height="14" rx="1"/><rect x="14" y="5" width="5" height="14" rx="1"/></svg>
+          </div>
+          <span class="sidebar-logo-text">Omnira</span>
+        </div>
+      </div>
+      <nav class="sidebar-menu">
+        <div class="menu-section">
+          <div class="menu-label">Panel</div>
+          <button class="menu-item active" onclick="showPanelSection('dashboard',this)">
+            <svg class="menu-item-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            Resumen
+          </button>
+          <button class="menu-item" onclick="showPanelSection('calendar',this)">
+            <svg class="menu-item-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Calendario
+          </button>
+          <button class="menu-item" onclick="showPanelSection('reservations',this)">
+            <svg class="menu-item-icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            Reservas
+          </button>
+          <button class="menu-item" onclick="showPanelSection('conversations',this)">
+            <svg class="menu-item-icon" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Conversaciones
+          </button>
+          <button class="menu-item" onclick="showPanelSection('analytics',this)">
+            <svg class="menu-item-icon" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            Estadísticas
+          </button>
+        </div>
+        <div class="menu-section">
+          <div class="menu-label">Configuración</div>
+          <button class="menu-item" onclick="showPanelSection('business',this)">
+            <svg class="menu-item-icon" viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>
+            Mi Negocio
+          </button>
+          <button class="menu-item" onclick="showPanelSection('bot',this)">
+            <svg class="menu-item-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+            Bot
+          </button>
+          <button class="menu-item" onclick="showPanelSection('billing',this)">
+            <svg class="menu-item-icon" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+            Facturación
+          </button>
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="userAvatar">CD</div>
+          <div style="flex:1;min-width:0;">
+            <div class="user-name" id="userName">Cliente</div>
+            <div class="user-email" id="userEmail">cliente@email.com</div>
+          </div>
+        </div>
+        <button class="menu-item" onclick="handlePanelLogout()">
+          <svg class="menu-item-icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Cerrar sesión
+        </button>
+      </div>
+    </aside>
+
+    <main class="main">
+
+      <!-- RESUMEN -->
+      <div id="section-dashboard" class="page-section active">
+        <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+          <div>
+            <h1 class="page-title" id="welcomeTitle">Hola, <span class="em">Cliente</span></h1>
+            <p class="page-subtitle">Aquí tienes el resumen de tu bot Omnira.</p>
+          </div>
+          <div class="bot-status">
+            <div class="bot-status-dot"></div>Bot activo
+          </div>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-card-header">
+              <div class="stat-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg></div>
+              <span class="stat-trend">+12%</span>
+            </div>
+            <div class="stat-value" id="statReservas">0</div>
+            <div class="stat-label">Reservas este mes</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-header">
+              <div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+              <span class="stat-trend">+24%</span>
+            </div>
+            <div class="stat-value" id="statMensajes">0</div>
+            <div class="stat-label">Mensajes recibidos</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-header">
+              <div class="stat-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+              <span class="stat-trend">1.4s</span>
+            </div>
+            <div class="stat-value" id="statRespuesta">2s</div>
+            <div class="stat-label">Tiempo respuesta</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-header">
+              <div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
+              <span class="stat-trend">★★★★★</span>
+            </div>
+            <div class="stat-value">4.9</div>
+            <div class="stat-label">Valoración media</div>
+          </div>
+        </div>
+        <div class="content-grid">
+          <div class="panel-card">
+            <div class="panel-card-header">
+              <h3 class="panel-card-title">Próximas reservas</h3>
+              <a class="panel-card-link" onclick="showPanelSectionByName('calendar')">Ver calendario →</a>
+            </div>
+            <div id="recentReservations">
+              <div class="empty-state">
+                <div class="empty-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/></svg></div>
+                <div class="empty-text">No hay reservas todavía</div>
+              </div>
+            </div>
+          </div>
+          <div class="panel-card">
+            <div class="panel-card-header">
+              <h3 class="panel-card-title">Últimas conversaciones</h3>
+              <a class="panel-card-link" onclick="showPanelSectionByName('conversations')">Ver todas →</a>
+            </div>
+            <div id="recentConversations">
+              <div class="empty-state">
+                <div class="empty-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+                <div class="empty-text">Sin mensajes recientes</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CALENDARIO -->
+      <div id="section-calendar" class="page-section">
+        <div class="page-header">
+          <h1 class="page-title">Calendario</h1>
+          <p class="page-subtitle">Visualiza y gestiona todas tus citas en un solo lugar.</p>
+        </div>
+        <div class="panel-card">
+          <div class="cal-toolbar">
+            <div class="cal-nav">
+              <button class="cal-nav-btn" onclick="changeCalMonth(-1)" aria-label="Mes anterior">
+                <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <div class="cal-month" id="calMonth">—</div>
+              <button class="cal-nav-btn" onclick="changeCalMonth(1)" aria-label="Mes siguiente">
+                <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+              <button class="cal-nav-btn" onclick="goToToday()" title="Hoy" style="width:auto;padding:0 14px;font-size:12px;font-family:'DM Sans',sans-serif;">Hoy</button>
+            </div>
+            <button class="cal-add-btn" onclick="openAddEventModal()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Añadir cita
+            </button>
+          </div>
+
+          <div style="display:flex;gap:14px;margin-bottom:18px;font-size:11px;color:var(--muted);flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:6px;"><div style="width:8px;height:8px;border-radius:2px;background:var(--em);"></div>Por bot</div>
+            <div style="display:flex;align-items:center;gap:6px;"><div style="width:8px;height:8px;border-radius:2px;background:#F59E0B;"></div>Manual</div>
+          </div>
+
+          <div class="cal-grid">
+            <div class="cal-weekday">L</div>
+            <div class="cal-weekday">M</div>
+            <div class="cal-weekday">X</div>
+            <div class="cal-weekday">J</div>
+            <div class="cal-weekday">V</div>
+            <div class="cal-weekday">S</div>
+            <div class="cal-weekday">D</div>
+          </div>
+          <div class="cal-grid" id="calGrid" style="margin-top:6px;"></div>
+        </div>
+      </div>
+
+      <!-- RESERVAS -->
+      <div id="section-reservations" class="page-section">
+        <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+          <div>
+            <h1 class="page-title">Reservas</h1>
+            <p class="page-subtitle">Gestiona todas las citas de tu negocio.</p>
+          </div>
+          <button class="cal-add-btn" onclick="openAddEventModal()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nueva reserva
+          </button>
+        </div>
+        <div class="panel-card">
+          <div class="panel-card-header">
+            <h3 class="panel-card-title">Todas las reservas</h3>
+          </div>
+          <div id="allReservations">
+            <div class="empty-state">
+              <div class="empty-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/></svg></div>
+              <div class="empty-text">Las reservas que confirme tu bot o añadas manualmente aparecerán aquí</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONVERSACIONES -->
+      <div id="section-conversations" class="page-section">
+        <div class="page-header">
+          <h1 class="page-title">Conversaciones</h1>
+          <p class="page-subtitle">Todos los mensajes que recibe tu WhatsApp.</p>
+        </div>
+        <div class="panel-card">
+          <div class="panel-card-header">
+            <h3 class="panel-card-title">Mensajes recientes</h3>
+          </div>
+          <div id="allConversations">
+            <div class="empty-state">
+              <div class="empty-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+              <div class="empty-text">Las conversaciones aparecerán aquí cuando tu bot empiece a recibir mensajes</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ESTADÍSTICAS -->
+      <div id="section-analytics" class="page-section">
+        <div class="page-header">
+          <h1 class="page-title">Estadísticas</h1>
+          <p class="page-subtitle">Mide el impacto del bot en tu negocio.</p>
+        </div>
+        <div class="content-grid">
+          <div class="panel-card">
+            <div class="panel-card-header"><h3 class="panel-card-title">Evolución de reservas</h3></div>
+            <div class="empty-state"><div class="empty-text">Los gráficos se mostrarán cuando tengas datos suficientes.</div></div>
+          </div>
+          <div class="panel-card">
+            <div class="panel-card-header"><h3 class="panel-card-title">Servicios más solicitados</h3></div>
+            <div class="empty-state"><div class="empty-text">Sin datos todavía.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MI NEGOCIO -->
+      <div id="section-business" class="page-section">
+        <div class="page-header">
+          <h1 class="page-title">Mi Negocio</h1>
+          <p class="page-subtitle">Información que el bot usa para responder a tus clientes.</p>
+        </div>
+        <div class="panel-card">
+          <form id="businessForm" onsubmit="handleSavePanelBusiness(event)">
+            <div class="settings-grid">
+              <div class="form-group">
+                <label class="form-label">Nombre del negocio</label>
+                <input class="form-input" type="text" id="bizName" placeholder="Clínica Dental Sonrisas">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Tipo</label>
+                <input class="form-input" type="text" id="bizType" placeholder="Clínica dental">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Teléfono</label>
+                <input class="form-input" type="tel" id="bizPhone" placeholder="+34 600 000 000">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email</label>
+                <input class="form-input" type="email" id="bizEmail" placeholder="contacto@negocio.com">
+              </div>
+              <div class="form-group full">
+                <label class="form-label">Dirección</label>
+                <input class="form-input" type="text" id="bizAddress" placeholder="Calle Mayor 12, Madrid">
+              </div>
+              <div class="form-group full">
+                <label class="form-label">Horario</label>
+                <textarea class="form-input" id="bizHours" rows="3" style="resize:vertical;font-family:'DM Sans',sans-serif;" placeholder="Lunes a Viernes: 9:00 - 20:00&#10;Sábado: 10:00 - 14:00&#10;Domingo: cerrado"></textarea>
+              </div>
+              <div class="form-group full">
+                <label class="form-label">Servicios y precios</label>
+                <textarea class="form-input" id="bizServices" rows="4" style="resize:vertical;font-family:'DM Sans',sans-serif;" placeholder="Limpieza dental — 60€ — 30 min&#10;Empaste — 80€ — 45 min"></textarea>
+              </div>
+              <div class="form-group full">
+                <label class="form-label">Política de cancelación</label>
+                <textarea class="form-input" id="bizCancel" rows="2" style="resize:vertical;font-family:'DM Sans',sans-serif;" placeholder="Las cancelaciones deben hacerse con 24h de antelación..."></textarea>
+              </div>
+            </div>
+            <div style="margin-top:24px;display:flex;justify-content:flex-end;">
+              <button type="submit" class="btn-save">Guardar cambios</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- BOT -->
+      <div id="section-bot" class="page-section">
+        <div class="page-header">
+          <h1 class="page-title">Configuración del Bot</h1>
+          <p class="page-subtitle">Ajusta el comportamiento de tu asistente Omnira.</p>
+        </div>
+        <div class="panel-card" style="margin-bottom:20px;">
+          <div class="panel-card-header">
+            <h3 class="panel-card-title">Estado del bot</h3>
+            <div class="bot-status"><div class="bot-status-dot"></div>Activo</div>
+          </div>
+          <p style="font-size:13px;color:var(--soft);line-height:1.6;">
+            Tu bot está respondiendo automáticamente a los mensajes que llegan a tu WhatsApp Business. Si necesitas pausarlo temporalmente contacta con soporte.
+          </p>
+        </div>
+        <div class="panel-card">
+          <div class="panel-card-header"><h3 class="panel-card-title">Personalidad del bot</h3></div>
+          <form id="botForm" onsubmit="handleSavePanelBot(event)">
+            <div class="form-group">
+              <label class="form-label">Mensaje de bienvenida</label>
+              <textarea class="form-input" id="botGreeting" rows="2" style="resize:vertical;font-family:'DM Sans',sans-serif;" placeholder="¡Hola! Soy el asistente de [Negocio]. ¿En qué puedo ayudarte?"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Instrucciones especiales</label>
+              <textarea class="form-input" id="botInstructions" rows="4" style="resize:vertical;font-family:'DM Sans',sans-serif;" placeholder="Información adicional que el bot debe saber..."></textarea>
+            </div>
+            <div style="display:flex;justify-content:flex-end;">
+              <button type="submit" class="btn-save">Guardar cambios</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- FACTURACIÓN -->
+      <div id="section-billing" class="page-section">
+        <div class="page-header">
+          <h1 class="page-title">Facturación</h1>
+          <p class="page-subtitle">Gestiona tu plan y método de pago.</p>
+        </div>
+        <div class="content-grid">
+          <div class="panel-card">
+            <div class="panel-card-header"><h3 class="panel-card-title">Tu plan actual</h3></div>
+            <div style="padding:20px 0;">
+              <div style="font-family:'Playfair Display',serif;font-size:36px;font-weight:700;color:var(--em);">99€<span style="font-size:14px;color:var(--muted);font-weight:400;">/mes</span></div>
+              <div style="font-size:13px;color:var(--soft);margin-top:8px;">Plan Mensual · Sin permanencia</div>
+              <div style="margin-top:20px;display:flex;gap:8px;">
+                <button class="btn-save">Cambiar plan</button>
+              </div>
+            </div>
+          </div>
+          <div class="panel-card">
+            <div class="panel-card-header"><h3 class="panel-card-title">Próximo cobro</h3></div>
+            <div style="padding:20px 0;">
+              <div style="font-size:13px;color:var(--soft);margin-bottom:6px;">Próxima fecha de cobro</div>
+              <div style="font-size:18px;color:var(--text);font-weight:600;" id="nextBilling">—</div>
+              <div style="height:1px;background:var(--border);margin:16px 0;"></div>
+              <div style="font-size:13px;color:var(--soft);margin-bottom:6px;">Método de pago</div>
+              <div style="font-size:14px;color:var(--text);">Tarjeta •••• 0000</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- MODAL: Añadir/editar cita -->
+  <div id="eventModal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title" id="eventModalTitle">Nueva reserva</h3>
+        <button class="modal-close" onclick="closeEventModal()" aria-label="Cerrar">×</button>
+      </div>
+      <form id="eventForm" onsubmit="handleSaveEvent(event)">
+        <input type="hidden" id="eventId">
+        <div class="form-group">
+          <label class="form-label">Nombre del cliente</label>
+          <input class="form-input" type="text" id="eventName" placeholder="María García" required>
+        </div>
+        <div class="settings-grid">
+          <div class="form-group">
+            <label class="form-label">Fecha</label>
+            <input class="form-input" type="date" id="eventDate" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Hora</label>
+            <input class="form-input" type="time" id="eventTime" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Servicio</label>
+          <input class="form-input" type="text" id="eventService" placeholder="Limpieza dental">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Teléfono (opcional)</label>
+          <input class="form-input" type="tel" id="eventPhone" placeholder="+34 600 000 000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notas (opcional)</label>
+          <textarea class="form-input" id="eventNotes" rows="2" style="resize:vertical;font-family:'DM Sans',sans-serif;"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-cancel" onclick="closeEventModal()">Cancelar</button>
+          <button type="button" class="btn-delete" id="eventDeleteBtn" style="display:none;" onclick="handleDeleteEvent()">Eliminar</button>
+          <button type="submit" class="btn-save">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   API CLIENT — Centralizado para integración con backend.
+   El programador solo necesita cambiar API_BASE.
+   Mientras esté vacío, todo funciona en modo demo con localStorage.
+   ═══════════════════════════════════════════════════════════ */
+const API_BASE = ''; // ← URL del backend, ej: 'https://api.omnira.io'
+
+const panelApi = {
+  async login(email, password) {
+    if (!API_BASE) {
+      const users = JSON.parse(localStorage.getItem('omnira_users')||'[]');
+      const user = users.find(u => u.email === email && u.password === password);
+      if (!user) throw new Error('Email o contraseña incorrectos');
+      return { user, token: 'demo-'+Date.now() };
+    }
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({email,password})
+    });
+    if (!res.ok) throw new Error((await res.json()).message || 'Error al iniciar sesión');
+    return res.json();
+  },
+  async register(data) {
+    if (!API_BASE) {
+      const users = JSON.parse(localStorage.getItem('omnira_users')||'[]');
+      if (users.find(u => u.email === data.email)) throw new Error('Ese email ya está registrado');
+      const user = { ...data, id: 'user_'+Date.now(), createdAt: new Date().toISOString() };
+      users.push(user);
+      localStorage.setItem('omnira_users', JSON.stringify(users));
+      return { user, token: 'demo-'+Date.now() };
+    }
+    const res = await fetch(`${API_BASE}/api/auth/register`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error((await res.json()).message || 'Error al crear cuenta');
+    return res.json();
+  },
+  async logout() {
+    localStorage.removeItem('omnira_session');
+    if (API_BASE) await fetch(`${API_BASE}/api/auth/logout`,{method:'POST',headers:this._h()});
+  },
+  async getDashboard() {
+    if (!API_BASE) {
+      const events = this._localEvents();
+      const now = new Date();
+      const month = now.getMonth();
+      const reservas = events.filter(e => new Date(e.datetime).getMonth() === month).length;
+      return { stats:{ reservas, mensajes: 0, respuesta:'2s', valoracion:'4.9' },
+               recentReservations:events.slice(0,4), recentConversations:[] };
+    }
+    const res = await fetch(`${API_BASE}/api/dashboard`,{headers:this._h()});
+    return res.json();
+  },
+  async getEvents() {
+    if (!API_BASE) return this._localEvents();
+    const res = await fetch(`${API_BASE}/api/events`,{headers:this._h()});
+    return res.json();
+  },
+  async saveEvent(ev) {
+    if (!API_BASE) {
+      const all = this._localEvents();
+      if (ev.id) {
+        const idx = all.findIndex(e => e.id === ev.id);
+        if (idx >= 0) all[idx] = ev;
+      } else {
+        ev.id = 'ev_'+Date.now();
+        ev.source = 'manual';
+        all.push(ev);
+      }
+      localStorage.setItem('omnira_events_'+this._uid(), JSON.stringify(all));
+      return ev;
+    }
+    const method = ev.id ? 'PUT' : 'POST';
+    const url = ev.id ? `${API_BASE}/api/events/${ev.id}` : `${API_BASE}/api/events`;
+    const res = await fetch(url,{method,headers:this._h(),body:JSON.stringify(ev)});
+    return res.json();
+  },
+  async deleteEvent(id) {
+    if (!API_BASE) {
+      const all = this._localEvents().filter(e => e.id !== id);
+      localStorage.setItem('omnira_events_'+this._uid(), JSON.stringify(all));
+      return { success:true };
+    }
+    const res = await fetch(`${API_BASE}/api/events/${id}`,{method:'DELETE',headers:this._h()});
+    return res.json();
+  },
+  async getBusiness() {
+    if (!API_BASE) return JSON.parse(localStorage.getItem('omnira_business_'+this._uid())||'{}');
+    const res = await fetch(`${API_BASE}/api/business`,{headers:this._h()});
+    return res.json();
+  },
+  async saveBusiness(data) {
+    if (!API_BASE) {
+      localStorage.setItem('omnira_business_'+this._uid(), JSON.stringify(data));
+      return { success:true };
+    }
+    const res = await fetch(`${API_BASE}/api/business`,{method:'PUT',headers:this._h(),body:JSON.stringify(data)});
+    return res.json();
+  },
+  async getBot() {
+    if (!API_BASE) return JSON.parse(localStorage.getItem('omnira_bot_'+this._uid())||'{}');
+    const res = await fetch(`${API_BASE}/api/bot`,{headers:this._h()});
+    return res.json();
+  },
+  async saveBot(data) {
+    if (!API_BASE) {
+      localStorage.setItem('omnira_bot_'+this._uid(), JSON.stringify(data));
+      return { success:true };
+    }
+    const res = await fetch(`${API_BASE}/api/bot`,{method:'PUT',headers:this._h(),body:JSON.stringify(data)});
+    return res.json();
+  },
+  _h() {
+    const s = JSON.parse(localStorage.getItem('omnira_session')||'{}');
+    return {'Content-Type':'application/json','Authorization':`Bearer ${s.token||''}`};
+  },
+  _uid() {
+    const s = JSON.parse(localStorage.getItem('omnira_session')||'{}');
+    return s.user?.id || 'anon';
+  },
+  _localEvents() {
+    return JSON.parse(localStorage.getItem('omnira_events_'+this._uid())||'[]');
+  }
+};
+
+/* ─── PANEL OPEN/CLOSE ─── */
+function openClientPanel(view){
+  document.getElementById('clientPanel').classList.add('active');
+  document.body.style.overflow = 'hidden';
+  // Si hay sesión, ir directo al dashboard
+  const session = localStorage.getItem('omnira_session');
+  if (session) {
+    try {
+      const data = JSON.parse(session);
+      if (data.user) { enterPanelDashboard(data.user); return; }
+    } catch(e){}
+  }
+  if (view === 'register') showPanelRegister();
+  else showPanelLogin();
+}
+function closeClientPanel(){
+  document.getElementById('clientPanel').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+/* ─── AUTH ─── */
+function showPanelRegister(){
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('registerScreen').style.display = 'flex';
+  document.getElementById('dashboard').classList.remove('active');
+}
+function showPanelLogin(){
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('registerScreen').style.display = 'none';
+  document.getElementById('dashboard').classList.remove('active');
+}
+async function handlePanelLogin(e){
+  e.preventDefault();
+  const btn = document.getElementById('loginBtn');
+  const errBox = document.getElementById('loginError');
+  errBox.classList.remove('visible');
+  btn.disabled = true; const orig = btn.innerHTML;
+  btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;"></div>';
+  try {
+    const result = await panelApi.login(
+      document.getElementById('loginEmail').value,
+      document.getElementById('loginPassword').value
+    );
+    localStorage.setItem('omnira_session', JSON.stringify(result));
+    if (typeof fbq !== 'undefined') fbq('track','Login');
+    enterPanelDashboard(result.user);
+  } catch(err) {
+    errBox.textContent = err.message;
+    errBox.classList.add('visible');
+  } finally {
+    btn.disabled = false; btn.innerHTML = orig;
+  }
+}
+async function handlePanelRegister(e){
+  e.preventDefault();
+  const btn = document.getElementById('registerBtn');
+  const errBox = document.getElementById('registerError');
+  errBox.classList.remove('visible');
+  btn.disabled = true; const orig = btn.innerHTML;
+  btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;"></div>';
+  try {
+    const data = {
+      businessName: document.getElementById('regBusiness').value,
+      email: document.getElementById('regEmail').value,
+      phone: document.getElementById('regPhone').value,
+      password: document.getElementById('regPassword').value
+    };
+    const result = await panelApi.register(data);
+    localStorage.setItem('omnira_session', JSON.stringify(result));
+    if (typeof fbq !== 'undefined') fbq('track','CompleteRegistration');
+    enterPanelDashboard(result.user);
+  } catch(err) {
+    errBox.textContent = err.message;
+    errBox.classList.add('visible');
+  } finally {
+    btn.disabled = false; btn.innerHTML = orig;
+  }
+}
+async function handlePanelLogout(){
+  await panelApi.logout();
+  document.getElementById('dashboard').classList.remove('active');
+  showPanelLogin();
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginPassword').value = '';
+}
+
+/* ─── DASHBOARD ─── */
+function enterPanelDashboard(user){
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('registerScreen').style.display = 'none';
+  document.getElementById('dashboard').classList.add('active');
+  const name = user.businessName || user.name || 'Cliente';
+  const initials = name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  document.getElementById('userName').textContent = name;
+  document.getElementById('userEmail').textContent = user.email;
+  document.getElementById('userAvatar').textContent = initials;
+  document.getElementById('welcomeTitle').innerHTML = `Hola, <span class="em">${name}</span>`;
+  loadPanelData();
+  renderCalendar();
+}
+async function loadPanelData(){
+  try {
+    const data = await panelApi.getDashboard();
+    document.getElementById('statReservas').textContent = data.stats.reservas || 0;
+    document.getElementById('statMensajes').textContent = data.stats.mensajes || 0;
+    document.getElementById('statRespuesta').textContent = data.stats.respuesta || '2s';
+    if (data.recentReservations?.length) renderResList('recentReservations', data.recentReservations.slice(0,4));
+    if (data.recentConversations?.length) renderConvList('recentConversations', data.recentConversations.slice(0,4));
+    renderResList('allReservations', data.recentReservations || []);
+  } catch(err) { console.error('Dashboard error:', err); }
+
+  try {
+    const biz = await panelApi.getBusiness();
+    ['Name','Type','Phone','Email','Address','Hours','Services','Cancel'].forEach(k=>{
+      const v = biz[k.toLowerCase()] || biz[k.toLowerCase()==='cancel'?'cancellation':k.toLowerCase()];
+      const el = document.getElementById('biz'+k);
+      if (el && v) el.value = v;
+    });
+  } catch(err){}
+
+  try {
+    const bot = await panelApi.getBot();
+    if (bot.greeting) document.getElementById('botGreeting').value = bot.greeting;
+    if (bot.instructions) document.getElementById('botInstructions').value = bot.instructions;
+  } catch(err){}
+
+  const next = new Date();
+  next.setMonth(next.getMonth() + 1);
+  document.getElementById('nextBilling').textContent = next.toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'});
+}
+function renderResList(id, list){
+  if (!list.length) return;
+  document.getElementById(id).innerHTML = list.map(r => {
+    const dt = new Date(r.datetime || r.date);
+    const fecha = dt.toLocaleDateString('es-ES',{day:'numeric',month:'short'});
+    const hora = dt.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+    return `<div class="res-item">
+      <div class="res-avatar">${(r.name||'?')[0]}</div>
+      <div class="res-info">
+        <div class="res-name">${r.name||'Cliente'}</div>
+        <div class="res-detail">${r.service||''} · ${fecha} ${hora}</div>
+      </div>
+      <span class="res-status ${r.status||'confirmed'}">${r.status==='pending'?'Pendiente':r.status==='cancelled'?'Cancelada':'Confirmada'}</span>
+    </div>`;
+  }).join('');
+}
+function renderConvList(id, list){
+  if (!list.length) return;
+  document.getElementById(id).innerHTML = list.map(c => `
+    <div class="conv-item">
+      <div class="conv-avatar">${(c.name||'?')[0]}</div>
+      <div class="conv-info">
+        <div class="conv-name">${c.name||'Cliente'}</div>
+        <div class="conv-msg">${c.lastMessage||''}</div>
+      </div>
+      <div class="conv-time">${c.time||''}</div>
+    </div>`).join('');
+}
+
+/* ─── NAVIGATION ─── */
+function showPanelSection(name, btn){
+  document.querySelectorAll('#clientPanel .page-section').forEach(s => s.classList.remove('active'));
+  document.getElementById('section-'+name).classList.add('active');
+  document.querySelectorAll('#clientPanel .menu-item').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (name === 'calendar') renderCalendar();
+  document.querySelector('#clientPanel .main').scrollTop = 0;
+}
+function showPanelSectionByName(name){
+  const btn = Array.from(document.querySelectorAll(`#clientPanel .menu-item`))
+    .find(b => b.getAttribute('onclick')?.includes(`'${name}'`));
+  showPanelSection(name, btn);
+}
+
+/* ─── FORMS ─── */
+async function handleSavePanelBusiness(e){
+  e.preventDefault();
+  const data = {
+    name: document.getElementById('bizName').value,
+    type: document.getElementById('bizType').value,
+    phone: document.getElementById('bizPhone').value,
+    email: document.getElementById('bizEmail').value,
+    address: document.getElementById('bizAddress').value,
+    hours: document.getElementById('bizHours').value,
+    services: document.getElementById('bizServices').value,
+    cancellation: document.getElementById('bizCancel').value
+  };
+  try { await panelApi.saveBusiness(data); showPanelToast('Datos guardados','success'); }
+  catch(err) { showPanelToast('Error: '+err.message,'error'); }
+}
+async function handleSavePanelBot(e){
+  e.preventDefault();
+  const data = {
+    greeting: document.getElementById('botGreeting').value,
+    instructions: document.getElementById('botInstructions').value
+  };
+  try { await panelApi.saveBot(data); showPanelToast('Configuración guardada','success'); }
+  catch(err) { showPanelToast('Error: '+err.message,'error'); }
+}
+
+/* ─── CALENDAR ─── */
+let calCurrent = new Date();
+calCurrent.setDate(1);
+
+const MONTHS_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+async function renderCalendar(){
+  const year = calCurrent.getFullYear();
+  const month = calCurrent.getMonth();
+  document.getElementById('calMonth').textContent = `${MONTHS_ES[month]} ${year}`;
+
+  const events = await panelApi.getEvents();
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+
+  // Primer día del mes (lunes=0, ..., domingo=6)
+  const firstDay = new Date(year, month, 1).getDay();
+  const offset = firstDay === 0 ? 6 : firstDay - 1;
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const today = new Date();
+
+  // Días vacíos del mes anterior
+  for (let i=0; i<offset; i++) {
+    const div = document.createElement('div');
+    div.className = 'cal-day empty';
+    grid.appendChild(div);
+  }
+  // Días del mes
+  for (let d=1; d<=daysInMonth; d++) {
+    const div = document.createElement('div');
+    div.className = 'cal-day';
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = today.getFullYear()===year && today.getMonth()===month && today.getDate()===d;
+    if (isToday) div.classList.add('today');
+
+    const dayEvents = events.filter(e => {
+      const ed = new Date(e.datetime);
+      return ed.getFullYear()===year && ed.getMonth()===month && ed.getDate()===d;
+    });
+    if (dayEvents.length) div.classList.add('has-events');
+
+    let html = `<div class="cal-day-num">${d}</div>`;
+    html += '<div class="cal-events">';
+    const visible = dayEvents.slice(0,2);
+    visible.forEach(e => {
+      const time = new Date(e.datetime).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+      const cls = e.source === 'manual' ? 'manual' : 'bot';
+      html += `<div class="cal-event ${cls}" data-event-id="${e.id}">${time} ${escapeHtml(e.name)}</div>`;
+    });
+    if (dayEvents.length > 2) html += `<div class="cal-event-more">+${dayEvents.length-2} más</div>`;
+    html += '</div>';
+    div.innerHTML = html;
+
+    div.addEventListener('click', (ev) => {
+      const target = ev.target.closest('.cal-event');
+      if (target && target.dataset.eventId) {
+        const found = events.find(x => x.id === target.dataset.eventId);
+        if (found) openEditEventModal(found);
+      } else {
+        openAddEventModal(dateStr);
+      }
+    });
+    grid.appendChild(div);
+  }
+}
+function changeCalMonth(delta){
+  calCurrent.setMonth(calCurrent.getMonth() + delta);
+  renderCalendar();
+}
+function goToToday(){
+  calCurrent = new Date();
+  calCurrent.setDate(1);
+  renderCalendar();
+}
+
+/* ─── EVENT MODAL ─── */
+function openAddEventModal(dateStr){
+  document.getElementById('eventModalTitle').textContent = 'Nueva reserva';
+  document.getElementById('eventForm').reset();
+  document.getElementById('eventId').value = '';
+  document.getElementById('eventDeleteBtn').style.display = 'none';
+  if (dateStr) document.getElementById('eventDate').value = dateStr;
+  else {
+    const t = new Date();
+    document.getElementById('eventDate').value = t.toISOString().split('T')[0];
+  }
+  document.getElementById('eventTime').value = '10:00';
+  document.getElementById('eventModal').classList.add('active');
+}
+function openEditEventModal(ev){
+  document.getElementById('eventModalTitle').textContent = 'Editar reserva';
+  document.getElementById('eventId').value = ev.id;
+  document.getElementById('eventName').value = ev.name || '';
+  const dt = new Date(ev.datetime);
+  document.getElementById('eventDate').value = dt.toISOString().split('T')[0];
+  document.getElementById('eventTime').value = dt.toTimeString().slice(0,5);
+  document.getElementById('eventService').value = ev.service || '';
+  document.getElementById('eventPhone').value = ev.phone || '';
+  document.getElementById('eventNotes').value = ev.notes || '';
+  document.getElementById('eventDeleteBtn').style.display = ev.source === 'manual' ? 'block' : 'none';
+  document.getElementById('eventModal').classList.add('active');
+}
+function closeEventModal(){
+  document.getElementById('eventModal').classList.remove('active');
+}
+async function handleSaveEvent(e){
+  e.preventDefault();
+  const id = document.getElementById('eventId').value;
+  const date = document.getElementById('eventDate').value;
+  const time = document.getElementById('eventTime').value;
+  const ev = {
+    name: document.getElementById('eventName').value,
+    datetime: `${date}T${time}:00`,
+    service: document.getElementById('eventService').value,
+    phone: document.getElementById('eventPhone').value,
+    notes: document.getElementById('eventNotes').value,
+    source: 'manual',
+    status: 'confirmed'
+  };
+  if (id) ev.id = id;
+  try {
+    await panelApi.saveEvent(ev);
+    closeEventModal();
+    renderCalendar();
+    loadPanelData();
+    showPanelToast(id?'Reserva actualizada':'Reserva creada','success');
+  } catch(err) {
+    showPanelToast('Error: '+err.message,'error');
+  }
+}
+async function handleDeleteEvent(){
+  const id = document.getElementById('eventId').value;
+  if (!id) return;
+  if (!confirm('¿Eliminar esta reserva?')) return;
+  try {
+    await panelApi.deleteEvent(id);
+    closeEventModal();
+    renderCalendar();
+    loadPanelData();
+    showPanelToast('Reserva eliminada','success');
+  } catch(err) {
+    showPanelToast('Error: '+err.message,'error');
+  }
+}
+
+/* ─── HELPERS ─── */
+function showPanelToast(message, type='success'){
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = 'toast '+type;
+  setTimeout(()=>toast.classList.add('visible'), 10);
+  setTimeout(()=>toast.classList.remove('visible'), 3500);
+}
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"']/g, m =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* ─── DEEP LINKING: ?panel=login o ?panel=register ─── */
+(function checkPanelDeepLink(){
+  const params = new URLSearchParams(window.location.search);
+  const panel = params.get('panel');
+  if (panel === 'login' || panel === 'register') {
+    setTimeout(() => openClientPanel(panel), 100);
+  }
+})();
+</script>
+
 </body>
 </html>
