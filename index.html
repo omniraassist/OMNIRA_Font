@@ -28,22 +28,90 @@ fbq("track", "PageView");
 </noscript>
 <!-- End Meta Pixel Code -->
 <style>
+  /* DARK THEME (default) */
   :root {
-    --em: #00E096;
-    --em-dim: #00C47A;
-    --em-glow: rgba(0,224,150,0.18);
-    --em-glow2: rgba(0,224,150,0.08);
-    --ink: #080B0F;
-    --ink2: #0D1117;
-    --ink3: #111820;
-    --surf: #141B24;
-    --surf2: #1A2330;
-    --border: rgba(255,255,255,0.07);
-    --border-em: rgba(0,224,150,0.2);
-    --muted: #6B7A8D;
-    --soft: #A8B4C0;
-    --text: #E8EDF2;
+    --em: #00E096; --em-dim: #00C47A;
+    --em-glow: rgba(0,224,150,0.18); --em-glow2: rgba(0,224,150,0.08);
+    --ink: #080B0F; --ink2: #0D1117; --ink3: #111820;
+    --surf: #141B24; --surf2: #1A2330;
+    --border: rgba(255,255,255,0.07); --border-em: rgba(0,224,150,0.2);
+    --muted: #6B7A8D; --soft: #A8B4C0; --text: #E8EDF2;
+    --nav-bg: rgba(8,11,15,0.85); --card-bg: rgba(20,27,36,0.65);
+    --input-bg: rgba(8,11,15,0.6); --shadow: 0 4px 24px rgba(0,0,0,0.4);
   }
+  /* LIGHT THEME */
+  html.light {
+    --em: #00A86B; --em-dim: #007A4D;
+    --em-glow: rgba(0,168,107,0.15); --em-glow2: rgba(0,168,107,0.07);
+    --ink: #F4F7FA; --ink2: #EAF0F6; --ink3: #E0E8F0;
+    --surf: #FFFFFF; --surf2: #F0F4F8;
+    --border: rgba(0,0,0,0.08); --border-em: rgba(0,168,107,0.25);
+    --muted: #8A9BB0; --soft: #4A5568; --text: #1A202C;
+    --nav-bg: rgba(244,247,250,0.92); --card-bg: rgba(255,255,255,0.9);
+    --input-bg: rgba(255,255,255,0.8); --shadow: 0 4px 24px rgba(0,0,0,0.1);
+  }
+  html.light body { background: var(--ink); color: var(--text); }
+  html.light .gradient-text {
+    background: linear-gradient(135deg,#1A202C 0%,var(--em) 100%);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  }
+  html.light .divider { background: linear-gradient(90deg,transparent,rgba(0,0,0,0.08),transparent); }
+  html.light .card, html.light .card-em { background: rgba(255,255,255,0.9); }
+  html.light nav { background: var(--nav-bg); border-color: rgba(0,0,0,0.08); }
+  /* THEME TOGGLE */
+  .theme-toggle {
+    width:36px;height:36px;border-radius:50%;
+    background:var(--card-bg);border:1px solid var(--border);
+    color:var(--soft);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:all 0.2s;flex-shrink:0;
+  }
+  .theme-toggle:hover{border-color:var(--border-em);color:var(--em);}
+  .theme-toggle svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;}
+  .icon-sun{display:none;} .icon-moon{display:block;}
+  html.light .icon-sun{display:block;} html.light .icon-moon{display:none;}
+  /* PLAN BADGE */
+  .plan-badge-free{
+    display:inline-flex;align-items:center;gap:5px;
+    padding:3px 10px;border-radius:100px;
+    background:rgba(107,122,141,0.15);border:1px solid rgba(107,122,141,0.3);
+    font-size:11px;color:var(--muted);font-weight:500;
+  }
+  .plan-badge-pro{
+    display:inline-flex;align-items:center;gap:5px;
+    padding:3px 10px;border-radius:100px;
+    background:rgba(0,224,150,0.15);border:1px solid rgba(0,224,150,0.3);
+    font-size:11px;color:var(--em);font-weight:500;
+  }
+  .plan-badge-dot{width:5px;height:5px;border-radius:50%;background:currentColor;}
+  /* UPGRADE BANNER */
+  .upgrade-banner{
+    background:linear-gradient(135deg,rgba(0,224,150,0.1),rgba(0,168,107,0.05));
+    border:1px solid var(--border-em);
+    border-radius:14px;padding:20px 24px;
+    display:flex;align-items:center;justify-content:space-between;
+    gap:16px;margin-bottom:24px;flex-wrap:wrap;
+  }
+  html.light .upgrade-banner{background:linear-gradient(135deg,rgba(0,168,107,0.08),rgba(0,168,107,0.03));}
+  .upgrade-banner-text h4{font-size:15px;font-weight:600;color:var(--text);margin-bottom:4px;}
+  .upgrade-banner-text p{font-size:12px;color:var(--soft);}
+  .btn-upgrade{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:10px 20px;border-radius:100px;
+    background:var(--em);color:var(--ink);
+    font-weight:600;font-size:13px;border:none;
+    cursor:pointer;white-space:nowrap;
+    font-family:'DM Sans',sans-serif;
+    transition:transform 0.2s,box-shadow 0.2s;
+  }
+  .btn-upgrade:hover{transform:scale(1.04);box-shadow:0 0 20px var(--em-glow);}
+  /* LIMIT BADGE */
+  .limit-bar{margin-bottom:6px;}
+  .limit-bar-label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px;}
+  .limit-bar-track{height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+  .limit-bar-fill{height:100%;background:var(--em);border-radius:2px;transition:width 0.3s;}
+  .limit-bar-fill.warn{background:#F59E0B;}
+  .limit-bar-fill.full{background:#EF4444;}
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
   body {
@@ -664,8 +732,12 @@ fbq('track', 'PageView');
       </div>
       <div class="nav-cta">
         <a href="#precios" class="plain">Ver planes</a>
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Cambiar tema" title="Cambiar tema">
+          <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
         <a href="#" onclick="openClientPanel('login');return false;" class="btn-outline" style="padding:9px 20px;font-size:13px;">Iniciar sesión</a>
-        <a href="#cta-final" class="btn-primary" style="padding:9px 20px;font-size:13px;">Solicitar demo</a>
+        <a href="#" onclick="openClientPanel('register');return false;" class="btn-primary" style="padding:9px 20px;font-size:13px;">Registro gratis</a>
       </div>
       <div class="hamburger" id="hamburger" onclick="toggleMenu()">
         <span></span><span></span><span></span>
@@ -1831,11 +1903,20 @@ fbq('track', 'PageView');
   <div id="dashboard" class="dashboard">
     <aside class="sidebar">
       <div class="sidebar-header">
-        <div class="sidebar-logo">
-          <div class="sidebar-logo-icon">
-            <svg viewBox="0 0 24 24"><rect x="5" y="5" width="5" height="14" rx="1"/><rect x="14" y="5" width="5" height="14" rx="1"/></svg>
+        <div class="sidebar-logo" style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="sidebar-logo-icon">
+              <svg viewBox="0 0 24 24"><rect x="5" y="5" width="5" height="14" rx="1"/><rect x="14" y="5" width="5" height="14" rx="1"/></svg>
+            </div>
+            <span class="sidebar-logo-text">Omnira</span>
           </div>
-          <span class="sidebar-logo-text">Omnira</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div id="panelPlanBadge" class="plan-badge-free"><span class="plan-badge-dot"></span>Gratis</div>
+            <button class="theme-toggle" onclick="toggleTheme()" aria-label="Cambiar tema">
+              <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              <svg class="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            </button>
+          </div>
         </div>
       </div>
       <nav class="sidebar-menu">
@@ -1897,12 +1978,32 @@ fbq('track', 'PageView');
 
       <!-- RESUMEN -->
       <div id="section-dashboard" class="page-section active">
+        <!-- Upgrade banner (solo plan free) -->
+        <div id="upgradeBanner" class="upgrade-banner" style="display:none;">
+          <div class="upgrade-banner-text">
+            <h4>Activa el bot de WhatsApp para tu negocio</h4>
+            <p>Con el plan Pro, Omnira responde a tus clientes 24/7, gestiona reservas automáticamente y llena tu agenda. Reservas ilimitadas incluidas.</p>
+          </div>
+          <button class="btn-upgrade" onclick="openUpgradeModal()">Ver planes Pro →</button>
+        </div>
+        <!-- Limit bar (solo plan free) -->
+        <div id="limitBarWrap" style="display:none;margin-bottom:20px;">
+          <div class="limit-bar">
+            <div class="limit-bar-label">
+              <span>Reservas manuales este mes</span>
+              <span id="limitBarText">0 / 30</span>
+            </div>
+            <div class="limit-bar-track">
+              <div class="limit-bar-fill" id="limitBarFill" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
         <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
           <div>
             <h1 class="page-title" id="welcomeTitle">Hola, <span class="em">Cliente</span></h1>
-            <p class="page-subtitle">Aquí tienes el resumen de tu bot Omnira.</p>
+            <p class="page-subtitle">Aquí tienes el resumen de tu negocio.</p>
           </div>
-          <div class="bot-status">
+          <div id="botStatusBadge" class="bot-status" style="display:none;">
             <div class="bot-status-dot"></div>Bot activo
           </div>
         </div>
@@ -2236,295 +2337,328 @@ fbq('track', 'PageView');
 
 <script>
 /* ═══════════════════════════════════════════════════════════
-   API CLIENT — Omnira Panel del Cliente
+   BASE DE DATOS EN LA NUBE — Firebase + Firestore
    ─────────────────────────────────────────────────────────────
-   Prepara toda la comunicación con el backend del programador
-   para vinculación con el Master Admin Dashboard.
+   MODO DEMO: funciona con localStorage hasta que configures Firebase.
 
-   PARA ACTIVAR EL BACKEND REAL: cambiar API_BASE por la URL del servidor.
-   Mientras esté vacío, todo funciona en modo demo con localStorage.
+   PARA ACTIVAR FIREBASE REAL:
+   1. Crea proyecto en https://console.firebase.google.com
+   2. Activa Authentication (Email/Password) y Firestore
+   3. Ve a Configuración del proyecto → Tus apps → Web
+   4. Copia la configuración y pégala abajo en FIREBASE_CONFIG
+   5. Cambia USE_FIREBASE = true
 
-   ENDPOINTS QUE EL PROGRAMADOR DEBE IMPLEMENTAR EN EL BACKEND:
-   ─────────────────────────────────────────────────────────────
-   AUTH:
-     POST   /api/auth/register      → { user, token } — crea registro en admin
-     POST   /api/auth/login         → { user, token }
-     POST   /api/auth/logout
-     GET    /api/auth/me            → { user } — re-validar sesión al volver
+   ESTRUCTURA FIRESTORE (para el programador):
+   ─────────────────────────────────────────────
+   /users/{userId}
+     - businessName, email, phone, plan, botActive,
+       status, createdAt, stripeCustomerId, twilioNumber
 
-   DATOS DEL CLIENTE:
-     GET    /api/dashboard          → { stats, recentReservations, recentConversations, botStatus, plan }
-     GET    /api/business           → datos del negocio
-     PUT    /api/business           → actualizar (sincroniza con Knowledge Base del bot)
-     GET    /api/bot                → config del bot
-     PUT    /api/bot                → actualizar config
+   /events/{eventId}
+     - userId, name, datetime, service, phone,
+       notes, source (bot|manual), status, createdAt
 
-   CALENDARIO Y RESERVAS:
-     GET    /api/events?from=&to=   → todas las citas (fuente: bot o manual)
-     POST   /api/events             → crear cita manual
-     PUT    /api/events/:id         → actualizar cita
-     DELETE /api/events/:id         → eliminar cita
-     POST   /api/events/sync        → forzar sync con Google Calendar (futuro)
+   /business/{userId}
+     - name, type, phone, email, address, hours,
+       services, cancellation, updatedAt
 
-   CONVERSACIONES:
-     GET    /api/conversations      → mensajes WhatsApp
-     GET    /api/conversations/:id/messages
+   /bot/{userId}
+     - greeting, instructions, updatedAt
 
-   FACTURACIÓN (Stripe):
-     GET    /api/billing            → plan, próximo cobro, método de pago
-     POST   /api/billing/portal     → URL al Stripe Customer Portal
-
-   IMPORTANTE PARA EL ADMIN PANEL:
-   ─────────────────────────────────────────────────────────────
-   - Cuando un cliente se REGISTRA aquí → debe crear automáticamente
-     un registro en el Master Admin con status 'pending_setup'
-   - Cuando el cliente PAGA en Stripe → status pasa a 'active'
-     y se activa el bot en Twilio (webhook Stripe)
-   - Cuando el cliente CANCELA → status pasa a 'cancelled'
-     y se desactiva el bot
-   - El admin puede ver/gestionar clientes desde el panel maestro
-     accediendo a esta misma base de datos
+   VINCULACIÓN CON ADMIN PANEL:
+   ─────────────────────────────────────────────
+   - El admin panel lee/escribe en las mismas colecciones
+   - El programador puede usar Firebase Admin SDK en el servidor
+   - Stripe webhooks actualizan user.plan y user.botActive
+   - Twilio se activa/desactiva según user.botActive
    ═══════════════════════════════════════════════════════════ */
 
-const API_BASE = ''; // ← Cambiar por la URL del backend (ej: 'https://api.omnira.io')
+const USE_FIREBASE = false; // ← Cambiar a true cuando configures Firebase
+
+const FIREBASE_CONFIG = {
+  // Pega aquí tu configuración de Firebase:
+  // apiKey: "...",
+  // authDomain: "...",
+  // projectId: "...",
+  // storageBucket: "...",
+  // messagingSenderId: "...",
+  // appId: "..."
+};
+
+const API_BASE = ''; // ← URL backend alternativo (si no usas Firebase)
+
+/* Límites por plan */
+const PLAN_LIMITS = {
+  free: { eventsPerMonth: 30, label: 'Gratis' },
+  pro:  { eventsPerMonth: Infinity, label: 'Pro' },
+};
 
 const panelApi = {
-  // ─── AUTH ───
+  _db: null,
+  _auth: null,
+
+  async init() {
+    if (USE_FIREBASE && FIREBASE_CONFIG.apiKey && !this._db) {
+      // Carga Firebase dinámicamente
+      const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
+      const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+      const { getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, addDoc, deleteDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+      const app = initializeApp(FIREBASE_CONFIG);
+      this._auth = getAuth(app);
+      this._db = getFirestore(app);
+      this._fb = { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, addDoc, deleteDoc, serverTimestamp };
+    }
+  },
+
+  /* ─── AUTH ─── */
   async register(data) {
-    if (!API_BASE) {
-      const users = JSON.parse(localStorage.getItem('omnira_users')||'[]');
-      if (users.find(u => u.email.toLowerCase() === data.email.toLowerCase()))
-        throw new Error('Ese email ya está registrado. ¿Quieres iniciar sesión?');
-      const user = {
-        id: 'user_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),
+    await this.init();
+    if (USE_FIREBASE && this._db) {
+      const cred = await this._fb.createUserWithEmailAndPassword(this._auth, data.email, data.password);
+      const uid = cred.user.uid;
+      const userData = {
+        id: uid,
         businessName: data.businessName,
         email: data.email.toLowerCase().trim(),
-        phone: data.phone,
-        password: data.password, // En producción hasheado en backend
-        status: 'pending_setup',
-        plan: null,
+        phone: data.phone || '',
+        plan: 'free',
         botActive: false,
+        status: 'active',
         createdAt: new Date().toISOString()
       };
-      users.push(user);
-      localStorage.setItem('omnira_users', JSON.stringify(users));
-      return { user: this._publicUser(user), token: 'demo-'+user.id };
+      await this._fb.setDoc(this._fb.doc(this._db, 'users', uid), userData);
+      const token = await cred.user.getIdToken();
+      return { user: userData, token };
     }
-    const res = await fetch(`${API_BASE}/api/auth/register`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(data)
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(()=>({}));
-      throw new Error(err.message || 'Error al crear cuenta');
-    }
-    return res.json();
+    // Modo localStorage
+    const users = JSON.parse(localStorage.getItem('omnira_users')||'[]');
+    const norm = data.email.toLowerCase().trim();
+    if (users.find(u => u.email.toLowerCase() === norm))
+      throw new Error('Ese email ya está registrado. ¿Quieres iniciar sesión?');
+    const user = {
+      id: 'user_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),
+      businessName: data.businessName,
+      email: norm,
+      phone: data.phone || '',
+      password: data.password,
+      plan: 'free',
+      botActive: false,
+      status: 'active',
+      createdAt: new Date().toISOString()
+    };
+    users.push(user);
+    localStorage.setItem('omnira_users', JSON.stringify(users));
+    return { user: this._pub(user), token: 'demo-'+user.id };
   },
 
   async login(email, password) {
-    if (!API_BASE) {
-      const users = JSON.parse(localStorage.getItem('omnira_users')||'[]');
-      const normalized = email.toLowerCase().trim();
-      const user = users.find(u =>
-        u.email.toLowerCase() === normalized && u.password === password
-      );
-      if (!user) {
-        // Mensaje claro: distingue email no existe vs contraseña incorrecta
-        const exists = users.find(u => u.email.toLowerCase() === normalized);
-        if (!exists) throw new Error('No existe ninguna cuenta con ese email.');
-        throw new Error('Contraseña incorrecta.');
-      }
-      return { user: this._publicUser(user), token: 'demo-'+user.id };
+    await this.init();
+    if (USE_FIREBASE && this._db) {
+      const cred = await this._fb.signInWithEmailAndPassword(this._auth, email, password)
+        .catch(err => {
+          if (err.code === 'auth/user-not-found') throw new Error('No existe ninguna cuenta con ese email.');
+          if (err.code === 'auth/wrong-password') throw new Error('Contraseña incorrecta.');
+          if (err.code === 'auth/invalid-credential') throw new Error('Email o contraseña incorrectos.');
+          throw new Error('Error al iniciar sesión. Inténtalo de nuevo.');
+        });
+      const uid = cred.user.uid;
+      const snap = await this._fb.getDoc(this._fb.doc(this._db, 'users', uid));
+      const userData = snap.exists() ? snap.data() : { id: uid, email, plan: 'free', botActive: false };
+      const token = await cred.user.getIdToken();
+      return { user: userData, token };
     }
-    const res = await fetch(`${API_BASE}/api/auth/login`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({email,password})
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(()=>({}));
-      throw new Error(err.message || 'Email o contraseña incorrectos');
-    }
-    return res.json();
+    // Modo localStorage
+    const users = JSON.parse(localStorage.getItem('omnira_users')||'[]');
+    const norm = email.toLowerCase().trim();
+    const exists = users.find(u => u.email.toLowerCase() === norm);
+    if (!exists) throw new Error('No existe ninguna cuenta con ese email.');
+    if (exists.password !== password) throw new Error('Contraseña incorrecta.');
+    return { user: this._pub(exists), token: 'demo-'+exists.id };
   },
 
   async getMe() {
-    // Re-valida la sesión al volver — útil para detectar tokens caducados
-    if (!API_BASE) {
-      const session = JSON.parse(localStorage.getItem('omnira_session')||'{}');
-      if (!session.user) throw new Error('No hay sesión');
-      // Verificar que el usuario todavía existe en localStorage (modo demo)
-      const users = JSON.parse(localStorage.getItem('omnira_users')||'[]');
-      const fresh = users.find(u => u.id === session.user.id);
-      if (!fresh) throw new Error('Sesión inválida');
-      return { user: this._publicUser(fresh) };
+    await this.init();
+    if (USE_FIREBASE && this._db && this._auth?.currentUser) {
+      const uid = this._auth.currentUser.uid;
+      const snap = await this._fb.getDoc(this._fb.doc(this._db, 'users', uid));
+      return { user: snap.data() };
     }
-    const res = await fetch(`${API_BASE}/api/auth/me`, { headers: this._h() });
-    if (!res.ok) throw new Error('Sesión expirada');
-    return res.json();
+    // Modo localStorage: refresca datos del usuario desde el store
+    const session = JSON.parse(localStorage.getItem('omnira_session')||'{}');
+    if (!session.user) throw new Error('No hay sesión');
+    const users = JSON.parse(localStorage.getItem('omnira_users')||'[]');
+    const fresh = users.find(u => u.id === session.user.id);
+    if (!fresh) throw new Error('Sesión inválida');
+    return { user: this._pub(fresh) };
   },
 
   async logout() {
+    await this.init();
     localStorage.removeItem('omnira_session');
-    if (API_BASE) {
-      try { await fetch(`${API_BASE}/api/auth/logout`,{method:'POST',headers:this._h()}); } catch(e){}
+    if (USE_FIREBASE && this._auth) {
+      try { await this._fb.signOut(this._auth); } catch(e) {}
     }
   },
 
-  // ─── DASHBOARD ───
+  /* ─── PLANES ─── */
+  getUserPlan(user) {
+    return user?.plan || 'free';
+  },
+  async getMonthlyEventCount(user) {
+    const events = await this.getEvents();
+    const now = new Date();
+    return events.filter(e => {
+      const d = new Date(e.datetime || e.createdAt);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+             && e.source === 'manual';
+    }).length;
+  },
+  async canAddEvent(user) {
+    const plan = this.getUserPlan(user);
+    const limit = PLAN_LIMITS[plan]?.eventsPerMonth || 30;
+    if (limit === Infinity) return { ok: true };
+    const count = await this.getMonthlyEventCount(user);
+    return { ok: count < limit, count, limit };
+  },
+
+  /* ─── DASHBOARD ─── */
   async getDashboard() {
-    if (!API_BASE) {
-      const events = this._localEvents();
-      const now = new Date();
-      const month = now.getMonth();
-      const year = now.getFullYear();
-      const reservasMes = events.filter(e => {
-        const d = new Date(e.datetime);
-        return d.getMonth() === month && d.getFullYear() === year;
-      }).length;
-      return {
-        stats: {
-          reservas: reservasMes,
-          mensajes: 0,
-          respuesta: '2s',
-          valoracion: '4.9'
-        },
-        recentReservations: events
-          .filter(e => new Date(e.datetime) >= new Date())
-          .sort((a,b) => new Date(a.datetime) - new Date(b.datetime))
-          .slice(0,4),
-        recentConversations: [],
-        botStatus: 'active',
-        plan: { name: 'Mensual', price: 99, currency: 'EUR' }
-      };
-    }
-    const res = await fetch(`${API_BASE}/api/dashboard`,{headers:this._h()});
-    return res.json();
+    await this.init();
+    const events = await this.getEvents();
+    const now = new Date();
+    const m = now.getMonth(); const y = now.getFullYear();
+    const reservasMes = events.filter(e => {
+      const d = new Date(e.datetime);
+      return d.getMonth() === m && d.getFullYear() === y;
+    }).length;
+    const upcoming = events
+      .filter(e => new Date(e.datetime) >= now)
+      .sort((a,b) => new Date(a.datetime)-new Date(b.datetime));
+    return {
+      stats: { reservas: reservasMes, mensajes: 0, respuesta: '2s', valoracion: '4.9' },
+      recentReservations: upcoming.slice(0, 4),
+      recentConversations: [],
+    };
   },
 
-  // ─── CALENDARIO Y RESERVAS ───
-  async getEvents(filters={}) {
-    if (!API_BASE) return this._localEvents();
-    const params = new URLSearchParams(filters);
-    const res = await fetch(`${API_BASE}/api/events?${params}`,{headers:this._h()});
-    return res.json();
+  /* ─── EVENTOS ─── */
+  async getEvents() {
+    await this.init();
+    if (USE_FIREBASE && this._db) {
+      const uid = this._auth?.currentUser?.uid;
+      if (!uid) return [];
+      const q = this._fb.query(
+        this._fb.collection(this._db, 'events'),
+        this._fb.where('userId', '==', uid)
+      );
+      const snap = await this._fb.getDocs(q);
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+    return JSON.parse(localStorage.getItem('omnira_events_'+this._uid())||'[]');
   },
-  async saveEvent(ev) {
-    if (!API_BASE) {
-      const all = this._localEvents();
+
+  async saveEvent(ev, user) {
+    await this.init();
+    // Comprobar límite del plan antes de crear
+    if (!ev.id) {
+      const check = await this.canAddEvent(user);
+      if (!check.ok) {
+        throw new Error(`Has alcanzado el límite de ${check.limit} reservas/mes del plan gratuito. Actualiza a Pro para reservas ilimitadas.`);
+      }
+    }
+    if (USE_FIREBASE && this._db) {
+      const uid = this._auth?.currentUser?.uid;
       if (ev.id) {
-        const idx = all.findIndex(e => e.id === ev.id);
-        if (idx >= 0) all[idx] = { ...all[idx], ...ev, updatedAt: new Date().toISOString() };
+        const ref = this._fb.doc(this._db, 'events', ev.id);
+        await this._fb.updateDoc(ref, { ...ev, updatedAt: this._fb.serverTimestamp() });
+        return ev;
       } else {
-        ev.id = 'ev_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+        ev.userId = uid;
         ev.source = ev.source || 'manual';
         ev.status = ev.status || 'confirmed';
         ev.createdAt = new Date().toISOString();
-        all.push(ev);
+        const ref = await this._fb.addDoc(this._fb.collection(this._db, 'events'), ev);
+        return { ...ev, id: ref.id };
       }
-      localStorage.setItem('omnira_events_'+this._uid(), JSON.stringify(all));
-      return ev;
     }
-    const method = ev.id ? 'PUT' : 'POST';
-    const url = ev.id ? `${API_BASE}/api/events/${ev.id}` : `${API_BASE}/api/events`;
-    const res = await fetch(url,{method,headers:this._h(),body:JSON.stringify(ev)});
-    if (!res.ok) throw new Error('Error al guardar la cita');
-    return res.json();
-  },
-  async deleteEvent(id) {
-    if (!API_BASE) {
-      const all = this._localEvents().filter(e => e.id !== id);
-      localStorage.setItem('omnira_events_'+this._uid(), JSON.stringify(all));
-      return { success:true };
+    // localStorage
+    const all = JSON.parse(localStorage.getItem('omnira_events_'+this._uid())||'[]');
+    if (ev.id) {
+      const idx = all.findIndex(e => e.id === ev.id);
+      if (idx >= 0) all[idx] = { ...all[idx], ...ev, updatedAt: new Date().toISOString() };
+    } else {
+      ev.id = 'ev_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+      ev.source = ev.source || 'manual';
+      ev.status = ev.status || 'confirmed';
+      ev.createdAt = new Date().toISOString();
+      all.push(ev);
     }
-    const res = await fetch(`${API_BASE}/api/events/${id}`,{method:'DELETE',headers:this._h()});
-    if (!res.ok) throw new Error('Error al eliminar la cita');
-    return res.json();
+    localStorage.setItem('omnira_events_'+this._uid(), JSON.stringify(all));
+    return ev;
   },
 
-  // ─── DATOS DEL NEGOCIO ───
+  async deleteEvent(id) {
+    await this.init();
+    if (USE_FIREBASE && this._db) {
+      await this._fb.deleteDoc(this._fb.doc(this._db, 'events', id));
+      return { success: true };
+    }
+    const all = JSON.parse(localStorage.getItem('omnira_events_'+this._uid())||'[]')
+      .filter(e => e.id !== id);
+    localStorage.setItem('omnira_events_'+this._uid(), JSON.stringify(all));
+    return { success: true };
+  },
+
+  /* ─── NEGOCIO ─── */
   async getBusiness() {
-    if (!API_BASE) return JSON.parse(localStorage.getItem('omnira_business_'+this._uid())||'{}');
-    const res = await fetch(`${API_BASE}/api/business`,{headers:this._h()});
-    return res.json();
+    await this.init();
+    if (USE_FIREBASE && this._db) {
+      const uid = this._auth?.currentUser?.uid;
+      const snap = await this._fb.getDoc(this._fb.doc(this._db, 'business', uid));
+      return snap.exists() ? snap.data() : {};
+    }
+    return JSON.parse(localStorage.getItem('omnira_business_'+this._uid())||'{}');
   },
   async saveBusiness(data) {
-    if (!API_BASE) {
-      localStorage.setItem('omnira_business_'+this._uid(), JSON.stringify({
-        ...data, updatedAt: new Date().toISOString()
-      }));
-      return { success:true };
+    await this.init();
+    const payload = { ...data, updatedAt: new Date().toISOString() };
+    if (USE_FIREBASE && this._db) {
+      const uid = this._auth?.currentUser?.uid;
+      await this._fb.setDoc(this._fb.doc(this._db, 'business', uid), payload, { merge: true });
+      return { success: true };
     }
-    const res = await fetch(`${API_BASE}/api/business`,{
-      method:'PUT', headers:this._h(), body:JSON.stringify(data)
-    });
-    if (!res.ok) throw new Error('Error al guardar los datos del negocio');
-    return res.json();
+    localStorage.setItem('omnira_business_'+this._uid(), JSON.stringify(payload));
+    return { success: true };
   },
 
-  // ─── CONFIG DEL BOT ───
+  /* ─── BOT ─── */
   async getBot() {
-    if (!API_BASE) return JSON.parse(localStorage.getItem('omnira_bot_'+this._uid())||'{}');
-    const res = await fetch(`${API_BASE}/api/bot`,{headers:this._h()});
-    return res.json();
+    await this.init();
+    if (USE_FIREBASE && this._db) {
+      const uid = this._auth?.currentUser?.uid;
+      const snap = await this._fb.getDoc(this._fb.doc(this._db, 'bot', uid));
+      return snap.exists() ? snap.data() : {};
+    }
+    return JSON.parse(localStorage.getItem('omnira_bot_'+this._uid())||'{}');
   },
   async saveBot(data) {
-    if (!API_BASE) {
-      localStorage.setItem('omnira_bot_'+this._uid(), JSON.stringify({
-        ...data, updatedAt: new Date().toISOString()
-      }));
-      return { success:true };
+    await this.init();
+    const payload = { ...data, updatedAt: new Date().toISOString() };
+    if (USE_FIREBASE && this._db) {
+      const uid = this._auth?.currentUser?.uid;
+      await this._fb.setDoc(this._fb.doc(this._db, 'bot', uid), payload, { merge: true });
+      return { success: true };
     }
-    const res = await fetch(`${API_BASE}/api/bot`,{
-      method:'PUT', headers:this._h(), body:JSON.stringify(data)
-    });
-    if (!res.ok) throw new Error('Error al guardar la configuración del bot');
-    return res.json();
+    localStorage.setItem('omnira_bot_'+this._uid(), JSON.stringify(payload));
+    return { success: true };
   },
 
-  // ─── CONVERSACIONES ───
-  async getConversations() {
-    if (!API_BASE) return [];
-    const res = await fetch(`${API_BASE}/api/conversations`,{headers:this._h()});
-    return res.json();
-  },
-
-  // ─── FACTURACIÓN (Stripe) ───
-  async getBilling() {
-    if (!API_BASE) {
-      const next = new Date();
-      next.setMonth(next.getMonth() + 1);
-      return {
-        plan: { name: 'Mensual', price: 99, currency: 'EUR' },
-        nextBillingDate: next.toISOString(),
-        paymentMethod: { last4: '0000', brand: 'visa' },
-        invoices: []
-      };
-    }
-    const res = await fetch(`${API_BASE}/api/billing`,{headers:this._h()});
-    return res.json();
-  },
-  async getBillingPortalUrl() {
-    if (!API_BASE) return { url: '#' };
-    const res = await fetch(`${API_BASE}/api/billing/portal`,{
-      method:'POST', headers:this._h()
-    });
-    return res.json();
-  },
-
-  // ─── HELPERS PRIVADOS ───
-  _h() {
-    const s = JSON.parse(localStorage.getItem('omnira_session')||'{}');
-    return {'Content-Type':'application/json','Authorization':`Bearer ${s.token||''}`};
-  },
+  /* ─── HELPERS ─── */
   _uid() {
     const s = JSON.parse(localStorage.getItem('omnira_session')||'{}');
     return s.user?.id || 'anon';
   },
-  _localEvents() {
-    return JSON.parse(localStorage.getItem('omnira_events_'+this._uid())||'[]');
-  },
-  _publicUser(u) {
-    // Devuelve solo los campos públicos (sin password)
+  _pub(u) {
     const { password, ...pub } = u;
     return pub;
   }
@@ -2912,7 +3046,152 @@ function escapeHtml(s){
     setTimeout(() => openClientPanel(panel), 100);
   }
 })();
+
+/* ─── THEME TOGGLE ─── */
+function toggleTheme(){
+  const isLight = document.documentElement.classList.toggle('light');
+  localStorage.setItem('omnira_theme', isLight ? 'light' : 'dark');
+}
+function initTheme(){
+  const saved = localStorage.getItem('omnira_theme');
+  if (saved) {
+    if (saved === 'light') document.documentElement.classList.add('light');
+  } else {
+    // Si no hay preferencia guardada, usar la del sistema
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+      document.documentElement.classList.add('light');
+    }
+  }
+}
+initTheme();
+
+/* ─── PLAN + UPGRADE LOGIC ─── */
+let currentPanelUser = null;
+
+function updatePlanUI(user) {
+  currentPanelUser = user;
+  const plan = user?.plan || 'free';
+  const isPro = plan === 'pro' || plan === 'Pro';
+
+  // Badge en sidebar
+  const badge = document.getElementById('panelPlanBadge');
+  if (badge) {
+    badge.className = isPro ? 'plan-badge-pro' : 'plan-badge-free';
+    badge.innerHTML = `<span class="plan-badge-dot"></span>${isPro ? 'Pro' : 'Gratis'}`;
+  }
+
+  // Bot status (solo pro)
+  const botBadge = document.getElementById('botStatusBadge');
+  if (botBadge) botBadge.style.display = isPro && user.botActive ? 'inline-flex' : 'none';
+
+  // Upgrade banner (solo free)
+  const banner = document.getElementById('upgradeBanner');
+  if (banner) banner.style.display = isPro ? 'none' : 'flex';
+
+  // Limit bar (solo free)
+  updateLimitBar(user);
+}
+
+async function updateLimitBar(user) {
+  const plan = user?.plan || 'free';
+  const isPro = plan === 'pro';
+  const wrap = document.getElementById('limitBarWrap');
+  if (!wrap) return;
+  if (isPro) { wrap.style.display = 'none'; return; }
+
+  const limit = PLAN_LIMITS.free.eventsPerMonth;
+  const count = await panelApi.getMonthlyEventCount(user).catch(()=>0);
+  wrap.style.display = 'block';
+  document.getElementById('limitBarText').textContent = `${count} / ${limit}`;
+  const pct = Math.min(100, (count/limit)*100);
+  const fill = document.getElementById('limitBarFill');
+  fill.style.width = pct + '%';
+  fill.className = 'limit-bar-fill' + (pct >= 100 ? ' full' : pct >= 80 ? ' warn' : '');
+}
+
+function openUpgradeModal() {
+  document.getElementById('upgradeModal').classList.add('active');
+}
+function closeUpgradeModal() {
+  document.getElementById('upgradeModal').classList.remove('active');
+}
+
+/* ─── OVERRIDE handleSaveEvent to pass user ─── */
+const _origHandleSaveEvent = handleSaveEvent;
+async function handleSaveEvent(e){
+  e.preventDefault();
+  const id = document.getElementById('eventId').value;
+  const date = document.getElementById('eventDate').value;
+  const time = document.getElementById('eventTime').value;
+  const ev = {
+    name: document.getElementById('eventName').value,
+    datetime: `${date}T${time}:00`,
+    service: document.getElementById('eventService').value,
+    phone: document.getElementById('eventPhone').value,
+    notes: document.getElementById('eventNotes').value,
+    source: 'manual',
+    status: 'confirmed'
+  };
+  if (id) ev.id = id;
+  try {
+    await panelApi.saveEvent(ev, currentPanelUser);
+    closeEventModal();
+    renderCalendar();
+    loadPanelData();
+    updateLimitBar(currentPanelUser);
+    showPanelToast(id ? 'Reserva actualizada' : 'Reserva creada', 'success');
+  } catch(err) {
+    if (err.message.includes('límite')) {
+      closeEventModal();
+      openUpgradeModal();
+    }
+    showPanelToast(err.message, 'error');
+  }
+}
+
+/* ─── OVERRIDE enterPanelDashboard to pass user to plan UI ─── */
+const _origEnterDash = enterPanelDashboard;
+function enterPanelDashboard(user){
+  _origEnterDash(user);
+  updatePlanUI(user);
+}
 </script>
+
+<!-- MODAL UPGRADE -->
+<div id="upgradeModal" class="modal-overlay" style="z-index:10002;">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Activa el bot de WhatsApp</h3>
+      <button class="modal-close" onclick="closeUpgradeModal()">×</button>
+    </div>
+    <p style="font-size:13px;color:var(--soft);line-height:1.7;margin-bottom:20px;">
+      Con Omnira Pro, tu negocio responde automáticamente a cada mensaje, confirma citas y gestiona tu agenda <strong style="color:var(--text);">24/7 sin esfuerzo</strong>.
+    </p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+      <div class="panel-card" style="padding:16px;text-align:center;">
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Mensual</div>
+        <div style="font-family:'Playfair Display',serif;font-size:32px;font-weight:700;color:var(--text);">99€</div>
+        <div style="font-size:11px;color:var(--muted);">/mes</div>
+        <a href="https://wa.me/+34628072072?text=Quiero%20contratar%20Omnira%20Pro%20mensual" target="_blank" class="btn-save" style="display:flex;justify-content:center;margin-top:14px;width:100%;text-decoration:none;">Contratar</a>
+      </div>
+      <div class="panel-card" style="padding:16px;text-align:center;border-color:var(--em);background:rgba(0,224,150,0.05);">
+        <div style="font-size:11px;color:var(--em);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">⚡ Semestral</div>
+        <div style="font-family:'Playfair Display',serif;font-size:32px;font-weight:700;color:var(--text);">81€</div>
+        <div style="font-size:11px;color:var(--muted);">/mes · Total 480€</div>
+        <div style="font-size:10px;color:var(--em);margin-top:4px;">Ahorras 114€</div>
+        <a href="https://wa.me/+34628072072?text=Quiero%20contratar%20Omnira%20Pro%20semestral" target="_blank" class="btn-save" style="display:flex;justify-content:center;margin-top:10px;width:100%;text-decoration:none;">Contratar</a>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--soft);margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:700;">✓</span> Bot responde por WhatsApp 24/7</div>
+      <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:700;">✓</span> Reservas ilimitadas en el calendario</div>
+      <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:700;">✓</span> Recordatorios automáticos</div>
+      <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:700;">✓</span> Panel de control completo</div>
+      <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:700;">✓</span> 14 días de prueba gratis</div>
+    </div>
+    <button class="btn-cancel" onclick="closeUpgradeModal()" style="width:100%;">Ahora no, seguir con plan gratis</button>
+  </div>
+</div>
 
 </body>
 </html>
