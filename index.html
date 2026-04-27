@@ -63,6 +63,37 @@ fbq("track", "PageView");
   html.light footer { background: #EAF0F6; border-color: rgba(0,0,0,0.08); }
   html.light .footer-copy { border-color: rgba(0,0,0,0.08); }
   html.light .nav-logo span, html.light .footer-row .nav-logo span { color: var(--text); }
+  html.light nav .nav-logo span { color: #1A202C !important; }
+  html.light .nav-cta a.plain { color: #4A5568; }
+  html.light .nav-cta a.plain:hover { color: #1A202C; }
+  html.light .btn-outline { border-color: rgba(0,0,0,0.2); color: #1A202C; background: transparent; }
+  html.light .btn-outline:hover { border-color: var(--em); background: rgba(0,168,107,0.06); color: var(--em); }
+  html.light .plan-price-num { color: #1A202C !important; }
+  html.light .plan-price-num.featured-num { color: #fff !important; }
+  html.light .plan-label { color: #4A5568; }
+  html.light .plan-save { background: rgba(0,168,107,0.12); color: var(--em); border-color: rgba(0,168,107,0.3); }
+  html.light .plan-total { color: #4A5568; }
+  html.light .plan-cta { color: #1A202C; font-weight: 600; }
+  html.light .plan-cta:hover { color: var(--em); }
+  html.light .plan-footer { color: #8A9BB0; }
+  html.light .check-text { color: #1A202C; }
+  html.light .section-eyebrow { color: var(--em); }
+  html.light .hero-title { color: #1A202C; }
+  html.light .hero-sub { color: #4A5568; }
+  html.light .problem-card { background: rgba(255,255,255,0.95); }
+  html.light .step-num { color: var(--em); }
+  html.light .step-title { color: #1A202C; }
+  html.light .step-desc { color: #4A5568; }
+  html.light .faq-q { color: #1A202C; }
+  html.light .faq-a { color: #4A5568; }
+  html.light .price-curr { color: var(--em); }
+  html.light .mobile-menu { background: rgba(244,247,250,0.98); border-color: rgba(0,0,0,0.08); }
+  html.light .mobile-menu a { color: #4A5568; }
+  html.light .mobile-menu a:hover { color: #1A202C; }
+  html.light .hamburger span { background: #1A202C; }
+  html.light .badge-pill { background: rgba(0,168,107,0.1); color: var(--em); border-color: rgba(0,168,107,0.2); }
+  html.light .cta-section { background: rgba(0,168,107,0.05); }
+  html.light .trust-item { color: #4A5568; }
   html.light .hero-dots { opacity: 0.4; }
   html.light .badge { background: rgba(0,168,107,0.08); border-color: rgba(0,168,107,0.2); }
   html.light .section-label { color: var(--em); }
@@ -263,13 +294,13 @@ fbq("track", "PageView");
     box-shadow: 0 0 14px var(--em-glow);
   }
   .nav-logo-icon svg { width: 14px; height: 14px; fill: var(--ink); }
-  .nav-logo span { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 600; color: #fff; }
+  .nav-logo span { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 600; color: #fff; transition: color 0.2s; }
   .nav-links { display: flex; align-items: center; gap: 32px; }
   .nav-links a { font-size: 13px; color: var(--muted); text-decoration: none; transition: color .2s; }
   .nav-links a:hover { color: var(--text); }
   .nav-cta { display: flex; align-items: center; gap: 14px; }
   .nav-cta a.plain { font-size: 13px; color: var(--soft); text-decoration: none; transition: color .2s; }
-  .nav-cta a.plain:hover { color: #fff; }
+  .nav-cta a.plain:hover { color: var(--text); }
   .hamburger { display: none; flex-direction: column; gap: 5px; cursor: pointer; padding: 4px; }
   .hamburger span { display: block; width: 22px; height: 1.5px; background: var(--text); transition: all .3s; }
   .mobile-menu {
@@ -570,7 +601,7 @@ fbq("track", "PageView");
   .plan-header.has-ribbon { padding-top: 44px; }
   .plan-name { font-size: 12px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 10px; }
   .plan-price { display: flex; align-items: baseline; gap: 3px; margin-bottom: 4px; }
-  .plan-price-num { font-family: 'Playfair Display', serif; font-size: 52px; font-weight: 700; color: var(--text); line-height: 1; }
+  .plan-price-num { font-family: 'Playfair Display', serif; font-size: 52px; font-weight: 700; color: var(--text); line-height: 1; transition: color 0.2s; }
   .plan-price-num.featured-num { font-size: 62px; color: #fff; }
   .plan-currency { font-size: 22px; font-weight: 600; color: var(--em); line-height: 1; align-self: flex-start; padding-top: 8px; }
   .plan-period { font-size: 13px; color: var(--muted); align-self: flex-end; padding-bottom: 6px; }
