@@ -702,7 +702,7 @@ window.addEventListener('load', () => {
 });
 
 // ── AUTH ──────────────────────────────────────
-const ADMIN_API = ''; // ← Pega aquí la URL del backend: 'https://omnira-backend.up.railway.app'
+const ADMIN_API = 'https://remarkable-emotion-production-605f.up.railway.app'; // Backend Railway
 
 async function adminApiCall(path, options={}) {
   const session = JSON.parse(localStorage.getItem('omnira_admin_session')||'{}');
