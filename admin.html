@@ -702,6 +702,18 @@ window.addEventListener('load', () => {
 });
 
 // ── AUTH ──────────────────────────────────────
+const ADMIN_API = ''; // ← Pega aquí la URL del backend: 'https://omnira-backend.up.railway.app'
+
+async function adminApiCall(path, options={}) {
+  const session = JSON.parse(localStorage.getItem('omnira_admin_session')||'{}');
+  const headers = { 'Content-Type': 'application/json' };
+  if (session.token) headers['Authorization'] = `Bearer ${session.token}`;
+  const res = await fetch((ADMIN_API || '') + path, { ...options, headers: { ...headers, ...options.headers } });
+  const json = await res.json().catch(()=>({message:'Error del servidor'}));
+  if (!res.ok) throw new Error(json.message || 'Error');
+  return json;
+}
+
 async function handleAdminLogin(e){
   e.preventDefault();
   const btn = document.getElementById('loginBtn');
@@ -710,15 +722,29 @@ async function handleAdminLogin(e){
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner" style="margin:0 auto;"></div>';
   try {
-    const user = document.getElementById('adminUser').value.trim();
-    const pass = document.getElementById('adminPass').value;
-    const admin = await OmniraDB.loginAdmin(user, pass);
-    _adminSession = admin;
-    localStorage.setItem('omnira_admin_session', JSON.stringify({ username: admin.username, ts: Date.now() }));
+    const username = document.getElementById('adminUser').value.trim();
+    const password = document.getElementById('adminPass').value;
+    let token, adminData;
+    if (ADMIN_API) {
+      const res = await fetch(`${ADMIN_API}/api/admin/login`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || 'Credenciales incorrectas');
+      token = json.token;
+      adminData = { username: json.username, token };
+    } else {
+      // Fallback: OmniraDB local
+      adminData = await OmniraDB.loginAdmin(username, password);
+      token = 'local-admin-' + Date.now();
+    }
+    _adminSession = adminData;
+    localStorage.setItem('omnira_admin_session', JSON.stringify({ username, token, ts: Date.now() }));
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('adminPanel').classList.add('active');
-    document.getElementById('adminName').textContent = admin.name || admin.username;
-    document.getElementById('adminAvatar').textContent = (admin.name || admin.username)[0].toUpperCase();
+    document.getElementById('adminName').textContent = username;
+    document.getElementById('adminAvatar').textContent = username[0].toUpperCase();
     loadAllData();
   } catch(ex){
     err.textContent = ex.message;
@@ -771,7 +797,13 @@ async function loadAllData(){
 }
 
 async function loadOverview(){
-  const stats = await OmniraDB.getGlobalStats();
+  let stats;
+  if (ADMIN_API) {
+    stats = await adminApiCall('/api/admin/stats').catch(()=>null);
+    if (!stats) stats = { totalUsers:0, proUsers:0, freeUsers:0, activeUsers:0, monthlyEvents:0, monthlyRevenue:0 };
+  } else {
+    stats = await OmniraDB.getGlobalStats();
+  }
   document.getElementById('s-total').textContent = stats.totalUsers;
   document.getElementById('s-pro').textContent = stats.proUsers;
   document.getElementById('s-events').textContent = stats.monthlyEvents;
@@ -825,7 +857,11 @@ async function loadOverview(){
 }
 
 async function loadClients(){
-  _allClients = await OmniraDB.getUsers();
+  if (ADMIN_API) {
+    _allClients = await adminApiCall('/api/admin/users').catch(()=>[]);
+  } else {
+    _allClients = await OmniraDB.getUsers();
+  }
   renderClientsTable(_allClients);
 }
 
@@ -874,7 +910,12 @@ function filterClients(q){
 }
 
 async function loadAllEvents(){
-  const events = await OmniraDB.getAllEvents();
+  let events;
+  if (ADMIN_API) {
+    events = await adminApiCall('/api/admin/events').catch(()=>[]);
+  } else {
+    events = await OmniraDB.getAllEvents();
+  }
   const tbody = document.getElementById('allEventsBody');
   if (!events.length){
     tbody.innerHTML = '<tr><td colspan="6"><div class="empty"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/></svg><p>Sin reservas</p></div></td></tr>';
@@ -979,7 +1020,15 @@ async function handleSaveClient(e){
   if (!id) { userData.createdAt = new Date().toISOString(); }
 
   try {
-    await OmniraDB.saveUser(userData);
+    if (ADMIN_API) {
+      if (id) {
+        await adminApiCall(`/api/admin/users/${id}`, { method: 'PUT', body: JSON.stringify(userData) });
+      } else {
+        await adminApiCall('/api/admin/users', { method: 'POST', body: JSON.stringify({ ...userData, password: document.getElementById('cPassword').value }) });
+      }
+    } else {
+      await OmniraDB.saveUser(userData);
+    }
     closeClientModal();
     await loadClients();
     await loadOverview();
@@ -992,7 +1041,11 @@ async function handleSaveClient(e){
 async function handleDeleteClient(){
   if (!_currentClientId) return;
   if (!confirm('¿Eliminar este cliente y todos sus datos? Esta acción no se puede deshacer.')) return;
-  await OmniraDB.deleteUser(_currentClientId);
+  if (ADMIN_API) {
+    await adminApiCall(`/api/admin/users/${_currentClientId}`, { method: 'DELETE' }).catch(()=>{});
+  } else {
+    await OmniraDB.deleteUser(_currentClientId);
+  }
   closeClientModal();
   await loadClients();
   await loadOverview();
@@ -1034,17 +1087,25 @@ async function openDetail(id){
 
 // ── QUICK ACTIONS ────────────────────────────
 async function toggleBot(id, active){
-  const u = await OmniraDB.getUserById(id);
-  if (!u) return;
-  await OmniraDB.saveUser({ ...u, botActive: active });
+  if (ADMIN_API) {
+    await adminApiCall(`/api/admin/users/${id}`, { method: 'PUT', body: JSON.stringify({ botActive: active }) });
+  } else {
+    const u = await OmniraDB.getUserById(id);
+    if (!u) return;
+    await OmniraDB.saveUser({ ...u, botActive: active });
+  }
   await loadClients();
   showToast('Bot ' + (active ? 'activado' : 'desactivado'));
 }
 
 async function togglePlan(id, plan){
-  const u = await OmniraDB.getUserById(id);
-  if (!u) return;
-  await OmniraDB.saveUser({ ...u, plan, botActive: plan === 'pro' ? true : u.botActive });
+  if (ADMIN_API) {
+    await adminApiCall(`/api/admin/users/${id}`, { method: 'PUT', body: JSON.stringify({ plan, botActive: plan === 'pro' }) });
+  } else {
+    const u = await OmniraDB.getUserById(id);
+    if (!u) return;
+    await OmniraDB.saveUser({ ...u, plan, botActive: plan === 'pro' ? true : u.botActive });
+  }
   await loadClients();
   await loadOverview();
   showToast('Plan cambiado a ' + (plan === 'pro' ? 'Pro' : 'Gratis'));

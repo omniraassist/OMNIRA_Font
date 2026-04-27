@@ -2471,245 +2471,231 @@ fbq('track', 'PageView');
    - Twilio se activa/desactiva según user.botActive
    ═══════════════════════════════════════════════════════════ */
 
-const API_BASE = ''; // ← URL backend alternativo (si no usas Firebase directamente)
+const API_BASE = ''; // ← Pega aquí la URL del backend cuando lo despliegues
+                      //   Ej: 'https://omnira-backend.up.railway.app'
 
 /* Límites por plan */
-const PLAN_LIMITS = {
-  free: { eventsPerMonth: 30, label: 'Gratis' },
-  pro:  { eventsPerMonth: Infinity, label: 'Pro' },
-};
+const PLAN_LIMITS = { free: 30, pro: Infinity };
 
 const panelApi = {
-  _db: null,
-  _auth: null,
-
   /* ─── AUTH ─── */
   async register(data) {
-    await this.init();
-    if (USE_FIREBASE && this._db) {
-      const cred = await this._fb.createUserWithEmailAndPassword(this._auth, data.email, data.password);
-      const uid = cred.user.uid;
-      const userData = {
-        id: uid,
-        businessName: data.businessName,
-        email: data.email.toLowerCase().trim(),
-        phone: data.phone || '',
-        plan: 'free',
-        botActive: false,
-        status: 'active',
-        createdAt: new Date().toISOString()
-      };
-      await this._fb.setDoc(this._fb.doc(this._db, 'users', uid), userData);
-      const token = await cred.user.getIdToken();
-      return { user: userData, token };
+    if (API_BASE) {
+      const res = await fetch(`${API_BASE}/api/auth/register`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || 'Error al crear la cuenta');
+      return json;
     }
-    // Firebase Auth + Firestore
+    // Firebase directo (sin backend)
+    if (OmniraDB.isFirebaseReady()) {
+      const userData = {
+        businessName: data.businessName,
+        phone: data.phone || '',
+        plan: 'free', botActive: false, status: 'active',
+      };
+      return await OmniraDB.firebaseRegister(data.email.toLowerCase().trim(), data.password, userData);
+    }
+    // Fallback local encriptado
     const norm = data.email.toLowerCase().trim();
-    return await OmniraDB.registerWithFirebase(norm, data.password, {
-      businessName: data.businessName,
-      email: norm,
-      phone: data.phone || '',
-      plan: 'free',
-      botActive: false,
-      status: 'active',
-    });
+    const existing = await OmniraDB.getUserByEmail(norm);
+    if (existing) throw new Error('Ese email ya está registrado. ¿Quieres iniciar sesión?');
+    const user = {
+      id: 'user_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+      businessName: data.businessName, email: norm,
+      phone: data.phone || '', plan: 'free', botActive: false,
+      status: 'active', createdAt: new Date().toISOString()
+    };
+    await OmniraDB.saveUser(user);
+    return { user: this._pub(user), token: 'local-' + user.id };
   },
 
   async login(email, password) {
-    await this.init();
-    if (USE_FIREBASE && this._db) {
-      const cred = await this._fb.signInWithEmailAndPassword(this._auth, email, password)
-        .catch(err => {
-          if (err.code === 'auth/user-not-found') throw new Error('No existe ninguna cuenta con ese email.');
-          if (err.code === 'auth/wrong-password') throw new Error('Contraseña incorrecta.');
-          if (err.code === 'auth/invalid-credential') throw new Error('Email o contraseña incorrectos.');
-          throw new Error('Error al iniciar sesión. Inténtalo de nuevo.');
-        });
-      const uid = cred.user.uid;
-      const snap = await this._fb.getDoc(this._fb.doc(this._db, 'users', uid));
-      const userData = snap.exists() ? snap.data() : { id: uid, email, plan: 'free', botActive: false };
-      const token = await cred.user.getIdToken();
-      return { user: userData, token };
+    if (API_BASE) {
+      const res = await fetch(`${API_BASE}/api/auth/login`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || 'Email o contraseña incorrectos');
+      return json;
     }
-    // Firebase Auth
-    return await OmniraDB.loginWithFirebase(email.toLowerCase().trim(), password);
+    if (OmniraDB.isFirebaseReady()) {
+      return await OmniraDB.firebaseLogin(email.toLowerCase().trim(), password);
+    }
+    const norm = email.toLowerCase().trim();
+    const exists = await OmniraDB.getUserByEmail(norm);
+    if (!exists) throw new Error('No existe ninguna cuenta con ese email.');
+    const storedPass = await OmniraDB.getUserPassword(exists.id) || exists.password;
+    if (storedPass !== password) throw new Error('Contraseña incorrecta.');
+    return { user: this._pub(exists), token: 'local-' + exists.id };
   },
 
   async getMe() {
-    await this.init();
-    if (USE_FIREBASE && this._db && this._auth?.currentUser) {
-      const uid = this._auth.currentUser.uid;
-      const snap = await this._fb.getDoc(this._fb.doc(this._db, 'users', uid));
-      return { user: snap.data() };
+    if (API_BASE) {
+      const res = await fetch(`${API_BASE}/api/auth/me`, { headers: this._h() });
+      if (!res.ok) throw new Error('Sesión expirada');
+      return res.json();
     }
-    // Firebase: revalidar sesión actual
-    const fbUser = await OmniraDB.getCurrentFirebaseUser();
-    if (fbUser) {
-      const fresh = await OmniraDB.getUserById(fbUser.uid);
-      if (fresh) return { user: this._pub ? this._pub(fresh) : fresh };
-    }
-    // Fallback: sesión localStorage
-    const session = JSON.parse(localStorage.getItem('omnira_session')||'{}');
+    const session = JSON.parse(localStorage.getItem('omnira_session') || '{}');
     if (!session.user) throw new Error('No hay sesión');
+    if (OmniraDB.isFirebaseReady()) {
+      const fresh = await OmniraDB.getUserById(session.user.id);
+      if (!fresh) throw new Error('Sesión inválida');
+      return { user: fresh };
+    }
     const fresh = await OmniraDB.getUserById(session.user.id);
     if (!fresh) throw new Error('Sesión inválida');
-    return { user: fresh };
+    return { user: this._pub(fresh) };
   },
 
   async logout() {
-    await this.init();
     localStorage.removeItem('omnira_session');
-    await OmniraDB.logoutFirebase();
+    await OmniraDB.firebaseLogout().catch(() => {});
+    if (API_BASE) {
+      try { await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', headers: this._h() }); } catch(e) {}
+    }
   },
 
-  /* ─── PLANES ─── */
-  getUserPlan(user) {
-    return user?.plan || 'free';
-  },
-  async getMonthlyEventCount(user) {
-    const events = await this.getEvents();
-    const now = new Date();
-    return events.filter(e => {
-      const d = new Date(e.datetime || e.createdAt);
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-             && e.source === 'manual';
-    }).length;
-  },
-  async canAddEvent(user) {
-    const plan = this.getUserPlan(user);
-    const limit = PLAN_LIMITS[plan]?.eventsPerMonth || 30;
-    if (limit === Infinity) return { ok: true };
-    const count = await this.getMonthlyEventCount(user);
-    return { ok: count < limit, count, limit };
+  async forgotPassword(email) {
+    if (API_BASE) {
+      const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || 'Error al enviar el email');
+      return json;
+    }
+    if (OmniraDB.isFirebaseReady()) {
+      await OmniraDB.firebaseResetPassword(email);
+      return { message: 'Email enviado' };
+    }
+    // Fallback local: mostrar contraseña temporal
+    const user = await OmniraDB.getUserByEmail(email.toLowerCase().trim());
+    if (!user) throw new Error('No existe ninguna cuenta con ese email.');
+    const tempPass = Math.random().toString(36).slice(2, 10);
+    await OmniraDB.saveUser({ ...user, password: tempPass });
+    return { tempPass, demo: true };
   },
 
   /* ─── DASHBOARD ─── */
   async getDashboard() {
-    await this.init();
+    if (API_BASE) {
+      const res = await fetch(`${API_BASE}/api/dashboard`, { headers: this._h() });
+      return res.json();
+    }
     const events = await this.getEvents();
     const now = new Date();
-    const m = now.getMonth(); const y = now.getFullYear();
     const reservasMes = events.filter(e => {
       const d = new Date(e.datetime);
-      return d.getMonth() === m && d.getFullYear() === y;
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     }).length;
     const upcoming = events
       .filter(e => new Date(e.datetime) >= now)
-      .sort((a,b) => new Date(a.datetime)-new Date(b.datetime));
-    return {
-      stats: { reservas: reservasMes, mensajes: 0, respuesta: '2s', valoracion: '4.9' },
-      recentReservations: upcoming.slice(0, 4),
-      recentConversations: [],
-    };
+      .sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
+    return { stats: { reservas: reservasMes, mensajes: 0, respuesta: '2s', valoracion: '4.9' },
+      recentReservations: upcoming.slice(0, 4), recentConversations: [] };
   },
 
   /* ─── EVENTOS ─── */
   async getEvents() {
-    await this.init();
-    if (USE_FIREBASE && this._db) {
-      const uid = this._auth?.currentUser?.uid;
-      if (!uid) return [];
-      const q = this._fb.query(
-        this._fb.collection(this._db, 'events'),
-        this._fb.where('userId', '==', uid)
-      );
-      const snap = await this._fb.getDocs(q);
-      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (API_BASE) {
+      const res = await fetch(`${API_BASE}/api/events`, { headers: this._h() });
+      return res.json();
     }
     return await OmniraDB.getEvents(this._uid());
   },
 
   async saveEvent(ev, user) {
-    await this.init();
-    // Comprobar límite del plan antes de crear
     if (!ev.id) {
       const check = await this.canAddEvent(user);
-      if (!check.ok) {
-        throw new Error(`Has alcanzado el límite de ${check.limit} reservas/mes del plan gratuito. Actualiza a Pro para reservas ilimitadas.`);
-      }
+      if (!check.ok) throw new Error(`Has alcanzado el límite de ${check.limit} reservas/mes del plan gratuito.`);
     }
-    if (USE_FIREBASE && this._db) {
-      const uid = this._auth?.currentUser?.uid;
-      if (ev.id) {
-        const ref = this._fb.doc(this._db, 'events', ev.id);
-        await this._fb.updateDoc(ref, { ...ev, updatedAt: this._fb.serverTimestamp() });
-        return ev;
-      } else {
-        ev.userId = uid;
-        ev.source = ev.source || 'manual';
-        ev.status = ev.status || 'confirmed';
-        ev.createdAt = new Date().toISOString();
-        const ref = await this._fb.addDoc(this._fb.collection(this._db, 'events'), ev);
-        return { ...ev, id: ref.id };
+    if (API_BASE) {
+      const method = ev.id ? 'PUT' : 'POST';
+      const url = ev.id ? `${API_BASE}/api/events/${ev.id}` : `${API_BASE}/api/events`;
+      const res = await fetch(url, { method, headers: this._h(), body: JSON.stringify(ev) });
+      const json = await res.json();
+      if (!res.ok) {
+        if (json.limitReached) throw new Error(json.message);
+        throw new Error(json.message || 'Error al guardar la reserva');
       }
+      return json;
     }
-    // OmniraDB (encriptado)
     return await OmniraDB.saveEvent(this._uid(), ev);
   },
 
   async deleteEvent(id) {
-    await this.init();
-    if (USE_FIREBASE && this._db) {
-      await this._fb.deleteDoc(this._fb.doc(this._db, 'events', id));
-      return { success: true };
+    if (API_BASE) {
+      const res = await fetch(`${API_BASE}/api/events/${id}`, { method: 'DELETE', headers: this._h() });
+      if (!res.ok) throw new Error('Error al eliminar la reserva');
+      return res.json();
     }
     await OmniraDB.deleteEvent(this._uid(), id);
     return { success: true };
   },
 
+  async canAddEvent(user) {
+    const plan = user?.plan || 'free';
+    const limit = PLAN_LIMITS[plan] || 30;
+    if (limit === Infinity) return { ok: true };
+    const events = await this.getEvents();
+    const now = new Date();
+    const count = events.filter(e => {
+      const d = new Date(e.datetime || e.createdAt);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && e.source === 'manual';
+    }).length;
+    return { ok: count < limit, count, limit };
+  },
+
+  async getMonthlyEventCount(user) {
+    const res = await this.canAddEvent(user);
+    return res.count || 0;
+  },
+
   /* ─── NEGOCIO ─── */
   async getBusiness() {
-    await this.init();
-    if (USE_FIREBASE && this._db) {
-      const uid = this._auth?.currentUser?.uid;
-      const snap = await this._fb.getDoc(this._fb.doc(this._db, 'business', uid));
-      return snap.exists() ? snap.data() : {};
-    }
+    if (API_BASE) { const r = await fetch(`${API_BASE}/api/business`, { headers: this._h() }); return r.json(); }
     return await OmniraDB.getBusiness(this._uid());
   },
   async saveBusiness(data) {
-    await this.init();
-    const payload = { ...data, updatedAt: new Date().toISOString() };
-    if (USE_FIREBASE && this._db) {
-      const uid = this._auth?.currentUser?.uid;
-      await this._fb.setDoc(this._fb.doc(this._db, 'business', uid), payload, { merge: true });
-      return { success: true };
+    if (API_BASE) {
+      const r = await fetch(`${API_BASE}/api/business`, { method: 'PUT', headers: this._h(), body: JSON.stringify(data) });
+      if (!r.ok) throw new Error('Error al guardar');
+      return r.json();
     }
-    await OmniraDB.saveBusiness(this._uid(), payload);
+    await OmniraDB.saveBusiness(this._uid(), data);
     return { success: true };
   },
 
   /* ─── BOT ─── */
   async getBot() {
-    await this.init();
-    if (USE_FIREBASE && this._db) {
-      const uid = this._auth?.currentUser?.uid;
-      const snap = await this._fb.getDoc(this._fb.doc(this._db, 'bot', uid));
-      return snap.exists() ? snap.data() : {};
-    }
+    if (API_BASE) { const r = await fetch(`${API_BASE}/api/bot`, { headers: this._h() }); return r.json(); }
     return await OmniraDB.getBot(this._uid());
   },
   async saveBot(data) {
-    await this.init();
-    const payload = { ...data, updatedAt: new Date().toISOString() };
-    if (USE_FIREBASE && this._db) {
-      const uid = this._auth?.currentUser?.uid;
-      await this._fb.setDoc(this._fb.doc(this._db, 'bot', uid), payload, { merge: true });
-      return { success: true };
+    if (API_BASE) {
+      const r = await fetch(`${API_BASE}/api/bot`, { method: 'PUT', headers: this._h(), body: JSON.stringify(data) });
+      if (!r.ok) throw new Error('Error al guardar');
+      return r.json();
     }
-    await OmniraDB.saveBot(this._uid(), payload);
+    await OmniraDB.saveBot(this._uid(), data);
     return { success: true };
   },
 
   /* ─── HELPERS ─── */
+  _h() {
+    const s = JSON.parse(localStorage.getItem('omnira_session') || '{}');
+    return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.token || ''}` };
+  },
   _uid() {
-    const s = JSON.parse(localStorage.getItem('omnira_session')||'{}');
+    const s = JSON.parse(localStorage.getItem('omnira_session') || '{}');
     return s.user?.id || 'anon';
   },
-  _pub(u) {
-    const { password, ...pub } = u;
-    return pub;
-  }
+  _pub(u) { const { password, ...pub } = u; return pub; }
 };
 
 /* ─── PANEL OPEN/CLOSE ─── */
