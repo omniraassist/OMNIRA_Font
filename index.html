@@ -1084,145 +1084,81 @@ fbq('track', 'PageView');
 
     <div class="section-header reveal">
       <span class="section-label">Planes y precios</span>
-      <h2>Elige tu compromiso,<br><span class="gradient-text">cuanto más, más ahorras</span></h2>
-      <p>Todas las funcionalidades incluidas en cada plan. Solo eliges cuántos meses quieres disfrutar de Omnira.</p>
+      <h2>Simple y sin sorpresas.<br><span class="gradient-text">Cancela cuando quieras.</span></h2>
+      <p>Dos planes claros. Sin permanencia. Sin letra pequeña.</p>
     </div>
 
-    <!-- Toggle tabs -->
+    <!-- Toggle mensual / anual -->
     <div class="price-toggle-wrap reveal">
       <div class="price-toggle">
-        <button class="ptab active" onclick="switchPlan('1m',this)">1 mes</button>
-        <button class="ptab" onclick="switchPlan('3m',this)">3 meses</button>
-        <button class="ptab" onclick="switchPlan('6m',this)">6 meses</button>
-        <button class="ptab" onclick="switchPlan('12m',this)">12 meses</button>
+        <button class="ptab active" id="tab-monthly" onclick="setPricingMode('monthly')">Mensual</button>
+        <button class="ptab" id="tab-annual" onclick="setPricingMode('annual')">Anual <span style="font-size:11px;background:rgba(0,224,150,0.15);color:#00E096;padding:2px 7px;border-radius:4px;margin-left:4px;">−20%</span></button>
       </div>
     </div>
 
-    <!-- PLAN CARDS (todos visibles, 4 columnas) -->
-    <div class="plans-grid reveal" id="plans-grid">
+    <!-- DOS PLANES -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px;max-width:640px;margin:0 auto 40px;" class="reveal">
 
-      <!-- 1 MES -->
-      <div class="card plan-card active-plan" id="plan-1m">
-        <div class="plan-header">
-          <div class="plan-name">Mensual</div>
-          <div class="plan-price">
-            <span class="plan-currency">€</span>
-            <span class="plan-price-num">99</span>
-            <span class="plan-period">/mes</span>
-          </div>
-          <div class="plan-total" style="color:var(--muted);">Sin compromiso</div>
+      <!-- STARTER -->
+      <div class="card plan-card active-plan" style="padding:32px 28px;">
+        <div class="plan-name" style="font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;">Starter</div>
+        <div class="plan-price" style="margin-bottom:4px;">
+          <span class="plan-currency">€</span>
+          <span class="plan-price-num" id="price-starter">49</span>
+          <span class="plan-period">/mes</span>
         </div>
-        <div class="plan-body">
-          <div class="plan-feats">
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Respuestas ilimitadas</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Reservas 24/7</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>WhatsApp Business</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Panel de control</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Recordatorios auto.</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Soporte estándar</span></div>
-          </div>
-          <a href="https://buy.stripe.com/REPLACE_1M" class="plan-cta">Empezar ahora →</a>
-          <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px;">🔒 Pago seguro · Cancela cuando quieras</p>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:24px;" id="billing-starter">Facturado mensualmente</p>
+        <div class="plan-feats" style="margin-bottom:28px;">
+          <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Bot WhatsApp con IA</span></div>
+          <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Reservas automáticas 24/7</span></div>
+          <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Recordatorios automáticos</span></div>
+          <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Hasta 200 conversaciones/mes</span></div>
+          <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Soporte por email</span></div>
+          <div class="check-item" style="opacity:.45;"><div class="check-circle" style="border-color:rgba(255,255,255,0.15);"><svg viewBox="0 0 12 12" fill="none" stroke="var(--muted)" stroke-width="2"><line x1="3" y1="3" x2="9" y2="9"/><line x1="9" y1="3" x2="3" y2="9"/></svg></div><span>Panel de control</span></div>
+          <div class="check-item" style="opacity:.45;"><div class="check-circle" style="border-color:rgba(255,255,255,0.15);"><svg viewBox="0 0 12 12" fill="none" stroke="var(--muted)" stroke-width="2"><line x1="3" y1="3" x2="9" y2="9"/><line x1="9" y1="3" x2="3" y2="9"/></svg></div><span>Onboarding personalizado</span></div>
         </div>
+        <a href="https://wa.me/34628072072?text=Quiero%20el%20plan%20Starter%20de%20Omnira" target="_blank" class="plan-cta" style="display:block;text-align:center;padding:14px;border-radius:10px;border:1.5px solid rgba(255,255,255,0.15);font-weight:600;font-size:15px;color:var(--text);text-decoration:none;">Empezar ahora →</a>
+        <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px;">🔒 Sin permanencia · Cancela cuando quieras</p>
       </div>
 
-      <!-- 3 MESES -->
-      <div class="card plan-card active-plan" id="plan-3m">
-        <div class="plan-header">
-          <div class="saving-pill">✦ Ahorras 44€</div>
-          <div class="plan-name">Trimestral</div>
-          <div class="plan-price">
-            <span class="plan-currency">€</span>
-            <span class="plan-price-num">85</span>
-            <span class="plan-period">/mes</span>
-          </div>
-          <div class="plan-total">Total: <strong>253€</strong> · En lugar de 297€</div>
-        </div>
-        <div class="plan-body">
-          <div class="plan-feats">
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Todo del plan mensual</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Reservas 24/7</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>WhatsApp Business</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Panel de control</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Recordatorios auto.</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Soporte prioritario</span></div>
-          </div>
-          <a href="https://buy.stripe.com/REPLACE_3M" class="plan-cta">Empezar ahora →</a>
-          <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px;">🔒 Pago único trimestral</p>
-        </div>
-      </div>
-
-      <!-- 6 MESES — FEATURED -->
-      <div class="card-em plan-card active-plan featured animate-pulse-glow" id="plan-6m">
+      <!-- PRO — DESTACADO -->
+      <div class="card-em plan-card active-plan featured animate-pulse-glow" style="padding:32px 28px;position:relative;">
         <div class="plan-ribbon">⚡ Más popular</div>
-        <div class="plan-header has-ribbon">
-          <div class="saving-pill">✦ Ahorras 114€</div>
-          <div class="plan-name" style="color:var(--em);">Semestral</div>
-          <div class="plan-price">
-            <span class="plan-currency">€</span>
-            <span class="plan-price-num featured-num">81</span>
-            <span class="plan-period">/mes</span>
-          </div>
-          <div class="plan-total">Total: <strong>480€</strong> · En lugar de 594€</div>
+        <div class="plan-name" style="font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#00E096;margin-bottom:12px;margin-top:16px;">Pro</div>
+        <div class="plan-price" style="margin-bottom:4px;">
+          <span class="plan-currency">€</span>
+          <span class="plan-price-num featured-num" id="price-pro">99</span>
+          <span class="plan-period">/mes</span>
         </div>
-        <div class="plan-body">
-          <div class="plan-feats">
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Todo del plan mensual</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Reservas 24/7</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>WhatsApp Business</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Panel de control</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Recordatorios auto.</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Soporte prioritario VIP</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Onboarding personalizado</span></div>
-          </div>
-          <a href="https://buy.stripe.com/REPLACE_6M" class="plan-cta primary-cta">Empezar ahora →</a>
-          <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px;">🔒 Pago único semestral</p>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:24px;" id="billing-pro">Facturado mensualmente</p>
+        <div class="plan-feats" style="margin-bottom:28px;">
+          <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Todo lo del plan Starter</span></div>
+          <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Conversaciones ilimitadas</span></div>
+          <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Panel de control completo</span></div>
+          <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Google Calendar integrado</span></div>
+          <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Onboarding personalizado</span></div>
+          <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Soporte prioritario WhatsApp</span></div>
+          <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Configuración en 24h</span></div>
         </div>
+        <a href="https://wa.me/34628072072?text=Quiero%20el%20plan%20Pro%20de%20Omnira" target="_blank" class="plan-cta primary-cta" style="display:block;text-align:center;padding:14px;border-radius:10px;background:#00A86B;font-weight:600;font-size:15px;color:#fff;text-decoration:none;">Solicitar demo gratis →</a>
+        <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px;">🔒 Sin permanencia · Cancela cuando quieras</p>
       </div>
 
-      <!-- 12 MESES -->
-      <div class="card plan-card active-plan" id="plan-12m">
-        <div class="plan-header">
-          <div class="saving-pill hot">🔥 Máximo ahorro — 238€</div>
-          <div class="plan-name">Anual</div>
-          <div class="plan-price">
-            <span class="plan-currency">€</span>
-            <span class="plan-price-num">75</span>
-            <span class="plan-period">/mes</span>
-          </div>
-          <div class="plan-total">Total: <strong>900€</strong> · En lugar de 1.188€</div>
-        </div>
-        <div class="plan-body">
-          <div class="plan-feats">
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Todo del plan mensual</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Reservas 24/7</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>WhatsApp Business</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Panel de control</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Recordatorios auto.</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Soporte prioritario VIP</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#00E096" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span>Onboarding personalizado</span></div>
-            <div class="check-item"><div class="check-circle"><svg viewBox="0 0 12 12" fill="none" stroke="#FCD34D" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg></div><span style="color:#FCD34D;font-weight:500;">Consultoría mensual 1h</span></div>
-          </div>
-          <a href="https://buy.stripe.com/REPLACE_12M" class="plan-cta">Empezar ahora →</a>
-          <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px;">🔒 Pago único anual</p>
-        </div>
-      </div>
+    </div>
 
-    </div><!-- /plans-grid -->
-
-    <!-- Savings comparison bar -->
+    <!-- Barra de consejo -->
     <div class="card-em savings-bar reveal">
       <div class="savings-bar-left">
         <div class="savings-bar-icon">💡</div>
         <div>
-          <h3>¿Qué plan te conviene?</h3>
-          <p>Empieza mensual para probar. Si Omnira te funciona — y lo hará — cambia al anual y ahorra <strong style="color:var(--em);">hasta 238€ al año</strong>.</p>
+          <h3>¿No sabes cuál elegir?</h3>
+          <p>Empieza con Starter para probar. Cuando veas los resultados — y los verás — cambia a Pro con un clic y ahorra <strong style="color:var(--em);">240€ al año</strong> con el plan anual.</p>
         </div>
       </div>
-      <a href="#cta-final" class="btn-outline" style="white-space:nowrap;flex-shrink:0;">Solicitar demo gratis →</a>
+      <a href="#cta-final" class="btn-outline" style="white-space:nowrap;flex-shrink:0;">Hablar con nosotros →</a>
     </div>
 
-    <!-- Guarantee -->
+    <!-- Garantía -->
     <div class="guarantee">
       <div class="guarantee-inner">
         <span style="font-size:20px;">🛡️</span>
@@ -1232,6 +1168,18 @@ fbq('track', 'PageView');
 
   </div>
 </section>
+
+<script>
+function setPricingMode(mode) {
+  const isAnnual = mode === 'annual';
+  document.getElementById('price-starter').textContent = isAnnual ? '39' : '49';
+  document.getElementById('price-pro').textContent = isAnnual ? '79' : '99';
+  document.getElementById('billing-starter').textContent = isAnnual ? 'Facturado anualmente · 468€/año' : 'Facturado mensualmente';
+  document.getElementById('billing-pro').textContent = isAnnual ? 'Facturado anualmente · 948€/año' : 'Facturado mensualmente';
+  document.getElementById('tab-monthly').classList.toggle('active', !isAnnual);
+  document.getElementById('tab-annual').classList.toggle('active', isAnnual);
+}
+</script>
 
 <!-- CTA FINAL -->
 <section id="cta-final" style="padding:96px 0;background:linear-gradient(135deg,rgba(0,168,107,0.08) 0%,rgba(0,0,0,0) 100%);">
