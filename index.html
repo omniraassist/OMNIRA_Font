@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- Meta Pixel Code -->
-<script src="db.js"></script>
+
 
 <script>
 !function(f,b,e,v,n,t,s)
@@ -103,16 +103,16 @@ fbq("track", "PageView");
   html.light .btn-outline { border-color: rgba(0,0,0,0.18); color: var(--text); }
   html.light .btn-outline:hover { border-color: var(--border-em); background: rgba(0,168,107,0.06); }
   html.light .plan-ribbon { background: var(--em); }
-  html.light #clientPanel .auth-card { background: rgba(255,255,255,0.95); }
-  html.light #clientPanel .sidebar { background: rgba(240,244,248,0.95); border-color: rgba(0,0,0,0.08); }
-  html.light #clientPanel .menu-item:hover { background: rgba(0,0,0,0.04); }
-  html.light #clientPanel .menu-item.active { background: rgba(0,168,107,0.08); }
-  html.light #clientPanel .panel-card { background: rgba(255,255,255,0.95); }
-  html.light #clientPanel .form-input { background: rgba(255,255,255,0.8); border-color: rgba(0,0,0,0.12); color: var(--text); }
-  html.light #clientPanel .modal { background: #fff; }
-  html.light #clientPanel .cal-day { background: rgba(255,255,255,0.7); }
-  html.light #clientPanel .cal-day.today { background: rgba(0,168,107,0.07); border-color: var(--em); }
-  html.light #clientPanel .user-info { background: rgba(0,0,0,0.03); }
+  html.light 
+  html.light 
+  html.light 
+  html.light 
+  html.light 
+  html.light 
+  html.light 
+  html.light 
+  html.light 
+  html.light 
   html.light .social-icon { background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.1); }
   html.light .social-icon:hover { background: rgba(0,168,107,0.08); border-color: var(--em); }
   html.light .price-toggle { background: rgba(0,0,0,0.06); }
@@ -800,8 +800,7 @@ fbq('track', 'PageView');
           <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <svg class="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
         </button>
-        <a href="#" onclick="openClientPanel('login');return false;" class="btn-outline" style="padding:9px 20px;font-size:13px;">Iniciar sesión</a>
-        <a href="#" onclick="openClientPanel('register');return false;" class="btn-primary" style="padding:9px 20px;font-size:13px;">Registro gratis</a>
+        <a href="#cta-final" class="btn-primary" style="padding:9px 20px;font-size:13px;">Solicitar demo gratis →</a>
       </div>
       <div class="hamburger" id="hamburger" onclick="toggleMenu()">
         <span></span><span></span><span></span>
@@ -813,8 +812,7 @@ fbq('track', 'PageView');
     <a href="#solucion" onclick="closeMenu()">Solución</a>
     <a href="#como-funciona" onclick="closeMenu()">Cómo funciona</a>
     <a href="#precios" onclick="closeMenu()">Precios</a>
-    <a href="#" onclick="closeMenu();openClientPanel('login');return false;" style="color:var(--em);">Acceder a mi panel</a>
-    <a href="#cta-final" class="btn-primary" onclick="closeMenu()" style="text-align:center;justify-content:center;">Solicitar demo</a>
+    <a href="#cta-final" class="btn-primary" onclick="closeMenu()" style="text-align:center;justify-content:center;">Solicitar demo gratis →</a>
   </div>
 </nav>
 
@@ -828,13 +826,13 @@ fbq('track', 'PageView');
       <div class="hero-copy">
         <div class="badge" style="margin-bottom:22px;">
           <span class="badge-dot"></span>
-          Para clínicas, estética y fisioterapia
+          Automatización WhatsApp para negocios de salud y bienestar
         </div>
-        <h1>Convierte mensajes de <span class="gradient-text">WhatsApp</span> en citas automáticamente</h1>
-        <p>Omnira responde a tus clientes, gestiona reservas y llena tu agenda <strong style="color:#fff;">24/7 sin esfuerzo</strong> — mientras tú te enfocas en lo que importa.</p>
+        <h1>Tu agenda llena mientras <span class="gradient-text">duermes</span></h1>
+        <p>Omnira responde a tus clientes por WhatsApp, gestiona reservas y confirma citas <strong style="color:#fff;">las 24 horas del día</strong> — sin que tú muevas un dedo.</p>
         <div class="hero-btns">
-          <a href="#cta-final" class="btn-primary">Solicitar demo gratis <span>→</span></a>
-          <a href="#precios" class="btn-outline">Empezar ahora — 99€/mes</a>
+          <a href="#cta-final" class="btn-primary" style="font-size:17px;padding:16px 36px;">Quiero ver una demo gratis <span>→</span></a>
+          <a href="#precios" class="btn-outline">Ver planes y precios</a>
         </div>
         <div class="social-proof">
           <div class="avatars">
@@ -843,7 +841,7 @@ fbq('track', 'PageView');
           </div>
           <div class="social-text">
             <div class="star-row"><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span></div>
-            <p style="font-size:12px;color:var(--muted);margin-top:3px;">Más de 120 negocios ya automatizan con Omnira</p>
+            <p style="font-size:12px;color:var(--muted);margin-top:3px;">Más de 120 negocios ya tienen su agenda llena con Omnira</p>
           </div>
         </div>
       </div>
@@ -889,36 +887,36 @@ fbq('track', 'PageView');
   <div class="container" style="padding-top:96px;">
     <div class="section-header reveal">
       <span class="section-label">El problema real</span>
-      <h2>Cada mensaje sin respuesta<br><span style="color:var(--muted);">es una cita perdida</span></h2>
-      <p>Los negocios de salud y bienestar pierden hasta un <strong style="color:#fff;">30% de sus clientes potenciales</strong> por no responder a tiempo en WhatsApp.</p>
+      <h2>¿Cuántas citas pierdes<br><span style="color:var(--muted);">cada semana sin saberlo?</span></h2>
+      <p>El cliente escribe a las 11 de la noche. Tú estás durmiendo. Al día siguiente ya reservó en otro sitio. Eso ocurre <strong style="color:#fff;">cada día en tu negocio.</strong></p>
     </div>
     <div class="pain-grid">
       <div class="card pain-card reveal reveal-d1">
         <div class="pain-icon">📵</div>
         <div>
-          <h3>Clientes sin respuesta</h3>
-          <p>Cuando estás con un paciente, los mensajes se acumulan. El cliente espera… y reserva en otro sitio.</p>
+          <h3>Pierdes clientes mientras trabajas</h3>
+          <p>Cuando estás atendiendo, los mensajes se acumulan. Para cuando respondes, el cliente ya reservó en otro sitio.</p>
         </div>
       </div>
       <div class="card pain-card reveal reveal-d2">
         <div class="pain-icon">🌙</div>
         <div>
-          <h3>Fuera del horario, fuera del negocio</h3>
-          <p>El 40% de las consultas llegan por la noche o el fin de semana. Sin respuesta inmediata, pierdes esa cita.</p>
+          <h3>El 40% llega fuera de tu horario</h3>
+          <p>Noches, fines de semana, festivos. Sin respuesta inmediata, esa cita se va directamente a tu competencia.</p>
         </div>
       </div>
       <div class="card pain-card reveal reveal-d3">
         <div class="pain-icon">🔄</div>
         <div>
-          <h3>Tiempo perdido en lo repetitivo</h3>
-          <p>Responder siempre lo mismo — horarios, precios, disponibilidad — te roba horas que deberías dedicar a tus clientes.</p>
+          <h3>Horas perdidas respondiendo lo mismo</h3>
+          <p>"¿Cuánto cuesta?", "¿Tenéis hueco el martes?". Respondes lo mismo 20 veces al día. Tiempo que deberías dedicar a tus pacientes.</p>
         </div>
       </div>
       <div class="card pain-card reveal reveal-d4">
         <div class="pain-icon">📉</div>
         <div>
-          <h3>Agenda con huecos evitables</h3>
-          <p>Sin un sistema ágil, los clientes desisten. Cada minuto de espera reduce la probabilidad de que reserven.</p>
+          <h3>Huecos en la agenda que cuestan dinero</h3>
+          <p>Cada hueco en tu agenda son 60-120€ que no ingresan. Con Omnira esos huecos se llenan solos, incluso mientras duermes.</p>
         </div>
       </div>
     </div>
@@ -939,8 +937,8 @@ fbq('track', 'PageView');
     <div class="sol-grid">
       <div>
         <span class="section-label reveal">La solución</span>
-        <h2 class="reveal" style="font-size:clamp(28px,3.5vw,44px);font-weight:700;color:#fff;margin-bottom:16px;line-height:1.15;">Omnira trabaja mientras <span class="gradient-text">tú atiendes</span></h2>
-        <p class="reveal" style="font-size:16px;color:var(--soft);margin-bottom:28px;line-height:1.7;">Un asistente inteligente conectado a tu WhatsApp Business que automatiza la atención al cliente, gestiona tu agenda y confirma citas las 24 horas del día.</p>
+        <h2 class="reveal" style="font-size:clamp(28px,3.5vw,44px);font-weight:700;color:#fff;margin-bottom:16px;line-height:1.15;">Omnira llena tu agenda mientras <span class="gradient-text">tú descansas</span></h2>
+        <p class="reveal" style="font-size:16px;color:var(--soft);margin-bottom:28px;line-height:1.7;">Conectamos un asistente de IA a tu WhatsApp Business. Responde al instante, gestiona tu calendario y confirma citas solas — sin que toques el móvil.</p>
         <div>
           <div class="sol-feature reveal reveal-d1">
             <div class="sol-feature-icon"><svg viewBox="0 0 24 24"><path d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg></div>
@@ -996,25 +994,25 @@ fbq('track', 'PageView');
       <p>Resultados reales desde el primer día de uso.</p>
     </div>
     <div class="ben-grid">
-      <div class="card ben-card reveal reveal-d1"><span class="ben-emoji">📅</span><div class="ben-metric">+42%</div><div class="ben-metric-lbl">más citas al mes</div><h3>Más citas sin esfuerzo</h3><p>Tu agenda se llena sola. Los clientes reservan a cualquier hora y el sistema lo gestiona todo.</p></div>
+      <div class="card ben-card reveal reveal-d1"><span class="ben-emoji">📅</span><div class="ben-metric">+42%</div><div class="ben-metric-lbl">más citas al mes</div><h3>Agenda siempre llena</h3><p>Los clientes reservan a cualquier hora. El bot confirma, recuerda y gestiona todo sin que toques nada.</p></div>
       <div class="card ben-card reveal reveal-d2"><span class="ben-emoji">🌐</span><div class="ben-metric">24/7</div><div class="ben-metric-lbl">disponibilidad total</div><h3>Atención automática</h3><p>Nunca pierdas un cliente por estar ocupado o dormido. Omnira siempre está disponible.</p></div>
-      <div class="card ben-card reveal reveal-d3"><span class="ben-emoji">⚡</span><div class="ben-metric">8h</div><div class="ben-metric-lbl">ahorradas a la semana</div><h3>Ahorro real de tiempo</h3><p>Elimina horas de mensajes repetitivos. Céntrate en tus pacientes y en crecer.</p></div>
+      <div class="card ben-card reveal reveal-d3"><span class="ben-emoji">⚡</span><div class="ben-metric">8h</div><div class="ben-metric-lbl">ahorradas cada semana</div><h3>Recupera tu tiempo</h3><p>Sin responder mensajes repetitivos. Sin gestionar la agenda manualmente. Solo atender a tus pacientes.</p></div>
       <div class="card ben-card reveal reveal-d4"><span class="ben-emoji">💎</span><div class="ben-metric">4.9★</div><div class="ben-metric-lbl">satisfacción media</div><h3>Mejor experiencia</h3><p>Respuestas instantáneas, confirmaciones claras y recordatorios automáticos.</p></div>
     </div>
     <div class="testimonials">
       <div class="card testi-card reveal reveal-d1">
         <div class="star-row"><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span></div>
-        <p class="testi-quote">"Desde que uso Omnira, mi agenda está siempre llena. No puedo creer que antes lo hacía todo a mano."</p>
+        <p class="testi-quote">"El primer mes ya recuperé la inversión. Mi agenda se llenó sola y dejé de perder citas por la noche."</p>
         <div class="testi-name">Carla M.</div><div class="testi-role">Centro de Estética, Madrid</div>
       </div>
       <div class="card testi-card reveal reveal-d2">
         <div class="star-row"><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span></div>
-        <p class="testi-quote">"Los clientes me dicen que adoran la rapidez. Reservan a las 11 de la noche y todo funciona solo."</p>
+        <p class="testi-quote">"Mis clientes reservan a las 11 de la noche y yo me entero por la mañana con la agenda ya llena. Increíble."</p>
         <div class="testi-name">David R.</div><div class="testi-role">Fisioterapeuta, Barcelona</div>
       </div>
       <div class="card testi-card reveal reveal-d3">
         <div class="star-row"><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span></div>
-        <p class="testi-quote">"He recuperado 2 horas al día que antes perdía respondiendo siempre lo mismo. Increíble."</p>
+        <p class="testi-quote">"Antes tardaba 2 horas al día en WhatsApp. Ahora ese tiempo lo dedico a mis pacientes y a mi familia."</p>
         <div class="testi-name">Sofía L.</div><div class="testi-role">Clínica Dental, Valencia</div>
       </div>
     </div>
@@ -1236,30 +1234,35 @@ fbq('track', 'PageView');
 </section>
 
 <!-- CTA FINAL -->
-<section id="cta-final">
-  <div class="cta-blob1"></div>
-  <div class="cta-blob2"></div>
-  <div class="cta-dots"></div>
-  <div class="divider"></div>
-  <div class="container" style="padding:100px 28px 80px;">
-    <div class="cta-inner">
-      <div class="badge reveal" style="margin-bottom:22px;"><span class="badge-dot"></span>Disponible ahora mismo</div>
-      <h2 class="reveal">Empieza a automatizar tu<br><span class="gradient-text">negocio hoy</span></h2>
-      <p class="reveal">Únete a más de 120 negocios que ya usan Omnira para llenar su agenda automáticamente. Configuración en 30 minutos. Sin complicaciones.</p>
-      <div class="cta-btns reveal">
-        <a href="https://buy.stripe.com/REPLACE_WITH_YOUR_LINK" class="btn-primary" style="font-size:15px;padding:15px 30px;">
-          Empezar — 99€/mes →
-        </a>
-        <a href="https://wa.me/+34628072072?text=Hola%2C%20me%20gustar%C3%ADa%20solicitar%20una%20demo%20de%20Omnira" target="_blank" rel="noopener" class="btn-outline" style="font-size:14px;padding:15px 26px;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="#00E096" style="flex-shrink:0;"><path d="M17.498 14.382c-.301-.15-1.767-.867-2.04-.966-.273-.101-.473-.15-.673.15-.197.295-.771.964-.944 1.162-.175.195-.349.21-.646.075-.3-.15-1.263-.465-2.403-1.485-.888-.795-1.484-1.77-1.66-2.07-.174-.3-.019-.465.13-.615.136-.135.301-.345.451-.523.146-.181.194-.301.297-.496.1-.21.049-.375-.025-.524-.075-.15-.672-1.62-.922-2.206-.24-.584-.487-.51-.672-.51-.172-.015-.371-.015-.571-.015-.2 0-.523.074-.797.359-.273.3-1.045 1.02-1.045 2.475s1.07 2.865 1.219 3.075c.149.195 2.105 3.195 5.1 4.485.714.3 1.27.48 1.704.629.714.227 1.365.195 1.88.121.574-.091 1.767-.721 2.016-1.426.255-.705.255-1.29.18-1.425-.074-.135-.27-.21-.57-.345z"/><path d="M20.52 3.449C18.24 1.245 15.24 0 12.045 0 5.463 0 .104 5.334.101 11.893c0 2.096.549 4.14 1.595 5.945L0 24l6.335-1.652c1.746.943 3.71 1.444 5.71 1.447h.006c6.585 0 11.946-5.336 11.949-11.896 0-3.176-1.24-6.165-3.48-8.45z"/></svg>
-          Demo por WhatsApp
-        </a>
+<section id="cta-final" style="padding:96px 0;background:linear-gradient(135deg,rgba(0,168,107,0.08) 0%,rgba(0,0,0,0) 100%);">
+  <div class="container" style="text-align:center;max-width:680px;">
+    <span class="section-label reveal">Empieza hoy</span>
+    <h2 class="reveal" style="font-size:clamp(28px,4vw,48px);font-weight:700;margin-bottom:20px;line-height:1.15;">¿Listo para tener tu agenda<br><span class="gradient-text">llena automáticamente?</span></h2>
+    <p class="reveal" style="font-size:17px;color:var(--soft);margin-bottom:40px;line-height:1.7;">Solicita una demo gratuita y te mostramos en 20 minutos cómo Omnira funcionaría en tu negocio. Sin compromiso.</p>
+    <div class="reveal" style="display:flex;flex-direction:column;align-items:center;gap:16px;">
+      <a href="https://wa.me/34628072072?text=Hola,%20quiero%20una%20demo%20de%20Omnira" target="_blank" class="btn-primary" style="font-size:17px;padding:18px 48px;border-radius:14px;display:inline-flex;align-items:center;gap:10px;">
+        <svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:currentColor;"><path d="M17.498 14.382c-.301-.15-1.767-.867-2.04-.966-.273-.101-.473-.15-.673.15-.197.295-.771.964-.944 1.162-.175.195-.349.21-.646.075-.3-.15-1.263-.465-2.403-1.485-.888-.795-1.484-1.77-1.66-2.07-.174-.3-.019-.465.13-.615.136-.135.301-.345.451-.523.146-.181.194-.301.297-.496.1-.21.049-.375-.025-.524-.075-.15-.672-1.62-.922-2.206-.24-.584-.487-.51-.672-.51-.172-.015-.371-.015-.571-.015-.2 0-.523.074-.797.359-.273.3-1.045 1.02-1.045 2.475s1.07 2.865 1.219 3.075c.149.195 2.105 3.195 5.1 4.485.714.3 1.27.48 1.704.629.714.227 1.365.195 1.88.121.574-.091 1.767-.721 2.016-1.426.255-.705.255-1.29.18-1.425-.074-.135-.27-.21-.57-.345z"/><path d="M20.52 3.449C18.24 1.245 15.24 0 12.045 0 5.463 0 .104 5.334.101 11.893c0 2.096.549 4.14 1.595 5.945L0 24l6.335-1.652c1.746.943 3.71 1.444 5.71 1.447h.006c6.585 0 11.946-5.336 11.949-11.896 0-3.176-1.24-6.165-3.48-8.45zm-8.48 18.297h-.004c-1.774 0-3.513-.477-5.031-1.378l-.36-.214-3.742.975.999-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.886 9.884z"/></svg>
+        Solicitar demo por WhatsApp
+      </a>
+      <p style="font-size:13px;color:var(--muted);">📞 También puedes llamarnos al <a href="tel:+34628072072" style="color:var(--em);">+34 628 072 072</a></p>
+      <p style="font-size:13px;color:var(--muted);">Demo gratuita · Sin permanencia · Configuración en 24h</p>
+    </div>
+    <div class="reveal" style="margin-top:48px;display:flex;justify-content:center;gap:40px;flex-wrap:wrap;">
+      <div style="text-align:center;">
+        <div style="font-size:28px;font-weight:700;color:var(--em);">+120</div>
+        <div style="font-size:13px;color:var(--muted);">negocios activos</div>
       </div>
-      <div class="trust-row reveal">
-        <div class="trust-item"><span>🔒</span>Pago 100% seguro</div>
-        <div class="trust-item"><span>✅</span>14 días gratis</div>
-        <div class="trust-item"><span>💬</span>Soporte en español</div>
-        <div class="trust-item"><span>⚡</span>Activo en 30 minutos</div>
+      <div style="text-align:center;">
+        <div style="font-size:28px;font-weight:700;color:var(--em);">24/7</div>
+        <div style="font-size:13px;color:var(--muted);">disponibilidad</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:28px;font-weight:700;color:var(--em);">4.9★</div>
+        <div style="font-size:13px;color:var(--muted);">valoración media</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:28px;font-weight:700;color:var(--em);">14 días</div>
+        <div style="font-size:13px;color:var(--muted);">de prueba gratis</div>
       </div>
     </div>
   </div>
@@ -1385,1083 +1388,202 @@ fbq('track', 'PageView');
 
 <style>
 /* ─── PANEL DEL CLIENTE ─── */
-#clientPanel{
-  position:fixed;inset:0;z-index:9999;
-  background:var(--ink);
-  display:none;
-  overflow:hidden;
-}
-#clientPanel.active{display:block;}
-#clientPanel *{box-sizing:border-box;}
 
-#clientPanel .panel-bg-glow{
-  position:fixed;border-radius:50%;
-  filter:blur(120px);pointer-events:none;z-index:0;
-}
-#clientPanel .panel-bg-glow.g1{width:500px;height:500px;background:rgba(0,224,150,0.08);top:-150px;left:-100px;}
-#clientPanel .panel-bg-glow.g2{width:400px;height:400px;background:rgba(0,224,150,0.05);bottom:-100px;right:-100px;}
-#clientPanel .panel-dots{
-  position:fixed;inset:0;z-index:0;pointer-events:none;
-  background-image:radial-gradient(circle,rgba(255,255,255,0.025) 1px,transparent 1px);
-  background-size:32px 32px;
-}
+
+
+
+
+
+
+
 
 /* AUTH SCREENS */
-#clientPanel .auth-screen{
-  min-height:100vh;display:flex;align-items:center;justify-content:center;
-  padding:40px 24px;position:relative;z-index:1;
-}
-#clientPanel .auth-card{
-  width:100%;max-width:440px;
-  background:rgba(20,27,36,0.85);
-  border:1px solid var(--border);
-  border-radius:20px;backdrop-filter:blur(20px);
-  padding:40px 36px;
-  box-shadow:0 30px 60px rgba(0,0,0,0.4);
-}
-#clientPanel .auth-logo{
-  display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:32px;
-}
-#clientPanel .auth-logo-icon{
-  width:36px;height:36px;border-radius:10px;background:var(--em);
-  display:flex;align-items:center;justify-content:center;
-  box-shadow:0 0 20px rgba(0,224,150,0.4);
-}
-#clientPanel .auth-logo-icon svg{width:18px;height:18px;fill:var(--ink);}
-#clientPanel .auth-logo-text{
-  font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:#fff;
-}
-#clientPanel .auth-title{
-  font-size:28px;font-weight:700;text-align:center;color:#fff;margin-bottom:8px;
-  font-family:'Playfair Display',serif;
-}
-#clientPanel .auth-subtitle{
-  font-size:14px;color:var(--soft);text-align:center;margin-bottom:32px;
-}
-#clientPanel .form-group{margin-bottom:18px;}
-#clientPanel .form-label{
-  display:block;font-size:12px;font-weight:500;color:var(--soft);
-  margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em;
-}
-#clientPanel .form-input{
-  width:100%;padding:14px 16px;
-  background:rgba(8,11,15,0.6);
-  border:1px solid var(--border);
-  border-radius:12px;
-  color:var(--text);font-size:14px;
-  font-family:'DM Sans',sans-serif;
-  transition:border-color 0.2s, box-shadow 0.2s;
-}
-#clientPanel .form-input:focus{
-  outline:none;border-color:var(--em);
-  box-shadow:0 0 0 3px var(--em-glow2);
-}
-#clientPanel .form-input::placeholder{color:var(--muted);}
-#clientPanel .panel-btn-primary{
-  display:inline-flex;align-items:center;justify-content:center;gap:8px;
-  width:100%;padding:14px 24px;border-radius:100px;
-  background:linear-gradient(90deg,var(--em) 0%,#a8f0d0 50%,var(--em) 100%);
-  background-size:200% auto;
-  color:var(--ink);font-weight:600;font-size:14px;
-  border:none;cursor:pointer;
-  transition:transform 0.25s,box-shadow 0.25s;
-  font-family:'DM Sans',sans-serif;
-}
-#clientPanel .panel-btn-primary:hover{transform:scale(1.02);box-shadow:0 0 30px var(--em-glow);}
-#clientPanel .panel-btn-primary:disabled{opacity:0.6;cursor:not-allowed;}
-#clientPanel .auth-toggle{
-  text-align:center;margin-top:24px;font-size:13px;color:var(--soft);
-}
-#clientPanel .auth-toggle a{color:var(--em);text-decoration:none;font-weight:500;cursor:pointer;}
-#clientPanel .auth-toggle a:hover{text-decoration:underline;}
-#clientPanel .auth-error{
-  background:rgba(239,68,68,0.1);
-  border:1px solid rgba(239,68,68,0.25);
-  color:#FCA5A5;padding:10px 14px;border-radius:10px;
-  font-size:13px;margin-bottom:16px;display:none;
-}
-#clientPanel .auth-error.visible{display:block;}
-#clientPanel .auth-back{
-  position:absolute;top:24px;left:24px;
-  display:flex;align-items:center;gap:6px;
-  color:var(--soft);font-size:13px;text-decoration:none;
-  background:rgba(255,255,255,0.04);
-  border:1px solid var(--border);
-  padding:8px 14px;border-radius:100px;
-  cursor:pointer;transition:all 0.2s;
-}
-#clientPanel .auth-back:hover{color:var(--text);border-color:var(--border-em);}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* DASHBOARD LAYOUT */
-#clientPanel .dashboard{display:none;min-height:100vh;position:relative;z-index:1;}
-#clientPanel .dashboard.active{display:flex;}
 
-#clientPanel .sidebar{
-  width:240px;flex-shrink:0;
-  background:rgba(13,17,23,0.85);
-  border-right:1px solid var(--border);
-  backdrop-filter:blur(20px);
-  display:flex;flex-direction:column;
-  height:100vh;position:sticky;top:0;
-}
-#clientPanel .sidebar-header{padding:24px 20px;border-bottom:1px solid var(--border);}
-#clientPanel .sidebar-logo{display:flex;align-items:center;gap:10px;}
-#clientPanel .sidebar-logo-icon{
-  width:32px;height:32px;border-radius:8px;background:var(--em);
-  display:flex;align-items:center;justify-content:center;
-  box-shadow:0 0 16px rgba(0,224,150,0.4);
-}
-#clientPanel .sidebar-logo-icon svg{width:16px;height:16px;fill:var(--ink);}
-#clientPanel .sidebar-logo-text{
-  font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:#fff;
-}
-#clientPanel .sidebar-menu{flex:1;padding:16px 12px;overflow-y:auto;}
-#clientPanel .menu-section{margin-bottom:8px;}
-#clientPanel .menu-label{
-  font-size:10px;font-weight:600;color:var(--muted);
-  text-transform:uppercase;letter-spacing:0.1em;padding:8px 12px;
-}
-#clientPanel .menu-item{
-  display:flex;align-items:center;gap:12px;
-  padding:10px 12px;border-radius:8px;
-  color:var(--soft);font-size:13px;
-  text-decoration:none;cursor:pointer;
-  transition:background 0.15s,color 0.15s;
-  border:none;background:none;width:100%;
-  font-family:'DM Sans',sans-serif;text-align:left;
-  position:relative;
-}
-#clientPanel .menu-item:hover{background:rgba(255,255,255,0.04);color:var(--text);}
-#clientPanel .menu-item.active{background:var(--em-glow2);color:var(--em);}
-#clientPanel .menu-item.active::before{
-  content:'';position:absolute;left:-12px;
-  width:3px;height:20px;background:var(--em);
-  border-radius:0 3px 3px 0;
-}
-#clientPanel .menu-item-icon{width:18px;height:18px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2;}
-#clientPanel .sidebar-footer{padding:16px 12px;border-top:1px solid var(--border);}
-#clientPanel .user-info{
-  display:flex;align-items:center;gap:10px;
-  padding:10px;border-radius:8px;
-  background:rgba(255,255,255,0.03);
-  margin-bottom:8px;
-}
-#clientPanel .user-avatar{
-  width:34px;height:34px;border-radius:50%;
-  background:linear-gradient(135deg,var(--em),#a8f0d0);
-  display:flex;align-items:center;justify-content:center;
-  color:var(--ink);font-weight:700;font-size:14px;flex-shrink:0;
-}
-#clientPanel .user-name{font-size:13px;color:var(--text);font-weight:500;}
-#clientPanel .user-email{font-size:11px;color:var(--muted);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;}
 
-#clientPanel .main{flex:1;padding:32px 40px;overflow-y:auto;height:100vh;}
-#clientPanel .page-header{margin-bottom:28px;}
-#clientPanel .page-title{
-  font-size:32px;font-weight:700;color:#fff;margin-bottom:6px;
-  font-family:'Playfair Display',serif;
-}
-#clientPanel .page-subtitle{color:var(--soft);font-size:14px;}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* STATS */
-#clientPanel .stats-grid{
-  display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;
-}
-#clientPanel .stat-card{
-  background:rgba(20,27,36,0.7);
-  border:1px solid var(--border);
-  border-radius:14px;backdrop-filter:blur(10px);padding:20px;
-}
-#clientPanel .stat-card-header{
-  display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;
-}
-#clientPanel .stat-icon{
-  width:36px;height:36px;border-radius:9px;
-  background:rgba(0,224,150,0.1);
-  border:1px solid rgba(0,224,150,0.2);
-  display:flex;align-items:center;justify-content:center;
-}
-#clientPanel .stat-icon svg{width:18px;height:18px;stroke:var(--em);fill:none;stroke-width:2;}
-#clientPanel .stat-trend{font-size:11px;color:var(--em);font-weight:600;}
-#clientPanel .stat-value{
-  font-family:'Playfair Display',serif;
-  font-size:32px;font-weight:700;color:#fff;line-height:1;
-}
-#clientPanel .stat-label{font-size:12px;color:var(--muted);margin-top:6px;}
+
+
+
+
+
+
+
+
 
 /* CARDS */
-#clientPanel .panel-card{
-  background:rgba(20,27,36,0.7);
-  border:1px solid var(--border);
-  border-radius:14px;
-  backdrop-filter:blur(10px);
-  padding:24px;
-}
-#clientPanel .panel-card-header{
-  display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;
-  flex-wrap:wrap;gap:12px;
-}
-#clientPanel .panel-card-title{
-  font-size:16px;font-weight:600;color:#fff;
-  font-family:'DM Sans',sans-serif;
-}
-#clientPanel .panel-card-link{
-  font-size:12px;color:var(--em);text-decoration:none;cursor:pointer;
-}
-#clientPanel .panel-card-link:hover{text-decoration:underline;}
 
-#clientPanel .content-grid{display:grid;grid-template-columns:2fr 1fr;gap:20px;}
+
+
+
+
+
+
 
 /* RES ITEMS */
-#clientPanel .res-item{
-  display:flex;align-items:center;gap:14px;padding:14px 0;
-  border-bottom:1px solid var(--border);
-}
-#clientPanel .res-item:last-child{border-bottom:none;}
-#clientPanel .res-avatar{
-  width:38px;height:38px;border-radius:50%;
-  background:linear-gradient(135deg,var(--em-glow),var(--em-glow2));
-  border:1px solid var(--border-em);
-  display:flex;align-items:center;justify-content:center;
-  color:var(--em);font-weight:600;font-size:13px;flex-shrink:0;
-}
-#clientPanel .res-info{flex:1;min-width:0;}
-#clientPanel .res-name{font-size:14px;color:var(--text);font-weight:500;}
-#clientPanel .res-detail{font-size:12px;color:var(--muted);margin-top:2px;}
-#clientPanel .res-status{
-  padding:4px 10px;border-radius:100px;font-size:11px;font-weight:500;
-}
-#clientPanel .res-status.confirmed{background:rgba(0,224,150,0.15);color:var(--em);}
-#clientPanel .res-status.pending{background:rgba(245,158,11,0.15);color:#FCD34D;}
-#clientPanel .res-status.cancelled{background:rgba(239,68,68,0.15);color:#FCA5A5;}
+
+
+
+
+
+
+
+
+
+
 
 /* EMPTY */
-#clientPanel .empty-state{
-  text-align:center;padding:40px 20px;color:var(--muted);
-}
-#clientPanel .empty-icon{
-  width:60px;height:60px;border-radius:50%;
-  background:rgba(255,255,255,0.04);
-  display:flex;align-items:center;justify-content:center;
-  margin:0 auto 16px;
-}
-#clientPanel .empty-icon svg{stroke:var(--muted);}
-#clientPanel .empty-text{font-size:13px;}
+
+
+
+
 
 /* SETTINGS */
-#clientPanel .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-#clientPanel .settings-grid .full{grid-column:1/-1;}
-#clientPanel .btn-save{
-  display:inline-flex;align-items:center;gap:8px;
-  padding:12px 24px;border-radius:100px;
-  background:var(--em);color:var(--ink);
-  font-weight:600;font-size:13px;
-  border:none;cursor:pointer;
-  transition:transform 0.2s,box-shadow 0.2s;
-  font-family:'DM Sans',sans-serif;
-}
-#clientPanel .btn-save:hover{transform:scale(1.02);box-shadow:0 0 20px var(--em-glow);}
+
+
+
+
 
 /* BOT STATUS */
-#clientPanel .bot-status{
-  display:inline-flex;align-items:center;gap:8px;
-  padding:6px 14px;border-radius:100px;
-  background:rgba(0,224,150,0.1);
-  border:1px solid var(--border-em);
-  font-size:12px;color:var(--em);font-weight:500;
-}
-#clientPanel .bot-status-dot{
-  width:6px;height:6px;border-radius:50%;background:var(--em);
-  box-shadow:0 0 8px var(--em);
-  animation:blink 2s ease-in-out infinite;
-}
+
+
 
 /* PAGE SECTIONS */
-#clientPanel .page-section{display:none;}
-#clientPanel .page-section.active{display:block;}
+
+
 
 /* CONVERSATIONS */
-#clientPanel .conv-item{
-  display:flex;gap:12px;padding:14px 0;
-  border-bottom:1px solid var(--border);cursor:pointer;
-  transition:background 0.15s;border-radius:8px;
-  padding-left:12px;padding-right:12px;
-}
-#clientPanel .conv-item:hover{background:rgba(255,255,255,0.02);}
-#clientPanel .conv-item:last-child{border-bottom:none;}
-#clientPanel .conv-avatar{
-  width:40px;height:40px;border-radius:50%;
-  background:linear-gradient(135deg,var(--em-glow),var(--em-glow2));
-  border:1px solid var(--border-em);
-  display:flex;align-items:center;justify-content:center;
-  color:var(--em);font-weight:600;font-size:14px;flex-shrink:0;
-}
-#clientPanel .conv-info{flex:1;min-width:0;}
-#clientPanel .conv-name{font-size:13px;color:var(--text);font-weight:500;}
-#clientPanel .conv-msg{font-size:12px;color:var(--muted);margin-top:2px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-#clientPanel .conv-time{font-size:11px;color:var(--muted);flex-shrink:0;}
+
+
+
+
+
+
+
+
 
 /* SPINNER */
-#clientPanel .spinner{
-  width:32px;height:32px;border-radius:50%;
-  border:3px solid rgba(0,224,150,0.2);
-  border-top-color:var(--em);
-  animation:spin 0.8s linear infinite;
-}
+
 @keyframes spin{to{transform:rotate(360deg);}}
 
 /* TOAST */
-#clientPanel .toast{
-  position:fixed;top:24px;right:24px;z-index:10000;
-  background:var(--surf);
-  border:1px solid var(--border-em);
-  border-radius:10px;padding:14px 20px;
-  color:var(--text);font-size:13px;
-  box-shadow:0 10px 40px rgba(0,0,0,0.4);
-  transform:translateX(120%);
-  transition:transform 0.3s;
-  font-family:'DM Sans',sans-serif;
-}
-#clientPanel .toast.visible{transform:translateX(0);}
-#clientPanel .toast.success{border-color:var(--em);}
-#clientPanel .toast.error{border-color:#EF4444;}
+
+
+
+
 
 /* ─── CALENDARIO ─── */
-#clientPanel .cal-toolbar{
-  display:flex;align-items:center;justify-content:space-between;
-  margin-bottom:20px;gap:12px;flex-wrap:wrap;
-}
-#clientPanel .cal-nav{display:flex;align-items:center;gap:12px;}
-#clientPanel .cal-nav-btn{
-  width:36px;height:36px;border-radius:9px;
-  background:rgba(255,255,255,0.04);
-  border:1px solid var(--border);
-  color:var(--text);cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  transition:all 0.2s;
-}
-#clientPanel .cal-nav-btn:hover{background:var(--em-glow2);border-color:var(--border-em);color:var(--em);}
-#clientPanel .cal-nav-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;}
-#clientPanel .cal-month{
-  font-family:'Playfair Display',serif;
-  font-size:22px;font-weight:600;color:#fff;
-  min-width:200px;text-align:center;
-  text-transform:capitalize;
-}
-#clientPanel .cal-add-btn{
-  display:inline-flex;align-items:center;gap:6px;
-  padding:9px 18px;border-radius:100px;
-  background:var(--em);color:var(--ink);
-  font-weight:600;font-size:13px;
-  border:none;cursor:pointer;
-  font-family:'DM Sans',sans-serif;
-  transition:transform 0.2s,box-shadow 0.2s;
-}
-#clientPanel .cal-add-btn:hover{transform:scale(1.04);box-shadow:0 0 20px var(--em-glow);}
-#clientPanel .cal-grid{
-  display:grid;
-  grid-template-columns:repeat(7,1fr);
-  gap:6px;
-}
-#clientPanel .cal-weekday{
-  font-size:11px;font-weight:600;color:var(--muted);
-  text-transform:uppercase;letter-spacing:0.08em;
-  text-align:center;padding:8px 0;
-}
-#clientPanel .cal-day{
-  aspect-ratio:1;
-  background:rgba(20,27,36,0.4);
-  border:1px solid var(--border);
-  border-radius:10px;
-  padding:8px;cursor:pointer;
-  display:flex;flex-direction:column;
-  transition:all 0.2s;
-  min-height:90px;position:relative;
-  overflow:hidden;
-}
-#clientPanel .cal-day:hover{
-  border-color:var(--border-em);
-  background:rgba(20,27,36,0.7);
-  transform:translateY(-2px);
-}
-#clientPanel .cal-day.empty{
-  opacity:0.25;cursor:default;background:transparent;border-color:transparent;
-}
-#clientPanel .cal-day.empty:hover{transform:none;background:transparent;border-color:transparent;}
-#clientPanel .cal-day.today{
-  border-color:var(--em);
-  background:var(--em-glow2);
-}
-#clientPanel .cal-day.today .cal-day-num{color:var(--em);font-weight:700;}
-#clientPanel .cal-day.has-events{
-  border-color:var(--border-em);
-}
-#clientPanel .cal-day-num{
-  font-size:13px;color:var(--text);font-weight:500;
-  margin-bottom:6px;
-}
-#clientPanel .cal-events{
-  display:flex;flex-direction:column;gap:3px;flex:1;
-  overflow:hidden;
-}
-#clientPanel .cal-event{
-  font-size:10px;padding:3px 6px;border-radius:5px;
-  background:var(--em-glow);color:var(--em);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  font-weight:500;
-}
-#clientPanel .cal-event.bot{background:rgba(0,224,150,0.18);color:var(--em);}
-#clientPanel .cal-event.manual{background:rgba(245,158,11,0.18);color:#FCD34D;}
-#clientPanel .cal-event-more{
-  font-size:10px;color:var(--muted);font-weight:500;
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* MODAL */
-#clientPanel .modal-overlay{
-  position:fixed;inset:0;z-index:10001;
-  background:rgba(8,11,15,0.75);
-  backdrop-filter:blur(8px);
-  display:none;align-items:center;justify-content:center;
-  padding:24px;
-}
-#clientPanel .modal-overlay.active{display:flex;}
-#clientPanel .modal{
-  width:100%;max-width:480px;
-  background:var(--surf);
-  border:1px solid var(--border);
-  border-radius:18px;padding:28px;
-  box-shadow:0 30px 80px rgba(0,0,0,0.5);
-  max-height:90vh;overflow-y:auto;
-}
-#clientPanel .modal-header{
-  display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;
-}
-#clientPanel .modal-title{
-  font-family:'Playfair Display',serif;
-  font-size:20px;font-weight:600;color:#fff;
-}
-#clientPanel .modal-close{
-  width:32px;height:32px;border-radius:50%;
-  background:rgba(255,255,255,0.04);
-  border:1px solid var(--border);
-  color:var(--soft);cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  transition:all 0.2s;
-}
-#clientPanel .modal-close:hover{background:rgba(255,255,255,0.08);color:var(--text);}
-#clientPanel .modal-actions{
-  display:flex;gap:8px;margin-top:24px;
-}
-#clientPanel .modal-actions button{flex:1;}
-#clientPanel .btn-cancel{
-  padding:12px 24px;border-radius:100px;
-  background:rgba(255,255,255,0.04);
-  border:1px solid var(--border);
-  color:var(--text);font-size:13px;
-  cursor:pointer;font-family:'DM Sans',sans-serif;
-}
-#clientPanel .btn-cancel:hover{background:rgba(255,255,255,0.08);}
-#clientPanel .btn-delete{
-  padding:12px 24px;border-radius:100px;
-  background:rgba(239,68,68,0.1);
-  border:1px solid rgba(239,68,68,0.3);
-  color:#FCA5A5;font-size:13px;
-  cursor:pointer;font-family:'DM Sans',sans-serif;
-}
-#clientPanel .btn-delete:hover{background:rgba(239,68,68,0.18);}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* RESPONSIVE */
 @media (max-width:900px){
-  #clientPanel .dashboard{flex-direction:column;}
-  #clientPanel .sidebar{width:100%;height:auto;position:relative;}
-  #clientPanel .sidebar-menu{display:flex;flex-wrap:wrap;gap:6px;}
-  #clientPanel .menu-item{flex:1;min-width:130px;justify-content:center;}
-  #clientPanel .stats-grid{grid-template-columns:repeat(2,1fr);}
-  #clientPanel .content-grid{grid-template-columns:1fr;}
-  #clientPanel .settings-grid{grid-template-columns:1fr;}
-  #clientPanel .main{padding:24px 20px;height:auto;}
-  #clientPanel .cal-day{min-height:60px;padding:6px;}
-  #clientPanel .cal-day-num{font-size:11px;}
-  #clientPanel .cal-event{font-size:9px;padding:2px 4px;}
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
 }
 @media (max-width:500px){
-  #clientPanel .stats-grid{grid-template-columns:1fr;}
-  #clientPanel .auth-card{padding:32px 24px;}
-  #clientPanel .cal-month{font-size:18px;min-width:auto;}
-  #clientPanel .cal-day{min-height:50px;padding:4px;}
+  
+  
+  
+  
 }
 </style>
 
-<div id="clientPanel">
-  <div class="panel-bg-glow g1"></div>
-  <div class="panel-bg-glow g2"></div>
-  <div class="panel-dots"></div>
-
-  <!-- LOGIN -->
-  <div id="loginScreen" class="auth-screen">
-    <a class="auth-back" onclick="closeClientPanel()">← Volver a la web</a>
-    <div class="auth-card">
-      <div class="auth-logo">
-        <div class="auth-logo-icon">
-          <svg viewBox="0 0 24 24"><rect x="5" y="5" width="5" height="14" rx="1"/><rect x="14" y="5" width="5" height="14" rx="1"/></svg>
-        </div>
-        <span class="auth-logo-text">Omnira</span>
-      </div>
-      <h1 class="auth-title">Bienvenido de vuelta</h1>
-      <p class="auth-subtitle">Accede al panel de tu negocio</p>
-      <div id="loginError" class="auth-error"></div>
-      <form id="loginForm" onsubmit="handlePanelLogin(event)">
-        <div class="form-group">
-          <label class="form-label" for="loginEmail">Email</label>
-          <input class="form-input" type="email" id="loginEmail" placeholder="tu@negocio.com" required autocomplete="email">
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="loginPassword">Contraseña</label>
-          <input class="form-input" type="password" id="loginPassword" placeholder="••••••••" required autocomplete="current-password">
-        </div>
-        <button type="submit" class="panel-btn-primary" id="loginBtn">Iniciar sesión →</button>
-      </form>
-      <p class="auth-toggle" style="margin-top:12px;">
-        <a onclick="showForgotPassword()" style="font-size:12px;color:var(--muted);">¿Olvidaste tu contraseña?</a>
-      </p>
-      <p class="auth-toggle">¿No tienes cuenta? <a onclick="showPanelRegister()">Regístrate</a></p>
-    </div>
-  </div>
-
-  <!-- FORGOT PASSWORD -->
-  <div id="forgotScreen" class="auth-screen" style="display:none;">
-    <a class="auth-back" onclick="closeClientPanel()">← Volver a la web</a>
-    <div class="auth-card">
-      <div class="auth-logo">
-        <div class="auth-logo-icon">
-          <svg viewBox="0 0 24 24"><rect x="5" y="5" width="5" height="14" rx="1"/><rect x="14" y="5" width="5" height="14" rx="1"/></svg>
-        </div>
-        <span class="auth-logo-text">Omnira</span>
-      </div>
-      <h1 class="auth-title">Recuperar contraseña</h1>
-      <p class="auth-subtitle">Te enviaremos un enlace para restablecer tu contraseña.</p>
-      <div id="forgotError" class="auth-error"></div>
-      <div id="forgotSuccess" class="auth-error" style="background:rgba(0,224,150,0.1);border-color:rgba(0,224,150,0.25);color:var(--em);display:none;"></div>
-      <form id="forgotForm" onsubmit="handleForgotPassword(event)">
-        <div class="form-group">
-          <label class="form-label" for="forgotEmail">Email de tu cuenta</label>
-          <input class="form-input" type="email" id="forgotEmail" placeholder="tu@negocio.com" required autocomplete="email">
-        </div>
-        <button type="submit" class="panel-btn-primary" id="forgotBtn">Enviar enlace →</button>
-      </form>
-      <p class="auth-toggle"><a onclick="showPanelLogin()">← Volver al inicio de sesión</a></p>
-    </div>
-  </div>
-
-  <!-- REGISTER -->
-  <div id="registerScreen" class="auth-screen" style="display:none;">
-    <a class="auth-back" onclick="closeClientPanel()">← Volver a la web</a>
-    <div class="auth-card">
-      <div class="auth-logo">
-        <div class="auth-logo-icon">
-          <svg viewBox="0 0 24 24"><rect x="5" y="5" width="5" height="14" rx="1"/><rect x="14" y="5" width="5" height="14" rx="1"/></svg>
-        </div>
-        <span class="auth-logo-text">Omnira</span>
-      </div>
-      <h1 class="auth-title">Crea tu cuenta</h1>
-      <p class="auth-subtitle">Empieza a automatizar tu agenda en 5 minutos</p>
-      <div id="registerError" class="auth-error"></div>
-      <form id="registerForm" onsubmit="handlePanelRegister(event)">
-        <div class="form-group">
-          <label class="form-label" for="regBusiness">Nombre del negocio</label>
-          <input class="form-input" type="text" id="regBusiness" placeholder="Clínica Dental Sonrisas" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="regEmail">Email</label>
-          <input class="form-input" type="email" id="regEmail" placeholder="tu@negocio.com" required autocomplete="email">
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="regPhone">WhatsApp</label>
-          <input class="form-input" type="tel" id="regPhone" placeholder="+34 600 000 000" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="regPassword">Contraseña</label>
-          <input class="form-input" type="password" id="regPassword" placeholder="Mínimo 8 caracteres" required minlength="8" autocomplete="new-password">
-        </div>
-        <button type="submit" class="panel-btn-primary" id="registerBtn">Crear cuenta →</button>
-      </form>
-      <p class="auth-toggle">¿Ya tienes cuenta? <a onclick="showPanelLogin()">Inicia sesión</a></p>
-    </div>
-  </div>
-
-  <!-- DASHBOARD -->
-  <div id="dashboard" class="dashboard">
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <div class="sidebar-logo" style="display:flex;justify-content:space-between;align-items:center;width:100%;">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <div class="sidebar-logo-icon">
-              <svg viewBox="0 0 24 24"><rect x="5" y="5" width="5" height="14" rx="1"/><rect x="14" y="5" width="5" height="14" rx="1"/></svg>
-            </div>
-            <span class="sidebar-logo-text">Omnira</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <div id="panelPlanBadge" class="plan-badge-free"><span class="plan-badge-dot"></span>Gratis</div>
-            <button class="theme-toggle" onclick="toggleTheme()" aria-label="Cambiar tema">
-              <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-              <svg class="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-            </button>
-          </div>
-        </div>
-      </div>
-      <nav class="sidebar-menu">
-        <div class="menu-section">
-          <div class="menu-label">Panel</div>
-          <button class="menu-item active" onclick="showPanelSection('dashboard',this)">
-            <svg class="menu-item-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-            Resumen
-          </button>
-          <button class="menu-item" onclick="showPanelSection('calendar',this)">
-            <svg class="menu-item-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            Calendario
-          </button>
-          <button class="menu-item" onclick="showPanelSection('reservations',this)">
-            <svg class="menu-item-icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-            Reservas
-          </button>
-          <button class="menu-item" onclick="showPanelSection('conversations',this)">
-            <svg class="menu-item-icon" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            Conversaciones
-          </button>
-          <button class="menu-item" onclick="showPanelSection('analytics',this)">
-            <svg class="menu-item-icon" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-            Estadísticas
-          </button>
-        </div>
-        <div class="menu-section">
-          <div class="menu-label">Configuración</div>
-          <button class="menu-item" onclick="showPanelSection('business',this)">
-            <svg class="menu-item-icon" viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>
-            Mi Negocio
-          </button>
-          <button class="menu-item" onclick="showPanelSection('bot',this)">
-            <svg class="menu-item-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
-            Bot
-          </button>
-          <button class="menu-item" onclick="showPanelSection('billing',this)">
-            <svg class="menu-item-icon" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-            Facturación
-          </button>
-        </div>
-      </nav>
-      <div class="sidebar-footer">
-        <div class="user-info">
-          <div class="user-avatar" id="userAvatar">CD</div>
-          <div style="flex:1;min-width:0;">
-            <div class="user-name" id="userName">Cliente</div>
-            <div class="user-email" id="userEmail">cliente@email.com</div>
-          </div>
-        </div>
-        <button class="menu-item" onclick="handlePanelLogout()">
-          <svg class="menu-item-icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          Cerrar sesión
-        </button>
-      </div>
-    </aside>
-
-    <main class="main">
-
-      <!-- RESUMEN -->
-      <div id="section-dashboard" class="page-section active">
-        <!-- Upgrade banner (solo plan free) -->
-        <div id="upgradeBanner" class="upgrade-banner" style="display:none;">
-          <div class="upgrade-banner-text">
-            <h4>Activa el bot de WhatsApp para tu negocio</h4>
-            <p>Con el plan Pro, Omnira responde a tus clientes 24/7, gestiona reservas automáticamente y llena tu agenda. Reservas ilimitadas incluidas.</p>
-          </div>
-          <button class="btn-upgrade" onclick="openUpgradeModal()">Ver planes Pro →</button>
-        </div>
-        <!-- Limit bar (solo plan free) -->
-        <div id="limitBarWrap" style="display:none;margin-bottom:20px;">
-          <div class="limit-bar">
-            <div class="limit-bar-label">
-              <span>Reservas manuales este mes</span>
-              <span id="limitBarText">0 / 30</span>
-            </div>
-            <div class="limit-bar-track">
-              <div class="limit-bar-fill" id="limitBarFill" style="width:0%"></div>
-            </div>
-          </div>
-        </div>
-        <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
-          <div>
-            <h1 class="page-title" id="welcomeTitle">Hola, <span class="em">Cliente</span></h1>
-            <p class="page-subtitle">Aquí tienes el resumen de tu negocio.</p>
-          </div>
-          <div id="botStatusBadge" class="bot-status" style="display:none;">
-            <div class="bot-status-dot"></div>Bot activo
-          </div>
-        </div>
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-card-header">
-              <div class="stat-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg></div>
-              <span class="stat-trend">+12%</span>
-            </div>
-            <div class="stat-value" id="statReservas">0</div>
-            <div class="stat-label">Reservas este mes</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-card-header">
-              <div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
-              <span class="stat-trend">+24%</span>
-            </div>
-            <div class="stat-value" id="statMensajes">0</div>
-            <div class="stat-label">Mensajes recibidos</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-card-header">
-              <div class="stat-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-              <span class="stat-trend">1.4s</span>
-            </div>
-            <div class="stat-value" id="statRespuesta">2s</div>
-            <div class="stat-label">Tiempo respuesta</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-card-header">
-              <div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
-              <span class="stat-trend">★★★★★</span>
-            </div>
-            <div class="stat-value">4.9</div>
-            <div class="stat-label">Valoración media</div>
-          </div>
-        </div>
-        <div class="content-grid">
-          <div class="panel-card">
-            <div class="panel-card-header">
-              <h3 class="panel-card-title">Próximas reservas</h3>
-              <a class="panel-card-link" onclick="showPanelSectionByName('calendar')">Ver calendario →</a>
-            </div>
-            <div id="recentReservations">
-              <div class="empty-state">
-                <div class="empty-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/></svg></div>
-                <div class="empty-text">No hay reservas todavía</div>
-              </div>
-            </div>
-          </div>
-          <div class="panel-card">
-            <div class="panel-card-header">
-              <h3 class="panel-card-title">Últimas conversaciones</h3>
-              <a class="panel-card-link" onclick="showPanelSectionByName('conversations')">Ver todas →</a>
-            </div>
-            <div id="recentConversations">
-              <div class="empty-state">
-                <div class="empty-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
-                <div class="empty-text">Sin mensajes recientes</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- CALENDARIO -->
-      <div id="section-calendar" class="page-section">
-        <div class="page-header">
-          <h1 class="page-title">Calendario</h1>
-          <p class="page-subtitle">Visualiza y gestiona todas tus citas en un solo lugar.</p>
-        </div>
-        <div class="panel-card">
-          <div class="cal-toolbar">
-            <div class="cal-nav">
-              <button class="cal-nav-btn" onclick="changeCalMonth(-1)" aria-label="Mes anterior">
-                <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-              </button>
-              <div class="cal-month" id="calMonth">—</div>
-              <button class="cal-nav-btn" onclick="changeCalMonth(1)" aria-label="Mes siguiente">
-                <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-              </button>
-              <button class="cal-nav-btn" onclick="goToToday()" title="Hoy" style="width:auto;padding:0 14px;font-size:12px;font-family:'DM Sans',sans-serif;">Hoy</button>
-            </div>
-            <button class="cal-add-btn" onclick="openAddEventModal()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Añadir cita
-            </button>
-          </div>
-
-          <div style="display:flex;gap:14px;margin-bottom:18px;font-size:11px;color:var(--muted);flex-wrap:wrap;">
-            <div style="display:flex;align-items:center;gap:6px;"><div style="width:8px;height:8px;border-radius:2px;background:var(--em);"></div>Por bot</div>
-            <div style="display:flex;align-items:center;gap:6px;"><div style="width:8px;height:8px;border-radius:2px;background:#F59E0B;"></div>Manual</div>
-          </div>
-
-          <div class="cal-grid">
-            <div class="cal-weekday">L</div>
-            <div class="cal-weekday">M</div>
-            <div class="cal-weekday">X</div>
-            <div class="cal-weekday">J</div>
-            <div class="cal-weekday">V</div>
-            <div class="cal-weekday">S</div>
-            <div class="cal-weekday">D</div>
-          </div>
-          <div class="cal-grid" id="calGrid" style="margin-top:6px;"></div>
-        </div>
-      </div>
-
-      <!-- RESERVAS -->
-      <div id="section-reservations" class="page-section">
-        <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
-          <div>
-            <h1 class="page-title">Reservas</h1>
-            <p class="page-subtitle">Gestiona todas las citas de tu negocio.</p>
-          </div>
-          <button class="cal-add-btn" onclick="openAddEventModal()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Nueva reserva
-          </button>
-        </div>
-        <div class="panel-card">
-          <div class="panel-card-header">
-            <h3 class="panel-card-title">Todas las reservas</h3>
-          </div>
-          <div id="allReservations">
-            <div class="empty-state">
-              <div class="empty-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/></svg></div>
-              <div class="empty-text">Las reservas que confirme tu bot o añadas manualmente aparecerán aquí</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- CONVERSACIONES -->
-      <div id="section-conversations" class="page-section">
-        <div class="page-header">
-          <h1 class="page-title">Conversaciones</h1>
-          <p class="page-subtitle">Todos los mensajes que recibe tu WhatsApp.</p>
-        </div>
-        <div class="panel-card">
-          <div class="panel-card-header">
-            <h3 class="panel-card-title">Mensajes recientes</h3>
-          </div>
-          <div id="allConversations">
-            <div class="empty-state">
-              <div class="empty-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
-              <div class="empty-text">Las conversaciones aparecerán aquí cuando tu bot empiece a recibir mensajes</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ESTADÍSTICAS -->
-      <div id="section-analytics" class="page-section">
-        <div class="page-header">
-          <h1 class="page-title">Estadísticas</h1>
-          <p class="page-subtitle">Mide el impacto del bot en tu negocio.</p>
-        </div>
-        <div class="content-grid">
-          <div class="panel-card">
-            <div class="panel-card-header"><h3 class="panel-card-title">Evolución de reservas</h3></div>
-            <div class="empty-state"><div class="empty-text">Los gráficos se mostrarán cuando tengas datos suficientes.</div></div>
-          </div>
-          <div class="panel-card">
-            <div class="panel-card-header"><h3 class="panel-card-title">Servicios más solicitados</h3></div>
-            <div class="empty-state"><div class="empty-text">Sin datos todavía.</div></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- MI NEGOCIO -->
-      <div id="section-business" class="page-section">
-        <div class="page-header">
-          <h1 class="page-title">Mi Negocio</h1>
-          <p class="page-subtitle">Información que el bot usa para responder a tus clientes.</p>
-        </div>
-        <div class="panel-card">
-          <form id="businessForm" onsubmit="handleSavePanelBusiness(event)">
-            <div class="settings-grid">
-              <div class="form-group">
-                <label class="form-label">Nombre del negocio</label>
-                <input class="form-input" type="text" id="bizName" placeholder="Clínica Dental Sonrisas">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Tipo</label>
-                <input class="form-input" type="text" id="bizType" placeholder="Clínica dental">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Teléfono</label>
-                <input class="form-input" type="tel" id="bizPhone" placeholder="+34 600 000 000">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Email</label>
-                <input class="form-input" type="email" id="bizEmail" placeholder="contacto@negocio.com">
-              </div>
-              <div class="form-group full">
-                <label class="form-label">Dirección</label>
-                <input class="form-input" type="text" id="bizAddress" placeholder="Calle Mayor 12, Madrid">
-              </div>
-              <div class="form-group full">
-                <label class="form-label">Horario</label>
-                <textarea class="form-input" id="bizHours" rows="3" style="resize:vertical;font-family:'DM Sans',sans-serif;" placeholder="Lunes a Viernes: 9:00 - 20:00&#10;Sábado: 10:00 - 14:00&#10;Domingo: cerrado"></textarea>
-              </div>
-              <div class="form-group full">
-                <label class="form-label">Servicios y precios</label>
-                <textarea class="form-input" id="bizServices" rows="4" style="resize:vertical;font-family:'DM Sans',sans-serif;" placeholder="Limpieza dental — 60€ — 30 min&#10;Empaste — 80€ — 45 min"></textarea>
-              </div>
-              <div class="form-group full">
-                <label class="form-label">Política de cancelación</label>
-                <textarea class="form-input" id="bizCancel" rows="2" style="resize:vertical;font-family:'DM Sans',sans-serif;" placeholder="Las cancelaciones deben hacerse con 24h de antelación..."></textarea>
-              </div>
-            </div>
-            <div style="margin-top:24px;display:flex;justify-content:flex-end;">
-              <button type="submit" class="btn-save">Guardar cambios</button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <!-- BOT -->
-      <div id="section-bot" class="page-section">
-        <div class="page-header">
-          <h1 class="page-title">Configuración del Bot</h1>
-          <p class="page-subtitle">Ajusta el comportamiento de tu asistente Omnira.</p>
-        </div>
-        <div class="panel-card" style="margin-bottom:20px;">
-          <div class="panel-card-header">
-            <h3 class="panel-card-title">Estado del bot</h3>
-            <div class="bot-status"><div class="bot-status-dot"></div>Activo</div>
-          </div>
-          <p style="font-size:13px;color:var(--soft);line-height:1.6;">
-            Tu bot está respondiendo automáticamente a los mensajes que llegan a tu WhatsApp Business. Si necesitas pausarlo temporalmente contacta con soporte.
-          </p>
-        </div>
-        <div class="panel-card">
-          <div class="panel-card-header"><h3 class="panel-card-title">Personalidad del bot</h3></div>
-          <form id="botForm" onsubmit="handleSavePanelBot(event)">
-            <div class="form-group">
-              <label class="form-label">Mensaje de bienvenida</label>
-              <textarea class="form-input" id="botGreeting" rows="2" style="resize:vertical;font-family:'DM Sans',sans-serif;" placeholder="¡Hola! Soy el asistente de [Negocio]. ¿En qué puedo ayudarte?"></textarea>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Instrucciones especiales</label>
-              <textarea class="form-input" id="botInstructions" rows="4" style="resize:vertical;font-family:'DM Sans',sans-serif;" placeholder="Información adicional que el bot debe saber..."></textarea>
-            </div>
-            <div style="display:flex;justify-content:flex-end;">
-              <button type="submit" class="btn-save">Guardar cambios</button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <!-- FACTURACIÓN -->
-      <div id="section-billing" class="page-section">
-        <div class="page-header">
-          <h1 class="page-title">Facturación</h1>
-          <p class="page-subtitle">Gestiona tu plan y método de pago.</p>
-        </div>
-        <div class="content-grid">
-          <div class="panel-card">
-            <div class="panel-card-header"><h3 class="panel-card-title">Tu plan actual</h3></div>
-            <div style="padding:20px 0;">
-              <div style="font-family:'Playfair Display',serif;font-size:36px;font-weight:700;color:var(--em);">99€<span style="font-size:14px;color:var(--muted);font-weight:400;">/mes</span></div>
-              <div style="font-size:13px;color:var(--soft);margin-top:8px;">Plan Mensual · Sin permanencia</div>
-              <div style="margin-top:20px;display:flex;gap:8px;">
-                <button class="btn-save">Cambiar plan</button>
-              </div>
-            </div>
-          </div>
-          <div class="panel-card">
-            <div class="panel-card-header"><h3 class="panel-card-title">Próximo cobro</h3></div>
-            <div style="padding:20px 0;">
-              <div style="font-size:13px;color:var(--soft);margin-bottom:6px;">Próxima fecha de cobro</div>
-              <div style="font-size:18px;color:var(--text);font-weight:600;" id="nextBilling">—</div>
-              <div style="height:1px;background:var(--border);margin:16px 0;"></div>
-              <div style="font-size:13px;color:var(--soft);margin-bottom:6px;">Método de pago</div>
-              <div style="font-size:14px;color:var(--text);">Tarjeta •••• 0000</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-    </main>
-  </div>
-
-  <!-- MODAL: Añadir/editar cita -->
-  <div id="eventModal" class="modal-overlay">
-    <div class="modal">
-      <div class="modal-header">
-        <h3 class="modal-title" id="eventModalTitle">Nueva reserva</h3>
-        <button class="modal-close" onclick="closeEventModal()" aria-label="Cerrar">×</button>
-      </div>
-      <form id="eventForm" onsubmit="handleSaveEvent(event)">
-        <input type="hidden" id="eventId">
-        <div class="form-group">
-          <label class="form-label">Nombre del cliente</label>
-          <input class="form-input" type="text" id="eventName" placeholder="María García" required>
-        </div>
-        <div class="settings-grid">
-          <div class="form-group">
-            <label class="form-label">Fecha</label>
-            <input class="form-input" type="date" id="eventDate" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Hora</label>
-            <input class="form-input" type="time" id="eventTime" required>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Servicio</label>
-          <input class="form-input" type="text" id="eventService" placeholder="Limpieza dental">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Teléfono (opcional)</label>
-          <input class="form-input" type="tel" id="eventPhone" placeholder="+34 600 000 000">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Notas (opcional)</label>
-          <textarea class="form-input" id="eventNotes" rows="2" style="resize:vertical;font-family:'DM Sans',sans-serif;"></textarea>
-        </div>
-        <div class="modal-actions">
-          <button type="button" class="btn-cancel" onclick="closeEventModal()">Cancelar</button>
-          <button type="button" class="btn-delete" id="eventDeleteBtn" style="display:none;" onclick="handleDeleteEvent()">Eliminar</button>
-          <button type="submit" class="btn-save">Guardar</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <div id="toast" class="toast"></div>
-
-  <!-- MODAL UPGRADE (dentro del panel) -->
-  <div id="upgradeModal" class="modal-overlay" style="z-index:10002;position:absolute;">
-<div class="modal" style="max-width:520px;">
-    <div class="modal-header">
-      <h3 class="modal-title">Activa el bot de WhatsApp</h3>
-      <button class="modal-close" onclick="closeUpgradeModal()">×</button>
-    </div>
-    <p style="font-size:13px;color:var(--soft);line-height:1.7;margin-bottom:20px;">
-      Con Omnira Pro, tu negocio responde automáticamente a cada mensaje, confirma citas y gestiona tu agenda <strong style="color:var(--text);">24/7 sin esfuerzo</strong>.
-    </p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
-      <div class="panel-card" style="padding:16px;text-align:center;">
-        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Mensual</div>
-        <div style="font-family:'Playfair Display',serif;font-size:32px;font-weight:700;color:var(--text);">99€</div>
-        <div style="font-size:11px;color:var(--muted);">/mes</div>
-        <a href="https://wa.me/+34628072072?text=Quiero%20contratar%20Omnira%20Pro%20mensual" target="_blank" class="btn-save" style="display:flex;justify-content:center;margin-top:14px;width:100%;text-decoration:none;">Contratar</a>
-      </div>
-      <div class="panel-card" style="padding:16px;text-align:center;border-color:var(--em);background:rgba(0,224,150,0.05);">
-        <div style="font-size:11px;color:var(--em);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">⚡ Semestral</div>
-        <div style="font-family:'Playfair Display',serif;font-size:32px;font-weight:700;color:var(--text);">81€</div>
-        <div style="font-size:11px;color:var(--muted);">/mes · Total 480€</div>
-        <div style="font-size:10px;color:var(--em);margin-top:4px;">Ahorras 114€</div>
-        <a href="https://wa.me/+34628072072?text=Quiero%20contratar%20Omnira%20Pro%20semestral" target="_blank" class="btn-save" style="display:flex;justify-content:center;margin-top:10px;width:100%;text-decoration:none;">Contratar</a>
-      </div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--soft);margin-bottom:16px;">
-      <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:700;">✓</span> Bot responde por WhatsApp 24/7</div>
-      <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:700;">✓</span> Reservas ilimitadas en el calendario</div>
-      <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:700;">✓</span> Recordatorios automáticos</div>
-      <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:700;">✓</span> Panel de control completo</div>
-      <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--em);font-weight:700;">✓</span> 14 días de prueba gratis</div>
-    </div>
-    <button class="btn-cancel" onclick="closeUpgradeModal()" style="width:100%;">Ahora no, seguir con plan gratis</button>
-  </div>
-</div>
-</div>
 </div>
 
 <script>
@@ -2599,11 +1721,17 @@ const panelApi = {
       if (!res.ok) throw new Error(json.message || 'Error al enviar el email');
       return json;
     }
-    if (OmniraDB.isFirebaseReady()) {
-      await OmniraDB.firebaseResetPassword(email);
-      return { message: 'Email enviado' };
+    // Fallback: Firebase directo
+    if (OmniraDB.isFirebaseReady && OmniraDB.isFirebaseReady()) {
+      try {
+        await OmniraDB.firebaseResetPassword(email);
+        return { message: 'Email enviado' };
+      } catch(e) {
+        if (e.code === 'auth/user-not-found') throw new Error('No existe ninguna cuenta con ese email.');
+        throw new Error('Error al enviar el email. Inténtalo de nuevo.');
+      }
     }
-    // Fallback local: mostrar contraseña temporal
+    // Fallback local
     const user = await OmniraDB.getUserByEmail(email.toLowerCase().trim());
     if (!user) throw new Error('No existe ninguna cuenta con ese email.');
     const tempPass = Math.random().toString(36).slice(2, 10);
@@ -2729,23 +1857,7 @@ const panelApi = {
 };
 
 /* ─── PANEL OPEN/CLOSE ─── */
-async function openClientPanel(view){
-  document.getElementById('clientPanel').classList.add('active');
-  document.body.style.overflow = 'hidden';
-
-  // Si hay sesión guardada, validarla antes de entrar al dashboard
-  const session = localStorage.getItem('omnira_session');
-  if (session) {
-    try {
-      const data = JSON.parse(session);
-      if (data.user && data.token) {
-        // Re-validar contra el backend (o localStorage en modo demo)
-        try {
-          const fresh = await panelApi.getMe();
-          // Actualizar datos del usuario con los más recientes
-          localStorage.setItem('omnira_session', JSON.stringify({
-            user: fresh.user, token: data.token
-          }));
+async ));
           enterPanelDashboard(fresh.user);
           return;
         } catch(err) {
@@ -2759,10 +1871,7 @@ async function openClientPanel(view){
   if (view === 'register') showPanelRegister();
   else showPanelLogin();
 }
-function closeClientPanel(){
-  document.getElementById('clientPanel').classList.remove('active');
-  document.body.style.overflow = '';
-}
+
 
 /* ─── AUTH ─── */
 function showPanelRegister(){
@@ -2905,16 +2014,7 @@ function renderConvList(id, list){
 
 /* ─── NAVIGATION ─── */
 function showPanelSection(name, btn){
-  document.querySelectorAll('#clientPanel .page-section').forEach(s => s.classList.remove('active'));
-  document.getElementById('section-'+name).classList.add('active');
-  document.querySelectorAll('#clientPanel .menu-item').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  if (name === 'calendar') renderCalendar();
-  document.querySelector('#clientPanel .main').scrollTop = 0;
-}
-function showPanelSectionByName(name){
-  const btn = Array.from(document.querySelectorAll(`#clientPanel .menu-item`))
-    .find(b => b.getAttribute('onclick')?.includes(`'${name}'`));
+  document.querySelectorAll(''`));
   showPanelSection(name, btn);
 }
 
@@ -3259,5 +2359,15 @@ function enterPanelDashboard(user){
 
 
 
+
+<!-- WhatsApp flotante -->
+<a href="https://wa.me/34628072072?text=Hola,%20quiero%20una%20demo%20de%20Omnira" 
+   target="_blank"
+   style="position:fixed;bottom:28px;right:28px;width:60px;height:60px;background:#25D366;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(37,211,102,0.4);z-index:9999;transition:transform 0.2s;"
+   onmouseover="this.style.transform='scale(1.1)'" 
+   onmouseout="this.style.transform='scale(1)'"
+   title="Contactar por WhatsApp">
+  <svg viewBox="0 0 24 24" style="width:32px;height:32px;fill:white;"><path d="M17.498 14.382c-.301-.15-1.767-.867-2.04-.966-.273-.101-.473-.15-.673.15-.197.295-.771.964-.944 1.162-.175.195-.349.21-.646.075-.3-.15-1.263-.465-2.403-1.485-.888-.795-1.484-1.77-1.66-2.07-.174-.3-.019-.465.13-.615.136-.135.301-.345.451-.523.146-.181.194-.301.297-.496.1-.21.049-.375-.025-.524-.075-.15-.672-1.62-.922-2.206-.24-.584-.487-.51-.672-.51-.172-.015-.371-.015-.571-.015-.2 0-.523.074-.797.359-.273.3-1.045 1.02-1.045 2.475s1.07 2.865 1.219 3.075c.149.195 2.105 3.195 5.1 4.485.714.3 1.27.48 1.704.629.714.227 1.365.195 1.88.121.574-.091 1.767-.721 2.016-1.426.255-.705.255-1.29.18-1.425-.074-.135-.27-.21-.57-.345z"/><path d="M20.52 3.449C18.24 1.245 15.24 0 12.045 0 5.463 0 .104 5.334.101 11.893c0 2.096.549 4.14 1.595 5.945L0 24l6.335-1.652c1.746.943 3.71 1.444 5.71 1.447h.006c6.585 0 11.946-5.336 11.949-11.896 0-3.176-1.24-6.165-3.48-8.45zm-8.48 18.297h-.004c-1.774 0-3.513-.477-5.031-1.378l-.36-.214-3.742.975.999-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.886 9.884z"/></svg>
+</a>
 </body>
 </html>
