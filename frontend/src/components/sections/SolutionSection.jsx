@@ -2,13 +2,16 @@ export function SolutionSection() {
   return (
     <section id="solucion" className="section">
       <div
+        className="solucion-glow"
+        aria-hidden="true"
         style={{
           position: 'absolute',
           top: '50%',
           left: '50%',
           transform: 'translate(-50%,-50%)',
-          width: '900px',
-          height: '500px',
+          width: 'min(calc(100vw - 32px), 900px)',
+          height: 'min(56vw, 500px)',
+          maxHeight: '70vh',
           background: 'radial-gradient(ellipse,rgba(0,229,160,0.04),transparent 70%)',
           pointerEvents: 'none',
         }}

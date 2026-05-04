@@ -1,4 +1,4 @@
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+﻿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    OMNIRA â€” STATE OF THE ART LANDING PAGE
    Design: Dark luxury, neon emerald, glass morphism, cinematic
 â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
@@ -1137,7 +1137,8 @@ img { max-width: 100%; display: block; }
 #precios { padding: 120px 0; background: radial-gradient(ellipse 120% 80% at 50% 0%, rgba(0,229,160,0.04) 0%, transparent 45%), var(--ink2); position: relative; overflow: hidden; }
 .price-glow {
   position: absolute; top: 40%; left: 50%; transform: translate(-50%,-50%);
-  width: min(900px, 140vw); height: 560px;
+  width: min(900px, 100%);
+  height: min(560px, 85vw);
   background: radial-gradient(ellipse, rgba(0,229,160,0.07) 0%, rgba(59,130,246,0.03) 40%, transparent 72%);
   pointer-events: none;
 }
