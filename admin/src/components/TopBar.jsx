@@ -14,19 +14,23 @@ export function TopBar({ onMenuClick }) {
 
   return (
     <header className="adm-topbar">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button type="button" className="adm-menu-toggle" aria-label="Open menu" onClick={onMenuClick}>
-          <span style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <span style={{ width: 20, height: 2, background: '#fff', borderRadius: 1 }} />
-            <span style={{ width: 20, height: 2, background: '#fff', borderRadius: 1 }} />
-            <span style={{ width: 14, height: 2, background: 'var(--em)', borderRadius: 1 }} />
-          </span>
-        </button>
-        <label className="adm-search">
-          <IconSearch style={{ color: 'var(--muted)', flexShrink: 0 }} />
-          <input type="search" placeholder="Search clients, phone numbers, WABA IDs…" autoComplete="off" />
-        </label>
-      </div>
+      <button type="button" className="adm-menu-toggle" aria-label="Open menu" onClick={onMenuClick}>
+        <span className="adm-menu-toggle-bars" aria-hidden>
+          <span />
+          <span />
+          <span />
+        </span>
+      </button>
+      <label className="adm-search">
+        <IconSearch style={{ color: 'var(--muted)', flexShrink: 0 }} />
+        <input
+          type="search"
+          className="adm-search-input"
+          placeholder="Search clients, phone numbers, WABA IDs…"
+          autoComplete="off"
+          enterKeyHint="search"
+        />
+      </label>
 
       <div className="adm-topbar-actions">
         <button type="button" className="adm-icon-btn" title="Notifications" aria-label="Notifications">

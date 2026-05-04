@@ -41,11 +41,16 @@ body {
   font-family: var(--font);
   background: var(--ink);
   color: var(--text);
+  min-height: 100vh;
   min-height: 100dvh;
+  min-height: -webkit-fill-available;
   -webkit-font-smoothing: antialiased;
 }
 #root {
+  min-height: 100vh;
   min-height: 100dvh;
+  min-height: -webkit-fill-available;
+  overflow-x: clip;
 }
 
 a {
@@ -72,7 +77,10 @@ h4 {
 /* —— App shell —— */
 .adm-app {
   display: flex;
+  min-height: 100vh;
   min-height: 100dvh;
+  min-height: -webkit-fill-available;
+  overflow-x: clip;
 }
 
 .adm-sidebar {
@@ -85,7 +93,11 @@ h4 {
   position: fixed;
   inset: 0 auto 0 0;
   z-index: 100;
-  padding: 22px 0 20px;
+  padding: 22px 0 max(20px, env(safe-area-inset-bottom));
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  max-height: 100dvh;
+  max-height: 100vh;
 }
 
 .adm-sidebar::before {
@@ -168,6 +180,7 @@ h4 {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-height: 44px;
   padding: 11px 14px;
   border-radius: var(--r-md);
   color: var(--soft);
@@ -175,6 +188,7 @@ h4 {
   font-weight: 500;
   transition: background 0.2s, color 0.2s, box-shadow 0.2s;
   border: 1px solid transparent;
+  -webkit-tap-highlight-color: transparent;
 }
 .adm-nav-link svg {
   width: 20px;
@@ -227,20 +241,25 @@ h4 {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  min-height: 100vh;
   min-height: 100dvh;
+  min-height: -webkit-fill-available;
 }
 
 .adm-topbar {
-  height: var(--topbar-h);
+  min-height: var(--topbar-h);
   flex-shrink: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 0 28px;
+  justify-content: flex-start;
+  gap: 12px 16px;
+  padding: max(10px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom))
+    max(24px, env(safe-area-inset-left));
   border-bottom: 1px solid var(--border);
-  background: rgba(5, 8, 16, 0.85);
+  background: rgba(5, 8, 16, 0.92);
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   position: sticky;
   top: 0;
   z-index: 50;
@@ -250,15 +269,16 @@ h4 {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 14px;
+  padding: 10px 14px;
   border-radius: var(--r-full);
   background: var(--surf2);
   border: 1px solid var(--border);
-  min-width: min(320px, 40vw);
+  min-width: 0;
   max-width: 420px;
   flex: 1;
 }
-.adm-search input {
+.adm-search input,
+.adm-search-input {
   flex: 1;
   border: none;
   background: transparent;
@@ -266,6 +286,7 @@ h4 {
   font-size: 13px;
   font-family: inherit;
   outline: none;
+  min-width: 0;
 }
 .adm-search input::placeholder {
   color: var(--muted);
@@ -275,11 +296,12 @@ h4 {
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-left: auto;
 }
 
 .adm-icon-btn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--r-md);
   border: 1px solid var(--border);
   background: var(--surf2);
@@ -299,11 +321,13 @@ h4 {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 44px;
   padding: 6px 12px 6px 6px;
   border-radius: var(--r-full);
   border: 1px solid var(--border);
   background: var(--surf2);
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 .adm-user-avatar {
   width: 32px;
@@ -335,7 +359,7 @@ h4 {
 
 .adm-content {
   flex: 1;
-  padding: 28px 28px 40px;
+  padding: 28px 28px max(40px, env(safe-area-inset-bottom));
   max-width: 1440px;
   width: 100%;
   margin: 0 auto;
@@ -550,9 +574,14 @@ h4 {
   border: 1px solid var(--border);
   overflow: hidden;
   background: rgba(12, 18, 32, 0.5);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
 }
 .adm-table {
   width: 100%;
+  min-width: 640px;
   border-collapse: collapse;
   font-size: 13px;
 }
@@ -624,6 +653,7 @@ h4 {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  min-height: 44px;
   padding: 10px 18px;
   border-radius: var(--r-full);
   font-family: inherit;
@@ -632,6 +662,7 @@ h4 {
   border: none;
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.2s;
+  -webkit-tap-highlight-color: transparent;
 }
 .adm-btn:active {
   transform: scale(0.98);
@@ -718,16 +749,24 @@ h4 {
 /* —— Tabs (client detail) —— */
 .adm-tabs {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
   margin-bottom: 22px;
   padding: 6px;
   border-radius: var(--r-lg);
   background: rgba(8, 13, 22, 0.85);
   border: 1px solid var(--border);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.adm-tabs::-webkit-scrollbar {
+  display: none;
 }
 .adm-tab {
   padding: 10px 18px;
+  min-height: 44px;
   border-radius: var(--r-md);
   font-size: 13px;
   font-weight: 600;
@@ -737,6 +776,8 @@ h4 {
   cursor: pointer;
   font-family: inherit;
   transition: color 0.2s, background 0.2s, border-color 0.2s;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 .adm-tab:hover {
   color: var(--text);
@@ -750,11 +791,14 @@ h4 {
 
 /* —— Login —— */
 .adm-login {
+  min-height: 100vh;
   min-height: 100dvh;
+  min-height: -webkit-fill-available;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: max(24px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom))
+    max(20px, env(safe-area-inset-left));
   position: relative;
   overflow: clip;
 }
@@ -809,13 +853,62 @@ h4 {
   background: var(--surf2);
   color: #fff;
   cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.adm-menu-toggle-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 20px;
+}
+.adm-menu-toggle-bars span {
+  display: block;
+  height: 2px;
+  border-radius: 1px;
+  background: #fff;
+}
+.adm-menu-toggle-bars span:last-child {
+  width: 14px;
+  align-self: flex-start;
+  background: var(--em);
+}
+
+@media (min-width: 961px) {
+  .adm-topbar .adm-search {
+    order: 0;
+    flex: 1;
+    max-width: 420px;
+  }
+  .adm-menu-toggle {
+    display: none;
+  }
+  .adm-topbar-actions {
+    order: 0;
+    margin-left: auto;
+  }
 }
 
 @media (max-width: 960px) {
   .adm-menu-toggle {
     display: flex;
+    order: 1;
+  }
+  .adm-topbar-actions {
+    order: 2;
+    margin-left: auto;
+  }
+  .adm-search {
+    order: 3;
+    flex: 1 1 100%;
+    max-width: none;
+    min-width: 0;
   }
   .adm-sidebar {
+    padding-top: max(22px, env(safe-area-inset-top));
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
     transform: translateX(-100%);
     transition: transform 0.28s ease;
     box-shadow: none;
@@ -833,15 +926,79 @@ h4 {
     inset: 0;
     background: rgba(0, 0, 0, 0.55);
     z-index: 99;
+    -webkit-tap-highlight-color: transparent;
   }
   .adm-sidebar-overlay.visible {
     display: block;
   }
-  .adm-search {
-    min-width: 0;
-  }
   .adm-content {
-    padding: 20px 16px 32px;
+    padding: 20px max(14px, env(safe-area-inset-left)) max(28px, env(safe-area-inset-bottom))
+      max(14px, env(safe-area-inset-right));
+  }
+  .adm-page-head h1 {
+    font-size: clamp(22px, 6vw, 28px);
+  }
+  .adm-page-head p {
+    font-size: 14px;
+  }
+  .adm-card {
+    padding: 18px 16px 16px;
+  }
+  .adm-stat-value {
+    font-size: clamp(22px, 6vw, 28px);
+  }
+  .adm-chart-bars {
+    height: 160px;
+    gap: 6px;
+  }
+  .adm-chart-label {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 560px) {
+  .adm-funnel-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .adm-funnel-label {
+    width: 100%;
+  }
+  .adm-table {
+    min-width: 720px;
+  }
+  .adm-table th,
+  .adm-table td {
+    padding: 12px 12px;
+    font-size: 12px;
+  }
+}
+
+/* iOS: avoid input zoom on focus (16px+); Android benefits too */
+@media (max-width: 480px) {
+  .adm-search-input,
+  .adm-field input,
+  .adm-field textarea,
+  .adm-field select {
+    font-size: 16px;
+  }
+  .adm-login-card {
+    padding: 28px 20px 32px;
+  }
+  .adm-user-meta {
+    display: none;
+  }
+  .adm-user-chip {
+    padding: 6px;
+    min-width: 44px;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 380px) {
+  .adm-search-input::placeholder {
+    font-size: 13px;
   }
 }
 
