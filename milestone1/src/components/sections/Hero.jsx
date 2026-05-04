@@ -72,6 +72,7 @@ export function Hero() {
   return (
     <section id="hero">
       <div className="hero-bg">
+        <div className="hero-bg-photo" role="presentation" aria-hidden="true" />
         <div className="hero-bg-scrim" aria-hidden="true" />
         <div className="hero-bg-mesh" aria-hidden="true" />
         <div className="hero-orb hero-orb-1" />
