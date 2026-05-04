@@ -1,0 +1,56 @@
+.logo-mark {
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 0 20px var(--em-glow2);
+}
+
+.nav-logo .nav-logo-icon {
+  background: transparent;
+  padding: 0;
+  overflow: visible;
+}
+.nav-logo .nav-logo-icon .logo-mark {
+  width: 36px;
+  height: 36px;
+  display: block;
+}
+
+.footer-brand .logo-mark {
+  width: 36px;
+  height: 36px;
+}
+
+.auth-header-mini-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.auth-header-mini-icon .logo-mark {
+  width: 26px;
+  height: 26px;
+  box-shadow: 0 2px 12px rgba(0, 229, 160, 0.35);
+  border-radius: 8px;
+}
+.auth-logo-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.auth-logo-icon .logo-mark {
+  width: 40px;
+  height: 40px;
+}
+.p-sidebar-logo-icon {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.p-sidebar-logo-icon .logo-mark {
+  width: 28px;
+  height: 28px;
+  box-shadow: 0 2px 14px rgba(0, 229, 160, 0.25);
+  border-radius: 10px;
+}
