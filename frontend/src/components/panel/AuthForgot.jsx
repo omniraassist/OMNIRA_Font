@@ -26,7 +26,7 @@ export function AuthForgot() {
   }
 
   return (
-    <div id="forgotScreen" className="auth-screen">
+    <div id="forgotScreen" className="auth-screen notranslate" translate="no">
       <header className="auth-header">
         <div className="auth-header-inner">
           <button type="button" className="auth-header-brand" onClick={showLogin}>
@@ -62,7 +62,7 @@ export function AuthForgot() {
                 <p className="auth-subtitle">Te enviaremos un enlace de recuperación a tu email.</p>
                 <div className={`auth-error ${err ? 'show' : ''}`}>{err}</div>
                 <div className={`auth-msg-success ${ok ? 'show' : ''}`}>{ok}</div>
-                <form onSubmit={onSubmit}>
+                <form onSubmit={onSubmit} translate="no" className="notranslate">
                   <div className="form-group">
                     <label className="form-label" htmlFor="forgotEmail">
                       Email
@@ -70,7 +70,14 @@ export function AuthForgot() {
                     <input className="form-input" type="email" id="forgotEmail" name="forgotEmail" placeholder="tu@negocio.com" required />
                   </div>
                   <button type="submit" className="panel-btn-primary" id="forgotBtn" disabled={loading}>
-                    {loading ? <div className="p-spinner" style={{ width: 20, height: 20 }} /> : <>Enviar enlace <i className="fa-solid fa-paper-plane" /></>}
+                    {loading ? (
+                      <div className="p-spinner" style={{ width: 20, height: 20 }} />
+                    ) : (
+                      <span className="panel-btn-primary-inner">
+                        <span>Enviar enlace</span>
+                        <i className="fa-solid fa-paper-plane" aria-hidden />
+                      </span>
+                    )}
                   </button>
                 </form>
                 <p className="auth-switch">

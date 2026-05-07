@@ -1,9 +1,64 @@
 import { useCallback, useEffect, useState } from 'react';
+import * as XLSX from 'xlsx';
+import mammoth from 'mammoth';
+import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { apiCall } from '../../api/client.js';
 import { LogoMark } from '../brand/LogoMark.jsx';
 import { usePanel } from '../../context/PanelContext.jsx';
 
 const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+GlobalWorkerOptions.workerSrc = pdfWorker;
+
+async function readTxtLike(file) {
+  return file.text();
+}
+
+async function readDocx(file) {
+  const buffer = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer: buffer });
+  return result.value || '';
+}
+
+async function readPdf(file) {
+  const data = new Uint8Array(await file.arrayBuffer());
+  const pdf = await getDocument({ data }).promise;
+  const pages = [];
+  for (let i = 1; i <= pdf.numPages; i += 1) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const text = content.items.map((item) => ('str' in item ? item.str : '')).join(' ');
+    pages.push(text.trim());
+  }
+  return pages.filter(Boolean).join('\n\n');
+}
+
+async function readXlsx(file) {
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: 'array' });
+  const chunks = workbook.SheetNames.map((sheetName) => {
+    const ws = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false });
+    const textRows = rows
+      .map((row) =>
+        Array.isArray(row)
+          ? row
+              .map((cell) => (cell == null ? '' : String(cell).trim()))
+              .filter(Boolean)
+              .join(' | ')
+          : ''
+      )
+      .filter(Boolean)
+      .join('\n');
+    return `# ${sheetName}\n${textRows}`;
+  });
+  return chunks.filter(Boolean).join('\n\n');
+}
+
+function guessExtension(name = '') {
+  const idx = name.lastIndexOf('.');
+  return idx >= 0 ? name.slice(idx + 1).toLowerCase() : '';
+}
 
 function ResList({ list }) {
   if (!list?.length) return null;
@@ -43,6 +98,8 @@ export function Dashboard() {
   const [biz, setBiz] = useState({});
   const [bot, setBot] = useState({});
   const [toast, setToast] = useState({ msg: '', type: '' });
+  const [kbBusy, setKbBusy] = useState(false);
+  const [kbErr, setKbErr] = useState('');
   const [eventOpen, setEventOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [evForm, setEvForm] = useState({
@@ -229,6 +286,72 @@ export function Dashboard() {
     }
   };
 
+  async function handleKbUpload(e) {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setKbBusy(true);
+    setKbErr('');
+
+    let merged = (bot.knowledgeBaseText || '').trim();
+    const imported = [...(Array.isArray(bot.knowledgeBaseSources) ? bot.knowledgeBaseSources : [])];
+
+    for (const file of files) {
+      const ext = guessExtension(file.name);
+      try {
+        let text = '';
+        if (['txt', 'md', 'csv', 'json'].includes(ext)) {
+          text = await readTxtLike(file);
+        } else if (ext === 'docx') {
+          text = await readDocx(file);
+        } else if (ext === 'pdf') {
+          text = await readPdf(file);
+        } else if (['xlsx', 'xls'].includes(ext)) {
+          text = await readXlsx(file);
+        } else if (ext === 'doc') {
+          throw new Error('.doc legacy format is not readable in browser. Please upload .docx');
+        } else {
+          throw new Error('Unsupported format');
+        }
+
+        const normalized = (text || '').trim();
+        if (!normalized) throw new Error('No readable text found in file');
+
+        merged = `${merged}${merged ? '\n\n' : ''}----- ${file.name} -----\n${normalized}`;
+        imported.push({ name: file.name, size: file.size, at: new Date().toISOString() });
+      } catch (err) {
+        setKbErr(`No se pudo importar ${file.name}: ${err.message || 'Error'}`);
+      }
+    }
+
+    setBot((prev) => ({ ...prev, knowledgeBaseText: merged, knowledgeBaseSources: imported }));
+    setKbBusy(false);
+    e.target.value = '';
+  }
+
+  function removeKbFile(index) {
+    setBot((prev) => ({
+      ...prev,
+      knowledgeBaseSources: (prev.knowledgeBaseSources || []).filter((_, i) => i !== index),
+    }));
+  }
+
+  async function saveKnowledgeBase() {
+    try {
+      await apiCall('/api/bot', {
+        method: 'PUT',
+        body: JSON.stringify({
+          greeting: bot.greeting || '',
+          instructions: bot.instructions || bot.instr || '',
+          knowledgeBaseText: bot.knowledgeBaseText || '',
+          knowledgeBaseSources: bot.knowledgeBaseSources || [],
+        }),
+      });
+      showToast('Knowledge Base guardada', 'success');
+    } catch (ex) {
+      showToast('Error: ' + ex.message, 'error');
+    }
+  }
+
   const y = calDate.getFullYear();
   const m = calDate.getMonth();
   const calLabel = `${MONTHS[m]} ${y}`;
@@ -308,8 +431,8 @@ export function Dashboard() {
               <button type="button" className={`p-nav-item${page === 'calendar' ? ' active' : ''}`} onClick={() => showPage('calendar')}>
                 <i className="fa-solid fa-calendar-days" /> Calendario
               </button>
-              <button type="button" className={`p-nav-item${page === 'reservas' ? ' active' : ''}`} onClick={() => showPage('reservas')}>
-                <i className="fa-solid fa-calendar-check" /> Reservas
+              <button type="button" className={`p-nav-item${page === 'booking' ? ' active' : ''}`} onClick={() => showPage('booking')}>
+                <i className="fa-solid fa-calendar-check" /> Booking
               </button>
               <button type="button" className={`p-nav-item${page === 'convs' ? ' active' : ''}`} onClick={() => showPage('convs')}>
                 <i className="fa-brands fa-whatsapp" /> Conversaciones
@@ -328,6 +451,9 @@ export function Dashboard() {
               </button>
               <button type="button" className={`p-nav-item${page === 'factura' ? ' active' : ''}`} onClick={() => showPage('factura')}>
                 <i className="fa-solid fa-credit-card" /> Facturación
+              </button>
+              <button type="button" className={`p-nav-item${page === 'knowledge' ? ' active' : ''}`} onClick={() => showPage('knowledge')}>
+                <i className="fa-solid fa-brain" /> Knowledge Training
               </button>
             </div>
           </nav>
@@ -501,21 +627,21 @@ export function Dashboard() {
             </div>
           </div>
 
-          <div id="page-reservas" className={`p-page${page === 'reservas' ? ' active' : ''}`}>
+          <div id="page-booking" className={`p-page${page === 'booking' ? ' active' : ''}`}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', marginBottom: '32px' }}>
               <div>
-                <h1 className="p-page-title">Reservas</h1>
+                <h1 className="p-page-title">Booking</h1>
                 <p className="p-page-sub" style={{ marginBottom: 0 }}>
-                  Gestiona todas las citas de tu negocio.
+                  Manage all your appointments from one place.
                 </p>
               </div>
               <button type="button" className="cal-add-btn" onClick={() => openAddModal()}>
-                <i className="fa-solid fa-plus" /> Nueva reserva
+                <i className="fa-solid fa-plus" /> New booking
               </button>
             </div>
             <div className="p-card">
               <div className="p-card-header">
-                <span className="p-card-title">Todas las reservas</span>
+                <span className="p-card-title">All bookings</span>
               </div>
               <div id="allResList">
                 {allEvents?.length ? (
@@ -685,6 +811,70 @@ export function Dashboard() {
                   <div style={{ fontSize: 13, color: 'var(--soft)', marginBottom: 6 }}>Método de pago</div>
                   <div style={{ fontSize: 14, color: 'var(--text)' }}>Tarjeta •••• 0000</div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="page-knowledge" className={`p-page${page === 'knowledge' ? ' active' : ''}`}>
+            <h1 className="p-page-title">Knowledge Training</h1>
+            <p className="p-page-sub">Sube documentos o escribe texto para entrenar el contexto de tu chatbot.</p>
+            <div className="p-card">
+              <div className="panel-kb-wrap" style={{ marginTop: 0 }}>
+                <div className="panel-kb-head">
+                  <h3>Base de conocimiento</h3>
+                  <p>
+                    Puedes subir `txt`, `docx`, `pdf`, `xlsx` o escribir manualmente el contexto de negocio sobre el que
+                    trabajará tu agente.
+                  </p>
+                </div>
+
+                <div className="panel-kb-actions">
+                  <label className="btn-ghost panel-kb-upload">
+                    <input
+                      type="file"
+                      accept=".txt,.md,.csv,.json,.doc,.docx,.pdf,.xlsx,.xls"
+                      multiple
+                      onChange={handleKbUpload}
+                      disabled={kbBusy}
+                    />
+                    <i className="fa-solid fa-upload" /> {kbBusy ? 'Importando…' : 'Subir archivos'}
+                  </label>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={() => setBot((prev) => ({ ...prev, knowledgeBaseText: '' }))}
+                  >
+                    <i className="fa-solid fa-eraser" /> Limpiar texto
+                  </button>
+                  <button type="button" className="btn-save-form" onClick={saveKnowledgeBase}>
+                    <i className="fa-solid fa-floppy-disk" /> Guardar KB
+                  </button>
+                </div>
+
+                {kbErr ? <div className="auth-error show">{kbErr}</div> : null}
+
+                <textarea
+                  className="form-input panel-kb-textarea"
+                  value={bot.knowledgeBaseText || ''}
+                  onChange={(e) => setBot((prev) => ({ ...prev, knowledgeBaseText: e.target.value }))}
+                  placeholder="Escribe aquí FAQs, servicios, políticas, tono, guías de reserva, etc."
+                />
+
+                {Array.isArray(bot.knowledgeBaseSources) && bot.knowledgeBaseSources.length ? (
+                  <div className="panel-kb-files">
+                    {bot.knowledgeBaseSources.map((f, idx) => (
+                      <div key={`${f.name}-${f.at}-${idx}`} className="panel-kb-file">
+                        <div>
+                          <strong>{f.name}</strong>
+                          <span>{Math.max(1, Math.round((f.size || 0) / 1024))} KB</span>
+                        </div>
+                        <button type="button" onClick={() => removeKbFile(idx)}>
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>

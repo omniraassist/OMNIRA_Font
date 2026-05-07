@@ -1,10 +1,24 @@
 import { useState } from 'react';
 import { apiCall } from '../../api/client.js';
 import { LogoMark } from '../brand/LogoMark.jsx';
+import { USE_REMOTE_AUTH_API } from '../../constants/site.js';
 import { usePanel } from '../../context/PanelContext.jsx';
 
+function previewUserFromEmail(emailRaw) {
+  const email = (emailRaw || 'demo@omnira.app').trim() || 'demo@omnira.app';
+  const local = email.split('@')[0] || 'negocio';
+  return {
+    id: 'preview_user',
+    email,
+    businessName: local.charAt(0).toUpperCase() + local.slice(1),
+    name: 'Usuario',
+    plan: 'free',
+    botActive: false,
+  };
+}
+
 export function AuthLogin() {
-  const { closeClientPanel, showRegister, showForgot, enterDashboard } = usePanel();
+  const { closeClientPanel, showRegister, showForgot, enterPlanHome } = usePanel();
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -15,12 +29,18 @@ export function AuthLogin() {
     const email = e.target.loginEmail.value;
     const password = e.target.loginPass.value;
     try {
+      if (!USE_REMOTE_AUTH_API) {
+        const user = previewUserFromEmail(email);
+        localStorage.setItem('omnira_session', JSON.stringify({ user, token: 'demo' }));
+        enterPlanHome(user);
+        return;
+      }
       const res = await apiCall('/api/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
       localStorage.setItem('omnira_session', JSON.stringify(res));
-      enterDashboard(res.user);
+      enterPlanHome(res.user);
     } catch (ex) {
       setErr(ex.message || 'Error');
     } finally {
@@ -29,7 +49,7 @@ export function AuthLogin() {
   }
 
   return (
-    <div id="loginScreen" className="auth-screen">
+    <div id="loginScreen" className="auth-screen notranslate" translate="no">
       <header className="auth-header">
         <div className="auth-header-inner">
           <button type="button" className="auth-header-brand" onClick={closeClientPanel}>
@@ -59,8 +79,13 @@ export function AuthLogin() {
                 </div>
                 <h1 className="auth-title">Bienvenido de vuelta</h1>
                 <p className="auth-subtitle">Accede al panel de tu negocio</p>
+                {!USE_REMOTE_AUTH_API && (
+                  <p className="auth-subtitle" style={{ marginTop: '-8px', fontSize: '13px', color: 'var(--em)' }}>
+                    Vista previa: sin API ni contraseña — pulsa iniciar sesión para continuar.
+                  </p>
+                )}
                 <div className={`auth-error ${err ? 'show' : ''}`}>{err}</div>
-                <form onSubmit={onSubmit}>
+                <form onSubmit={onSubmit} translate="no" className="notranslate" noValidate={!USE_REMOTE_AUTH_API}>
                   <div className="form-group">
                     <label className="form-label" htmlFor="loginEmail">
                       Email
@@ -71,13 +96,13 @@ export function AuthLogin() {
                       id="loginEmail"
                       name="loginEmail"
                       placeholder="tu@negocio.com"
-                      required
+                      required={USE_REMOTE_AUTH_API}
                       autoComplete="email"
                     />
                   </div>
                   <div className="form-group">
                     <label className="form-label" htmlFor="loginPass">
-                      Contraseña
+                      Contraseña {!USE_REMOTE_AUTH_API && <span style={{ color: 'var(--muted)', fontWeight: 500 }}>(opcional en vista previa)</span>}
                     </label>
                     <input
                       className="form-input"
@@ -85,11 +110,19 @@ export function AuthLogin() {
                       id="loginPass"
                       name="loginPass"
                       placeholder="••••••••"
-                      required
+                      required={USE_REMOTE_AUTH_API}
+                      autoComplete="current-password"
                     />
                   </div>
                   <button type="submit" className="panel-btn-primary" id="loginBtn" disabled={loading}>
-                    {loading ? <div className="p-spinner" style={{ width: 20, height: 20 }} /> : <>Iniciar sesión <i className="fa-solid fa-arrow-right" /></>}
+                    {loading ? (
+                      <div className="p-spinner" style={{ width: 20, height: 20 }} />
+                    ) : (
+                      <span className="panel-btn-primary-inner">
+                        <span>Iniciar sesión</span>
+                        <i className="fa-solid fa-arrow-right" aria-hidden />
+                      </span>
+                    )}
                   </button>
                 </form>
                 <p className="auth-switch" style={{ marginTop: 10, fontSize: 13 }}>

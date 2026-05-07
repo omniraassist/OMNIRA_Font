@@ -1807,6 +1807,12 @@ footer {
 }
 .form-input:focus { outline: none; border-color: var(--em); box-shadow: 0 0 0 3px var(--em-glow2); }
 .form-input::placeholder { color: var(--muted); }
+.panel-btn-primary-inner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
 .panel-btn-primary {
   display: flex;
   align-items: center;
@@ -2189,5 +2195,458 @@ footer {
 @media (max-width: 960px) {
   .case-studies-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ═══ POST-LOGIN PLAN HOME (client panel) — matches landing pricing theme ═══ */
+#clientPanel .panel-plan-screen {
+  position: relative;
+  padding-bottom: 0;
+}
+#clientPanel .panel-plan-main {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
+  overflow-x: clip;
+}
+#clientPanel .panel-plan-glow {
+  position: absolute;
+  top: 12%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(900px, 140%);
+  height: min(480px, 70vh);
+  background: radial-gradient(ellipse, rgba(0, 229, 160, 0.08) 0%, rgba(59, 130, 246, 0.04) 40%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+#clientPanel .panel-plan-inner {
+  position: relative;
+  z-index: 1;
+  max-width: min(1200px, 100%);
+  margin: 0 auto;
+  padding: 0 max(20px, env(safe-area-inset-left)) 0 max(20px, env(safe-area-inset-right));
+}
+#clientPanel .panel-plan-hero {
+  text-align: center;
+  padding: 28px 0 8px;
+  max-width: 52rem;
+  margin: 0 auto;
+}
+#clientPanel .panel-plan-title {
+  font-family: 'Syne', sans-serif;
+  font-size: clamp(26px, 5vw, 40px);
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  margin-bottom: 16px;
+}
+#clientPanel .panel-plan-lead {
+  font-size: clamp(14px, 2.8vw, 16px);
+  color: var(--soft);
+  line-height: 1.65;
+}
+#clientPanel .panel-plan-lead strong {
+  color: var(--text);
+}
+
+#clientPanel .panel-plan-pipeline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 4px;
+  margin: 28px auto 32px;
+  max-width: 720px;
+  padding: 16px 18px;
+  border-radius: var(--r-xl);
+  background: rgba(12, 18, 32, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+}
+#clientPanel .panel-plan-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-radius: var(--r-md);
+  min-width: 72px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+#clientPanel .panel-plan-step.is-active {
+  color: var(--em);
+  background: rgba(0, 229, 160, 0.08);
+  border: 1px solid rgba(0, 229, 160, 0.22);
+}
+#clientPanel .panel-plan-step.done {
+  color: var(--soft);
+}
+#clientPanel .panel-plan-step.done .panel-plan-step-num {
+  color: var(--ink);
+  background: linear-gradient(135deg, var(--em), var(--em2));
+}
+#clientPanel .panel-plan-step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink);
+  background: linear-gradient(135deg, var(--em), var(--em2));
+}
+#clientPanel .panel-plan-step:not(.is-active) .panel-plan-step-num {
+  background: var(--surf3);
+  color: var(--soft);
+  border: 1px solid var(--border);
+}
+#clientPanel .panel-plan-step-line {
+  width: 24px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+  flex-shrink: 0;
+}
+
+#clientPanel .panel-plan-cards-wrap {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 28px;
+}
+#clientPanel .plans-grid button.plan-card {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  margin: 0;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#clientPanel .plans-grid button.plan-card:focus-visible {
+  outline: 2px solid var(--em);
+  outline-offset: 3px;
+}
+#clientPanel .plans-grid .plan-card.is-selected {
+  border-color: rgba(0, 229, 160, 0.55) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 0 0 2px rgba(0, 229, 160, 0.35),
+    0 24px 56px rgba(0, 229, 160, 0.12),
+    0 28px 64px rgba(0, 0, 0, 0.5) !important;
+  transform: translateY(-4px);
+}
+#clientPanel .plans-grid .plan-card.is-selected::before {
+  opacity: 1;
+  height: 4px;
+  background: linear-gradient(90deg, var(--em2), var(--em) 50%, var(--em2));
+}
+
+#clientPanel .plan-select-hint {
+  margin-top: auto;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--em);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 0;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.35s ease, opacity 0.25s ease, margin-top 0.25s ease;
+}
+#clientPanel .plan-select-hint.visible {
+  max-height: 48px;
+  opacity: 1;
+  margin-top: 12px;
+}
+
+#clientPanel .panel-plan-trust {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 22px 24px;
+  margin: 0 auto 24px;
+  max-width: min(1200px, 100%);
+  border-radius: var(--r-xl);
+}
+#clientPanel .panel-plan-trust-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: rgba(37, 211, 102, 0.12);
+  border: 1px solid rgba(37, 211, 102, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 24px;
+  color: #25d366;
+}
+#clientPanel .panel-plan-trust-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 6px;
+  font-family: 'Outfit', sans-serif;
+}
+#clientPanel .panel-plan-trust-text {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+#clientPanel .panel-plan-trust-text strong {
+  color: var(--soft);
+}
+
+#clientPanel .panel-plan-scroll-spacer {
+  height: 120px;
+}
+
+#clientPanel .panel-plan-sticky {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  padding: 14px max(16px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: linear-gradient(180deg, rgba(5, 8, 16, 0.2) 0%, rgba(5, 8, 16, 0.96) 28%, rgba(5, 8, 16, 0.98) 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.45);
+}
+#clientPanel .panel-plan-sticky-inner {
+  max-width: min(1200px, 100%);
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+#clientPanel .panel-plan-sticky-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+#clientPanel .panel-plan-sticky-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+#clientPanel .panel-plan-sticky-plan {
+  font-size: 16px;
+  color: #fff;
+  font-family: 'Syne', sans-serif;
+  letter-spacing: -0.02em;
+}
+#clientPanel .panel-plan-sticky-plan.muted {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 14px;
+}
+#clientPanel .panel-plan-cta {
+  min-height: 48px;
+  padding-left: 24px;
+  padding-right: 24px;
+  white-space: nowrap;
+}
+#clientPanel .panel-plan-cta:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+#clientPanel .panel-plan-screen > .auth-footer {
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+}
+
+/* Payment + WhatsApp/Twilio setup */
+#clientPanel .panel-payment-main {
+  flex: 1;
+  min-height: 0;
+  overflow-x: clip;
+  padding: 24px 0 40px;
+}
+#clientPanel .panel-payment-card {
+  max-width: 820px;
+  margin: 20px auto 0;
+  border-radius: var(--r-xl);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 28px;
+}
+#clientPanel .panel-payment-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 20px 0 24px;
+}
+#clientPanel .panel-payment-summary > div {
+  border: 1px solid var(--border);
+  background: rgba(5, 8, 16, 0.55);
+  border-radius: var(--r-md);
+  padding: 14px;
+  min-width: 0;
+}
+#clientPanel .panel-payment-summary span {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+#clientPanel .panel-payment-summary strong {
+  color: #fff;
+  font-family: 'Syne', sans-serif;
+  font-size: 18px;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+#clientPanel .panel-wa-form .panel-plan-cta {
+  margin-top: 18px;
+}
+#clientPanel .panel-wa-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+  margin-top: 18px;
+}
+#clientPanel .panel-kb-wrap {
+  margin-top: 22px;
+  border: 1px solid var(--border);
+  background: rgba(5, 8, 16, 0.5);
+  border-radius: var(--r-lg);
+  padding: 16px;
+}
+#clientPanel .panel-kb-head h3 {
+  color: #fff;
+  font-size: 18px;
+  font-family: 'Syne', sans-serif;
+  margin-bottom: 6px;
+}
+#clientPanel .panel-kb-head p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+#clientPanel .panel-kb-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+  margin-bottom: 12px;
+}
+#clientPanel .panel-kb-upload {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+#clientPanel .panel-kb-upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+#clientPanel .panel-kb-textarea {
+  min-height: 220px;
+  resize: vertical;
+  line-height: 1.55;
+}
+#clientPanel .panel-kb-files {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#clientPanel .panel-kb-file {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  background: rgba(17, 24, 39, 0.55);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+}
+#clientPanel .panel-kb-file strong {
+  display: block;
+  color: #fff;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+#clientPanel .panel-kb-file span {
+  color: var(--muted);
+  font-size: 11px;
+}
+#clientPanel .panel-kb-file button {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--soft);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+#clientPanel .panel-kb-file button:hover {
+  border-color: rgba(255, 95, 95, 0.45);
+  color: #ff9f9f;
+}
+
+@media (max-width: 640px) {
+  #clientPanel .panel-plan-sticky-inner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  #clientPanel .panel-plan-cta {
+    width: 100%;
+    justify-content: center;
+    white-space: normal;
+    text-align: center;
+  }
+  #clientPanel .panel-plan-pipeline {
+    gap: 10px;
+    justify-content: flex-start;
+  }
+  #clientPanel .panel-plan-step-line {
+    display: none;
+  }
+  #clientPanel .panel-payment-card {
+    padding: 20px;
+    margin-top: 14px;
+  }
+  #clientPanel .panel-payment-summary {
+    grid-template-columns: 1fr;
+  }
+  #clientPanel .panel-wa-grid {
+    grid-template-columns: 1fr;
+  }
+  #clientPanel .panel-kb-actions .btn-ghost {
+    width: 100%;
+    justify-content: center;
+  }
+  #clientPanel .panel-kb-file {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

@@ -1,22 +1,58 @@
 import { API_BASE } from '../constants/site.js';
 
+const DEMO_TOKEN = 'demo';
+
+function demoUser(email) {
+  const e = (email || 'demo@omnira.app').toLowerCase().trim();
+  return {
+    id: 'demo_user',
+    email: e,
+    businessName: 'Clínica demo',
+    name: 'Usuario demo',
+    plan: 'free',
+    botActive: false,
+  };
+}
+
+function allowDemoLogin() {
+  return import.meta.env.DEV || import.meta.env.VITE_DEMO_LOGIN === 'true';
+}
+
 export async function apiCall(endpoint, opts = {}) {
   const sess = JSON.parse(localStorage.getItem('omnira_session') || '{}');
   const headers = { 'Content-Type': 'application/json' };
   if (sess.token) headers.Authorization = `Bearer ${sess.token}`;
+
+  let r;
   try {
-    const r = await fetch(API_BASE + endpoint, { ...opts, headers: { ...headers, ...(opts.headers || {}) } });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.message || 'Error');
-    return j;
+    r = await fetch(API_BASE + endpoint, {
+      ...opts,
+      headers: { ...headers, ...(opts.headers || {}) },
+    });
   } catch {
+    /* network / CORS / offline */
     return localFallback(endpoint, opts);
   }
+
+  let j = {};
+  try {
+    const text = await r.text();
+    j = text ? JSON.parse(text) : {};
+  } catch {
+    if (!r.ok) return localFallback(endpoint, opts);
+    throw new Error('Respuesta inválida del servidor');
+  }
+
+  if (!r.ok) {
+    throw new Error(j.message || `Error ${r.status}`);
+  }
+  return j;
 }
 
 function localFallback(endpoint, opts) {
   const body = opts.body ? JSON.parse(opts.body) : {};
   const uid = () => JSON.parse(localStorage.getItem('omnira_session') || '{}').user?.id || 'anon';
+
   if (endpoint === '/api/auth/register') {
     const users = JSON.parse(localStorage.getItem('omnira_users') || '{}');
     const email = body.email.toLowerCase().trim();
@@ -34,24 +70,35 @@ function localFallback(endpoint, opts) {
     localStorage.setItem('omnira_users', JSON.stringify(users));
     return { user, token: 'local_' + user.id };
   }
+
   if (endpoint === '/api/auth/login') {
     const users = JSON.parse(localStorage.getItem('omnira_users') || '{}');
-    const email = body.email.toLowerCase().trim();
+    const email = (body.email || '').toLowerCase().trim();
     const u = users[email];
-    if (!u) throw new Error('No existe ninguna cuenta con ese email.');
-    if (u.password !== body.password) throw new Error('Contraseña incorrecta.');
-    const { password, ...user } = u;
-    return { user, token: 'local_' + user.id };
+    if (u) {
+      if (u.password !== body.password) throw new Error('Contraseña incorrecta.');
+      const { password, ...user } = u;
+      return { user, token: 'local_' + user.id };
+    }
+    if (allowDemoLogin()) {
+      return { user: demoUser(body.email), token: DEMO_TOKEN };
+    }
+    throw new Error('No existe ninguna cuenta con ese email.');
   }
+
   if (endpoint === '/api/auth/me') {
     const sess = JSON.parse(localStorage.getItem('omnira_session') || '{}');
     if (!sess.user) throw new Error('Sin sesión');
+    if (sess.token === DEMO_TOKEN) {
+      return { user: sess.user };
+    }
     const users = JSON.parse(localStorage.getItem('omnira_users') || '{}');
     const fresh = Object.values(users).find((u) => u.id === sess.user.id);
     if (!fresh) throw new Error('Sesión inválida');
     const { password, ...user } = fresh;
     return { user };
   }
+
   if (endpoint === '/api/events' && (!opts.method || opts.method === 'GET')) {
     return JSON.parse(localStorage.getItem('omnira_events_' + uid()) || '[]');
   }

@@ -4,7 +4,7 @@ import { LogoMark } from '../brand/LogoMark.jsx';
 import { usePanel } from '../../context/PanelContext.jsx';
 
 export function AuthRegister() {
-  const { closeClientPanel, showLogin, enterDashboard } = usePanel();
+  const { closeClientPanel, showLogin, enterPlanHome } = usePanel();
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -24,7 +24,7 @@ export function AuthRegister() {
         }),
       });
       localStorage.setItem('omnira_session', JSON.stringify(res));
-      enterDashboard(res.user);
+      enterPlanHome(res.user);
     } catch (ex) {
       setErr(ex.message || 'Error');
     } finally {
@@ -33,7 +33,7 @@ export function AuthRegister() {
   }
 
   return (
-    <div id="registerScreen" className="auth-screen">
+    <div id="registerScreen" className="auth-screen notranslate" translate="no">
       <header className="auth-header">
         <div className="auth-header-inner">
           <button type="button" className="auth-header-brand" onClick={closeClientPanel}>
@@ -64,7 +64,7 @@ export function AuthRegister() {
                 <h1 className="auth-title">Crea tu cuenta</h1>
                 <p className="auth-subtitle">Empieza a automatizar tu agenda en minutos</p>
                 <div className={`auth-error ${err ? 'show' : ''}`}>{err}</div>
-                <form onSubmit={onSubmit}>
+                <form onSubmit={onSubmit} translate="no" className="notranslate">
                   <div className="form-group">
                     <label className="form-label">Nombre del negocio</label>
                     <input className="form-input" type="text" name="regBusiness" placeholder="Clínica Dental Sonrisas" required />
@@ -82,7 +82,14 @@ export function AuthRegister() {
                     <input className="form-input" type="password" name="regPass" placeholder="Mínimo 8 caracteres" required minLength={8} />
                   </div>
                   <button type="submit" className="panel-btn-primary" id="regBtn" disabled={loading}>
-                    {loading ? <div className="p-spinner" style={{ width: 20, height: 20 }} /> : <>Crear cuenta gratis <i className="fa-solid fa-arrow-right" /></>}
+                    {loading ? (
+                      <div className="p-spinner" style={{ width: 20, height: 20 }} />
+                    ) : (
+                      <span className="panel-btn-primary-inner">
+                        <span>Crear cuenta gratis</span>
+                        <i className="fa-solid fa-arrow-right" aria-hidden />
+                      </span>
+                    )}
                   </button>
                 </form>
                 <p className="auth-switch">

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { apiCall } from '../api/client.js';
+import { ONBOARDING_DONE_KEY, PLAN_STORAGE_KEY } from '../constants/plans.js';
 
 const PanelContext = createContext(null);
 
@@ -18,6 +19,28 @@ export function PanelProvider({ children }) {
     setView('dashboard');
   }, []);
 
+  const enterPlanHome = useCallback((u) => {
+    setUser(u);
+    setView('planHome');
+  }, []);
+
+  const completePlanSelection = useCallback(() => {
+    setView('paymentStep');
+  }, []);
+
+  const completePaymentStep = useCallback(() => {
+    setView('whatsAppSetup');
+  }, []);
+
+  const completeWhatsAppSetup = useCallback(() => {
+    try {
+      localStorage.setItem(ONBOARDING_DONE_KEY, 'true');
+    } catch {
+      /* ignore */
+    }
+    setView('dashboard');
+  }, []);
+
   const openClientPanel = useCallback(
     async (initial) => {
       setOpen(true);
@@ -27,13 +50,17 @@ export function PanelProvider({ children }) {
         try {
           const data = JSON.parse(sess);
           if (data.user && data.token) {
+            if (data.token === 'demo') {
+              enterPlanHome(data.user);
+              return;
+            }
             const fresh = await apiCall('/api/auth/me').catch(() => null);
             if (fresh?.user) {
               localStorage.setItem(
                 'omnira_session',
                 JSON.stringify({ user: fresh.user, token: data.token })
               );
-              enterDashboard(fresh.user);
+              enterPlanHome(fresh.user);
               return;
             }
             localStorage.removeItem('omnira_session');
@@ -44,7 +71,7 @@ export function PanelProvider({ children }) {
       }
       setView(initial === 'register' ? 'register' : 'login');
     },
-    [enterDashboard]
+    [enterDashboard, enterPlanHome]
   );
 
   const showLogin = useCallback(() => setView('login'), []);
@@ -53,6 +80,12 @@ export function PanelProvider({ children }) {
 
   const handleLogout = useCallback(() => {
     localStorage.removeItem('omnira_session');
+    try {
+      localStorage.removeItem(PLAN_STORAGE_KEY);
+      localStorage.removeItem(ONBOARDING_DONE_KEY);
+    } catch {
+      /* ignore */
+    }
     setUser(null);
     setView('login');
   }, []);
@@ -71,6 +104,10 @@ export function PanelProvider({ children }) {
       showRegister,
       showForgot,
       enterDashboard,
+      enterPlanHome,
+      completePlanSelection,
+      completePaymentStep,
+      completeWhatsAppSetup,
       handleLogout,
     }),
     [
@@ -83,6 +120,10 @@ export function PanelProvider({ children }) {
       showRegister,
       showForgot,
       enterDashboard,
+      enterPlanHome,
+      completePlanSelection,
+      completePaymentStep,
+      completeWhatsAppSetup,
       handleLogout,
     ]
   );
