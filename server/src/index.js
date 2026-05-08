@@ -14,8 +14,10 @@ const RESET_TOKEN_TTL_MINUTES = 30;
 app.use(express.json());
 app.use(
   cors({
-    origin: true,
-    credentials: true
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: false
   })
 );
 

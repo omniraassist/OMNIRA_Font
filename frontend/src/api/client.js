@@ -1,4 +1,4 @@
-import { API_BASE } from '../constants/site.js';
+import { API_BASE, API_FALLBACK_BASE } from '../constants/site.js';
 
 function isAuthEndpoint(endpoint) {
   return (
@@ -13,17 +13,23 @@ export async function apiCall(endpoint, opts = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (sess.token) headers.Authorization = `Bearer ${sess.token}`;
 
+  const requestInit = {
+    ...opts,
+    headers: { ...headers, ...(opts.headers || {}) },
+  };
+
   let r;
   try {
-    r = await fetch(API_BASE + endpoint, {
-      ...opts,
-      headers: { ...headers, ...(opts.headers || {}) },
-    });
+    r = await fetch(API_BASE + endpoint, requestInit);
   } catch {
-    if (isAuthEndpoint(endpoint)) {
-      throw new Error('Auth server unavailable. Please try again.');
+    try {
+      r = await fetch(API_FALLBACK_BASE + endpoint, requestInit);
+    } catch {
+      if (isAuthEndpoint(endpoint)) {
+        throw new Error('Auth server unavailable. Please try again.');
+      }
+      return localFallback(endpoint, opts);
     }
-    return localFallback(endpoint, opts);
   }
 
   let j = {};
