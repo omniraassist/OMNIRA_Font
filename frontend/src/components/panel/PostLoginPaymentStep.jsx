@@ -55,7 +55,6 @@ export function PostLoginPaymentStep() {
               Aquí irá Stripe/Checkout. Pulsa el botón para simular pago exitoso
               y continuar a configuración de <strong>WhatsApp Business + Twilio</strong>.
             </p>
-
             <div className="panel-payment-summary">
               <div>
                 <span>Plan</span>
