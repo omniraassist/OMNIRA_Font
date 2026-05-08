@@ -22,6 +22,24 @@ function AppInner() {
     }
   }, [openClientPanel]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const panelParam = params.get('panel');
+    if (panelParam) return;
+
+    try {
+      const raw = localStorage.getItem('omnira_session');
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (data?.user && data?.token) {
+        const t = setTimeout(() => openClientPanel(), 50);
+        return () => clearTimeout(t);
+      }
+    } catch {
+      /* ignore invalid session */
+    }
+  }, [openClientPanel]);
+
   return (
     <>
       <Navbar />

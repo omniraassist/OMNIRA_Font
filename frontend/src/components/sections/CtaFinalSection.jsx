@@ -24,13 +24,17 @@ export function CtaFinalSection() {
               Empezar — 99€/mes
             </a>
             <a
-              href="https://wa.me/+34628072072?text=Hola%2C%20me%20gustar%C3%ADa%20solicitar%20una%20demo%20de%20Omnira"
+              href="https://wa.me/34682497790?text=Hola%2C%20me%20gustar%C3%ADa%20solicitar%20una%20demo%20de%20Omnira"
               target="_blank"
               rel="noopener noreferrer"
               className="btn-ghost btn-lg"
             >
               <i className="fa-brands fa-whatsapp" style={{ color: '#25D366', fontSize: '18px' }} />
               Demo por WhatsApp
+            </a>
+            <a href="mailto:omniraassist@gmail.com" className="btn-ghost btn-lg">
+              <i className="fa-solid fa-envelope" />
+              omniraassist@gmail.com
             </a>
           </div>
           <div className="cta-trust reveal">

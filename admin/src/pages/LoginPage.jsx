@@ -8,6 +8,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -47,14 +48,25 @@ export function LoginPage() {
           </div>
           <div className="adm-field" style={{ marginBottom: 18 }}>
             <label htmlFor="adm-password">Password</label>
-            <input
-              id="adm-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                id="adm-password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+                style={{ paddingRight: 44 }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                style={{ position: 'absolute', right: 10, top: 10, background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}
+              >
+                <i className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`} />
+              </button>
+            </div>
           </div>
           {error && <p className="adm-field-hint" style={{ color: '#ff7272' }}>{error}</p>}
           <button type="submit" className="adm-btn adm-btn-primary" style={{ width: '100%', padding: '14px' }}>

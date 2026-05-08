@@ -1002,7 +1002,7 @@ export function Dashboard() {
                 <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>Mensual</div>
                 <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 36, fontWeight: 800, color: '#fff' }}>99€</div>
                 <div style={{ fontSize: 11, color: 'var(--muted)' }}>/mes</div>
-                <a href="https://wa.me/+34628072072?text=Pro%20mensual" target="_blank" rel="noopener noreferrer" className="btn-save-form" style={{ display: 'flex', justifyContent: 'center', marginTop: 16, textDecoration: 'none' }}>
+                <a href="https://wa.me/34682497790?text=Pro%20mensual" target="_blank" rel="noopener noreferrer" className="btn-save-form" style={{ display: 'flex', justifyContent: 'center', marginTop: 16, textDecoration: 'none' }}>
                   Contratar
                 </a>
               </div>
@@ -1011,7 +1011,7 @@ export function Dashboard() {
                 <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 36, fontWeight: 800, color: '#fff' }}>81€</div>
                 <div style={{ fontSize: 11, color: 'var(--muted)' }}>/mes · Total 480€</div>
                 <div style={{ fontSize: 11, color: 'var(--em)', marginTop: 4 }}>Ahorras 114€</div>
-                <a href="https://wa.me/+34628072072?text=Pro%20semestral" target="_blank" rel="noopener noreferrer" className="btn-save-form" style={{ display: 'flex', justifyContent: 'center', marginTop: 10, textDecoration: 'none' }}>
+                <a href="https://wa.me/34682497790?text=Pro%20semestral" target="_blank" rel="noopener noreferrer" className="btn-save-form" style={{ display: 'flex', justifyContent: 'center', marginTop: 10, textDecoration: 'none' }}>
                   Contratar
                 </a>
               </div>

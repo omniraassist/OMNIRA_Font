@@ -7,6 +7,7 @@ export function AuthRegister() {
   const { closeClientPanel, showLogin, enterPlanHome } = usePanel();
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -80,7 +81,17 @@ export function AuthRegister() {
                   </div>
                   <div className="form-group">
                     <label className="form-label">Contraseña</label>
-                    <input className="form-input" type="password" name="regPass" placeholder="Mínimo 8 caracteres" required minLength={8} />
+                    <div style={{ position: 'relative' }}>
+                      <input className="form-input" type={showPassword ? 'text' : 'password'} name="regPass" placeholder="Mínimo 8 caracteres" required minLength={8} style={{ paddingRight: 44 }} />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        style={{ position: 'absolute', right: 10, top: 10, background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}
+                      >
+                        <i className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`} />
+                      </button>
+                    </div>
                   </div>
                   <button type="submit" className="panel-btn-primary" id="regBtn" disabled={loading}>
                     {loading ? (

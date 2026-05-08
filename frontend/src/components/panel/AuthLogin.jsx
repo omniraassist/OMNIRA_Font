@@ -7,6 +7,7 @@ export function AuthLogin() {
   const { closeClientPanel, showRegister, showForgot, enterPlanHome } = usePanel();
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -79,15 +80,26 @@ export function AuthLogin() {
                     <label className="form-label" htmlFor="loginPass">
                       Contraseña
                     </label>
-                    <input
-                      className="form-input"
-                      type="password"
-                      id="loginPass"
-                      name="loginPass"
-                      placeholder="••••••••"
-                      required
-                      autoComplete="current-password"
-                    />
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        className="form-input"
+                        type={showPassword ? 'text' : 'password'}
+                        id="loginPass"
+                        name="loginPass"
+                        placeholder="••••••••"
+                        required
+                        autoComplete="current-password"
+                        style={{ paddingRight: 44 }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        style={{ position: 'absolute', right: 10, top: 10, background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}
+                      >
+                        <i className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`} />
+                      </button>
+                    </div>
                   </div>
                   <button type="submit" className="panel-btn-primary" id="loginBtn" disabled={loading}>
                     {loading ? (

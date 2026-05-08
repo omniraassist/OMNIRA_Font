@@ -11,6 +11,8 @@ export function AuthForgot() {
   const [email, setEmail] = useState('');
   const [resetToken, setResetToken] = useState('');
   const [step, setStep] = useState('verify');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -113,29 +115,51 @@ export function AuthForgot() {
                         <label className="form-label" htmlFor="newPassword">
                           Create new password
                         </label>
-                        <input
-                          className="form-input"
-                          type="password"
-                          id="newPassword"
-                          name="newPassword"
-                          placeholder="Minimum 8 characters"
-                          minLength={8}
-                          required
-                        />
+                        <div style={{ position: 'relative' }}>
+                          <input
+                            className="form-input"
+                            type={showNewPassword ? 'text' : 'password'}
+                            id="newPassword"
+                            name="newPassword"
+                            placeholder="Minimum 8 characters"
+                            minLength={8}
+                            required
+                            style={{ paddingRight: 44 }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPassword((v) => !v)}
+                            aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                            style={{ position: 'absolute', right: 10, top: 10, background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}
+                          >
+                            <i className={`fa-solid ${showNewPassword ? 'fa-eye-slash' : 'fa-eye'}`} />
+                          </button>
+                        </div>
                       </div>
                       <div className="form-group">
                         <label className="form-label" htmlFor="confirmPassword">
                           Confirm password
                         </label>
-                        <input
-                          className="form-input"
-                          type="password"
-                          id="confirmPassword"
-                          name="confirmPassword"
-                          placeholder="Re-enter password"
-                          minLength={8}
-                          required
-                        />
+                        <div style={{ position: 'relative' }}>
+                          <input
+                            className="form-input"
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            id="confirmPassword"
+                            name="confirmPassword"
+                            placeholder="Re-enter password"
+                            minLength={8}
+                            required
+                            style={{ paddingRight: 44 }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword((v) => !v)}
+                            aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                            style={{ position: 'absolute', right: 10, top: 10, background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}
+                          >
+                            <i className={`fa-solid ${showConfirmPassword ? 'fa-eye-slash' : 'fa-eye'}`} />
+                          </button>
+                        </div>
                       </div>
                     </>
                   )}
