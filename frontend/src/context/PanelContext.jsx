@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { apiCall } from '../api/client.js';
 import { ONBOARDING_DONE_KEY, PLAN_STORAGE_KEY } from '../constants/plans.js';
 
 const PanelContext = createContext(null);
@@ -45,25 +44,17 @@ export function PanelProvider({ children }) {
     async (initial) => {
       setOpen(true);
       document.body.style.overflow = 'hidden';
+      if (initial === 'login' || initial === 'register' || initial === 'forgot') {
+        setView(initial === 'register' ? 'login' : initial);
+        return;
+      }
       const sess = localStorage.getItem('omnira_session');
       if (sess) {
         try {
           const data = JSON.parse(sess);
           if (data.user && data.token) {
-            if (data.token === 'demo') {
-              enterPlanHome(data.user);
-              return;
-            }
-            const fresh = await apiCall('/api/auth/me').catch(() => null);
-            if (fresh?.user) {
-              localStorage.setItem(
-                'omnira_session',
-                JSON.stringify({ user: fresh.user, token: data.token })
-              );
-              enterPlanHome(fresh.user);
-              return;
-            }
-            localStorage.removeItem('omnira_session');
+            enterPlanHome(data.user);
+            return;
           }
         } catch {
           /* ignore */
@@ -71,7 +62,7 @@ export function PanelProvider({ children }) {
       }
       setView(initial === 'register' ? 'register' : 'login');
     },
-    [enterDashboard, enterPlanHome]
+    [enterPlanHome]
   );
 
   const showLogin = useCallback(() => setView('login'), []);

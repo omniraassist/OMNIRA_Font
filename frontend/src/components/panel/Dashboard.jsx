@@ -102,6 +102,8 @@ export function Dashboard() {
   const [kbErr, setKbErr] = useState('');
   const [eventOpen, setEventOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
   const [evForm, setEvForm] = useState({
     id: '',
     name: '',
@@ -148,7 +150,15 @@ export function Dashboard() {
     } catch {
       /* ignore */
     }
-  }, []);
+    try {
+      if (user?.email) {
+        const n = await apiCall(`/api/customer/notifications?email=${encodeURIComponent(user.email)}`);
+        setNotifications(Array.isArray(n.notifications) ? n.notifications : []);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [user?.email]);
 
   useEffect(() => {
     loadData();
@@ -491,10 +501,48 @@ export function Dashboard() {
                   Aquí tienes el resumen de tu negocio.
                 </p>
               </div>
-              <div className="bot-live-badge" id="dashBotBadge" style={{ display: isPro && user?.botActive ? 'inline-flex' : 'none' }}>
-                <div className="bot-live-dot" /> Bot activo
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button
+                  type="button"
+                  className="p-nav-item"
+                  style={{ minWidth: 46, justifyContent: 'center', position: 'relative' }}
+                  onClick={() => setNotifOpen((v) => !v)}
+                >
+                  <i className="fa-solid fa-bell" />
+                  {notifications.length > 0 && (
+                    <span style={{ position: 'absolute', top: 6, right: 8, fontSize: 10, color: '#00e5a0' }}>
+                      {notifications.length}
+                    </span>
+                  )}
+                </button>
+                <div className="bot-live-badge" id="dashBotBadge" style={{ display: isPro && user?.botActive ? 'inline-flex' : 'none' }}>
+                  <div className="bot-live-dot" /> Bot activo
+                </div>
               </div>
             </div>
+            {notifOpen && (
+              <div className="p-card" style={{ marginBottom: 16 }}>
+                <div className="p-card-header">
+                  <span className="p-card-title">Notifications</span>
+                </div>
+                {notifications.length ? (
+                  notifications.slice(0, 8).map((n) => (
+                    <div key={n.id} className="p-res-item" style={{ marginBottom: 8 }}>
+                      <div className="p-res-av"><i className="fa-solid fa-bell" /></div>
+                      <div>
+                        <div className="p-res-name">{n.title}</div>
+                        <div className="p-res-detail">{n.message}</div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-empty">
+                    <i className="fa-solid fa-bell-slash" />
+                    <p>No notifications</p>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="p-stats-grid">
               <div className="p-stat-card">
                 <div className="p-stat-top">

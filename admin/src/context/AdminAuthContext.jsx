@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { apiCall } from '../api/client.js';
 
 const AdminAuthContext = createContext(null);
 
@@ -14,10 +15,21 @@ export function AdminAuthProvider({ children }) {
     }
   });
 
-  const login = useCallback((email) => {
-    const u = { email, name: 'Omnira Admin', role: 'Superadmin' };
+  const login = useCallback(async (email, password) => {
+    const res = await apiCall('/api/admin/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    const u = {
+      id: res.user?.id,
+      email: res.user?.email,
+      name: res.user?.full_name || 'Omnira Admin',
+      role: 'Superadmin',
+      token: `admin_${res.user?.id || 'session'}`,
+    };
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(u));
     setUser(u);
+    return u;
   }, []);
 
   const logout = useCallback(() => {

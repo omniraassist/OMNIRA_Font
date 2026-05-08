@@ -1,6 +1,38 @@
-import { platformWhatsApp, emailTemplates } from '../data/mockData.js';
+import { useEffect, useState } from 'react';
+import { apiCall } from '../api/client.js';
 
 export function WhatsAppSettingsPage() {
+  const [platformWhatsApp, setPlatformWhatsApp] = useState({
+    metaAppId: '—',
+    metaAppSecret: '—',
+    systemUserToken: '—',
+    webhookUrl: '—',
+    verifyToken: '—',
+    graphVersion: '—',
+    defaultPhoneNumberId: '—',
+  });
+  const [emailTemplates, setEmailTemplates] = useState([]);
+  const [messageTemplates, setMessageTemplates] = useState([]);
+
+  useEffect(() => {
+    let alive = true;
+    apiCall('/api/admin/platform-settings')
+      .then((res) => {
+        if (!alive) return;
+        setPlatformWhatsApp(res.platformWhatsApp || {});
+        setEmailTemplates(res.emailTemplates || []);
+        setMessageTemplates(res.messageTemplates || []);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setEmailTemplates([]);
+        setMessageTemplates([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   return (
     <>
       <header className="adm-page-head">
@@ -48,7 +80,7 @@ export function WhatsAppSettingsPage() {
           </div>
           <div style={{ marginTop: 22, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button type="button" className="adm-btn adm-btn-primary">
-              Save changes (mock)
+              Save changes
             </button>
             <button type="button" className="adm-btn adm-btn-ghost">
               Test webhook
@@ -103,30 +135,25 @@ export function WhatsAppSettingsPage() {
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td>omnira_booking_confirm_v3</td>
-                <td>UTILITY</td>
-                <td>
-                  <span className="adm-badge live">Approved</span>
-                </td>
-                <td className="adm-mono">2026-04-20</td>
-              </tr>
-              <tr>
-                <td>omnira_reminder_24h</td>
-                <td>UTILITY</td>
-                <td>
-                  <span className="adm-badge live">Approved</span>
-                </td>
-                <td className="adm-mono">2026-03-02</td>
-              </tr>
-              <tr>
-                <td>omnira_promo_mothers_day</td>
-                <td>MARKETING</td>
-                <td>
-                  <span className="adm-badge paused">Pending</span>
-                </td>
-                <td className="adm-mono">—</td>
-              </tr>
+              {messageTemplates.map((t) => (
+                <tr key={t.id}>
+                  <td>{t.template_name}</td>
+                  <td>{t.category}</td>
+                  <td>
+                    <span className={`adm-badge ${String(t.status || '').toLowerCase() === 'approved' ? 'live' : 'paused'}`}>
+                      {t.status}
+                    </span>
+                  </td>
+                  <td className="adm-mono">{t.last_synced_at ? new Date(t.last_synced_at).toLocaleDateString() : '—'}</td>
+                </tr>
+              ))}
+              {messageTemplates.length === 0 && (
+                <tr>
+                  <td colSpan={4} style={{ color: 'var(--muted)' }}>
+                    No WhatsApp templates found in database.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -163,6 +190,13 @@ export function WhatsAppSettingsPage() {
                   </td>
                 </tr>
               ))}
+              {emailTemplates.length === 0 && (
+                <tr>
+                  <td colSpan={4} style={{ color: 'var(--muted)' }}>
+                    No templates configured yet.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

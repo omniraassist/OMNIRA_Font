@@ -9,5 +9,3 @@ export const API_BASE =
   import.meta.env.VITE_API_BASE ??
   (import.meta.env.DEV ? '' : 'https://remarkable-emotion-production-605f.up.railway.app');
 
-/** When false (default), login skips the API and password — frontend preview only. Set `VITE_USE_AUTH_API=true` to use real backend auth. */
-export const USE_REMOTE_AUTH_API = import.meta.env.VITE_USE_AUTH_API === 'true';

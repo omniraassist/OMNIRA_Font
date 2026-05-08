@@ -1,21 +1,7 @@
 import { useState } from 'react';
 import { apiCall } from '../../api/client.js';
 import { LogoMark } from '../brand/LogoMark.jsx';
-import { USE_REMOTE_AUTH_API } from '../../constants/site.js';
 import { usePanel } from '../../context/PanelContext.jsx';
-
-function previewUserFromEmail(emailRaw) {
-  const email = (emailRaw || 'demo@omnira.app').trim() || 'demo@omnira.app';
-  const local = email.split('@')[0] || 'negocio';
-  return {
-    id: 'preview_user',
-    email,
-    businessName: local.charAt(0).toUpperCase() + local.slice(1),
-    name: 'Usuario',
-    plan: 'free',
-    botActive: false,
-  };
-}
 
 export function AuthLogin() {
   const { closeClientPanel, showRegister, showForgot, enterPlanHome } = usePanel();
@@ -29,13 +15,7 @@ export function AuthLogin() {
     const email = e.target.loginEmail.value;
     const password = e.target.loginPass.value;
     try {
-      if (!USE_REMOTE_AUTH_API) {
-        const user = previewUserFromEmail(email);
-        localStorage.setItem('omnira_session', JSON.stringify({ user, token: 'demo' }));
-        enterPlanHome(user);
-        return;
-      }
-      const res = await apiCall('/api/auth/login', {
+      const res = await apiCall('/api/customer/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
@@ -79,13 +59,8 @@ export function AuthLogin() {
                 </div>
                 <h1 className="auth-title">Bienvenido de vuelta</h1>
                 <p className="auth-subtitle">Accede al panel de tu negocio</p>
-                {!USE_REMOTE_AUTH_API && (
-                  <p className="auth-subtitle" style={{ marginTop: '-8px', fontSize: '13px', color: 'var(--em)' }}>
-                    Vista previa: sin API ni contraseña — pulsa iniciar sesión para continuar.
-                  </p>
-                )}
                 <div className={`auth-error ${err ? 'show' : ''}`}>{err}</div>
-                <form onSubmit={onSubmit} translate="no" className="notranslate" noValidate={!USE_REMOTE_AUTH_API}>
+                <form onSubmit={onSubmit} translate="no" className="notranslate">
                   <div className="form-group">
                     <label className="form-label" htmlFor="loginEmail">
                       Email
@@ -96,13 +71,13 @@ export function AuthLogin() {
                       id="loginEmail"
                       name="loginEmail"
                       placeholder="tu@negocio.com"
-                      required={USE_REMOTE_AUTH_API}
+                      required
                       autoComplete="email"
                     />
                   </div>
                   <div className="form-group">
                     <label className="form-label" htmlFor="loginPass">
-                      Contraseña {!USE_REMOTE_AUTH_API && <span style={{ color: 'var(--muted)', fontWeight: 500 }}>(opcional en vista previa)</span>}
+                      Contraseña
                     </label>
                     <input
                       className="form-input"
@@ -110,7 +85,7 @@ export function AuthLogin() {
                       id="loginPass"
                       name="loginPass"
                       placeholder="••••••••"
-                      required={USE_REMOTE_AUTH_API}
+                      required
                       autoComplete="current-password"
                     />
                   </div>

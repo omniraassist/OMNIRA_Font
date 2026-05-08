@@ -1,6 +1,25 @@
-import { sessions } from '../data/mockData.js';
+import { useEffect, useState } from 'react';
+import { apiCall } from '../api/client.js';
 
 export function SessionsPage() {
+  const [sessions, setSessions] = useState([]);
+
+  useEffect(() => {
+    let alive = true;
+    apiCall('/api/admin/sessions')
+      .then((res) => {
+        if (!alive) return;
+        setSessions(res.sessions || []);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setSessions([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   return (
     <>
       <header className="adm-page-head">
@@ -13,7 +32,7 @@ export function SessionsPage() {
 
       <div className="adm-toolbar">
         <button type="button" className="adm-btn adm-btn-primary">
-          Refresh (mock)
+          Refresh
         </button>
         <span className="adm-mono" style={{ color: 'var(--muted)' }}>
           {sessions.length} active / recent sessions

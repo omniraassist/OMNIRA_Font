@@ -1,8 +1,37 @@
-import { analyticsSeries, funnelStages } from '../data/mockData.js';
-
-const maxMsg = Math.max(...analyticsSeries.map((d) => d.messages));
+import { useEffect, useMemo, useState } from 'react';
+import { apiCall } from '../api/client.js';
 
 export function AnalyticsPage() {
+  const [analyticsSeries, setAnalyticsSeries] = useState([]);
+  const [funnelStages, setFunnelStages] = useState([]);
+
+  useEffect(() => {
+    let alive = true;
+    apiCall('/api/admin/analytics')
+      .then((res) => {
+        if (!alive) return;
+        setAnalyticsSeries(res.series || []);
+        setFunnelStages(res.funnel || []);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setAnalyticsSeries([]);
+        setFunnelStages([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const maxMsg = useMemo(
+    () => Math.max(1, ...analyticsSeries.map((d) => Number(d.messages || 0))),
+    [analyticsSeries]
+  );
+  const maxLeads = useMemo(
+    () => Math.max(1, ...analyticsSeries.map((d) => Number(d.newLeads || 0))),
+    [analyticsSeries]
+  );
+
   return (
     <>
       <header className="adm-page-head">
@@ -41,7 +70,7 @@ export function AnalyticsPage() {
                 <div
                   className="adm-chart-bar"
                   style={{
-                    height: `${(d.newLeads / Math.max(...analyticsSeries.map((x) => x.newLeads))) * 100}%`,
+                    height: `${(Number(d.newLeads || 0) / maxLeads) * 100}%`,
                     background: 'linear-gradient(180deg, #c084fc, rgba(192,132,252,0.25))',
                   }}
                 />

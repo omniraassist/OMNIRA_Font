@@ -15,7 +15,8 @@ function AppInner() {
     const params = new URLSearchParams(window.location.search);
     const p = params.get('panel');
     if (p === 'login' || p === 'register') {
-      const t = setTimeout(() => openClientPanel(p), 100);
+      const nextPanel = p === 'register' ? 'login' : p;
+      const t = setTimeout(() => openClientPanel(nextPanel), 100);
       window.history.replaceState({}, '', `${window.location.pathname}${window.location.hash || ''}`);
       return () => clearTimeout(t);
     }

@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
-import { defaultBotContext, getClientById } from '../data/mockData.js';
+import { apiCall } from '../api/client.js';
+
+const defaultBotContext = `You are the official WhatsApp assistant for the business. Tone: warm, professional, concise.
+Keep replies short, avoid hallucinations, and only confirm services that are configured.`;
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -13,11 +16,30 @@ export function ClientDetailPage() {
   const { clientId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get('tab') || 'overview';
-  const client = useMemo(() => getClientById(clientId), [clientId]);
+  const [client, setClient] = useState(null);
+  const [notFound, setNotFound] = useState(false);
   const [contextDraft, setContextDraft] = useState(defaultBotContext);
   const [sheetUrl, setSheetUrl] = useState('https://docs.google.com/spreadsheets/d/mock_sheet_id/edit');
   const [ownerEmail, setOwnerEmail] = useState('');
   const [guestTpl, setGuestTpl] = useState('booking_confirmed_guest_es');
+
+  useEffect(() => {
+    let alive = true;
+    apiCall(`/api/admin/clients/${clientId}`)
+      .then((res) => {
+        if (!alive) return;
+        setClient(res.client || null);
+        setNotFound(!res.client);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setClient(null);
+        setNotFound(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [clientId]);
 
   useEffect(() => {
     if (!client) return;
@@ -27,9 +49,28 @@ export function ClientDetailPage() {
     setGuestTpl('booking_confirmed_guest_es');
   }, [client?.id, client?.email]);
 
-  if (!client) return <Navigate to="/clients" replace />;
+  if (notFound) return <Navigate to="/clients" replace />;
 
   const activeTab = TABS.some((t) => t.id === tab) ? tab : 'overview';
+  const safeClient = useMemo(
+    () =>
+      client || {
+        id: clientId,
+        businessName: 'Loading...',
+        ownerName: '',
+        email: '',
+        plan: 'N/A',
+        mrr: 0,
+        status: 'active',
+        deployedSite: '—',
+        agentStatus: 'setup',
+        messagesThisMonth: 0,
+        bookingsThisMonth: 0,
+        whatsappDisplay: '—',
+        waBusinessId: '—'
+      },
+    [client, clientId]
+  );
 
   const setTab = (id) => {
     const next = new URLSearchParams(searchParams);
@@ -43,11 +84,11 @@ export function ClientDetailPage() {
       <nav className="adm-breadcrumb">
         <Link to="/clients">Paid subscribers</Link>
         <span>/</span>
-        <span style={{ color: 'var(--soft)' }}>{client.businessName}</span>
+        <span style={{ color: 'var(--soft)' }}>{safeClient.businessName}</span>
       </nav>
 
       <header className="adm-page-head">
-        <h1>{client.businessName}</h1>
+        <h1>{safeClient.businessName}</h1>
         <p>
           Paid owner workspace: subscription health, WhatsApp Business assets, the instructions your model uses on
           their number, and where booking rows + emails go. Everything below is static UI for your engineers to bind
@@ -77,23 +118,23 @@ export function ClientDetailPage() {
             <div className="adm-form-grid">
               <div className="adm-field">
                 <label>Owner name</label>
-                <input readOnly value={client.ownerName} />
+                <input readOnly value={safeClient.ownerName} />
               </div>
               <div className="adm-field">
                 <label>Owner email</label>
-                <input readOnly value={client.email} />
+                <input readOnly value={safeClient.email} />
               </div>
               <div className="adm-field">
                 <label>Plan</label>
-                <input readOnly value={`${client.plan} · €${client.mrr}/mo`} />
+                <input readOnly value={`${safeClient.plan} · €${safeClient.mrr}/mo`} />
               </div>
               <div className="adm-field">
                 <label>Billing status</label>
-                <input readOnly value={client.status} />
+                <input readOnly value={safeClient.status} />
               </div>
               <div className="adm-field" style={{ gridColumn: '1 / -1' }}>
                 <label>Deployed customer site</label>
-                <input readOnly value={client.deployedSite} />
+                <input readOnly value={safeClient.deployedSite} />
                 <p className="adm-field-hint">Snippet hosts the floating WhatsApp launcher pointing at this WABA.</p>
               </div>
             </div>
@@ -102,9 +143,9 @@ export function ClientDetailPage() {
               Agent runtime
             </h2>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
-              <span className={`adm-badge ${client.agentStatus}`}>{client.agentStatus}</span>
+              <span className={`adm-badge ${safeClient.agentStatus}`}>{safeClient.agentStatus}</span>
               <span style={{ fontSize: 14, color: 'var(--soft)' }}>
-                {client.messagesThisMonth.toLocaleString()} messages · {client.bookingsThisMonth} bookings this month
+                {safeClient.messagesThisMonth.toLocaleString()} messages · {safeClient.bookingsThisMonth} bookings this month
               </span>
             </div>
           </section>
@@ -139,11 +180,11 @@ export function ClientDetailPage() {
           <div className="adm-form-grid">
             <div className="adm-field">
               <label>Display phone (masked)</label>
-              <input readOnly value={client.whatsappDisplay} />
+              <input readOnly value={safeClient.whatsappDisplay} />
             </div>
             <div className="adm-field">
               <label>WABA ID</label>
-              <input readOnly value={client.waBusinessId} />
+              <input readOnly value={safeClient.waBusinessId} />
             </div>
             <div className="adm-field">
               <label>Phone number ID</label>
@@ -155,7 +196,7 @@ export function ClientDetailPage() {
             </div>
             <div className="adm-field" style={{ gridColumn: '1 / -1' }}>
               <label>Embedded signup link</label>
-              <input readOnly value={`https://omnira.app/onboard/${client.id}?source=admin`} />
+              <input readOnly value={`https://omnira.app/onboard/${safeClient.id}?source=admin`} />
             </div>
             <div className="adm-field" style={{ gridColumn: '1 / -1' }}>
               <label>Webhook overrides</label>

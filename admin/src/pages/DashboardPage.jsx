@@ -1,10 +1,36 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { dashboardKpis, analyticsSeries, paidClients } from '../data/mockData.js';
-
-const maxBar = Math.max(...analyticsSeries.map((d) => d.bookings));
+import { apiCall } from '../api/client.js';
 
 export function DashboardPage() {
-  const recent = paidClients.slice(0, 4);
+  const [kpis, setKpis] = useState([]);
+  const [bookingsSeries, setBookingsSeries] = useState([]);
+  const [recent, setRecent] = useState([]);
+
+  useEffect(() => {
+    let alive = true;
+    apiCall('/api/admin/overview')
+      .then((res) => {
+        if (!alive) return;
+        setKpis(res.kpis || []);
+        setBookingsSeries(res.bookingsSeries || []);
+        setRecent(res.recentClients || []);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setKpis([]);
+        setBookingsSeries([]);
+        setRecent([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const maxBar = useMemo(
+    () => Math.max(1, ...bookingsSeries.map((d) => Number(d.bookings || 0))),
+    [bookingsSeries]
+  );
 
   return (
     <>
@@ -17,13 +43,10 @@ export function DashboardPage() {
       </header>
 
       <div className="adm-grid-kpi">
-        {dashboardKpis.map((k) => (
+        {kpis.map((k) => (
           <article key={k.id} className="adm-card adm-card-em">
             <div className="adm-stat-label">{k.label}</div>
-            <div className="adm-stat-value">{k.value}</div>
-            <div className={`adm-stat-delta ${k.up ? 'up' : 'down'}`}>
-              {k.change} <span style={{ fontWeight: 500, color: 'var(--muted)' }}>vs last week</span>
-            </div>
+            <div className="adm-stat-value">{String(k.value ?? 0)}</div>
             <p className="adm-stat-hint">{k.hint}</p>
           </article>
         ))}
@@ -33,11 +56,11 @@ export function DashboardPage() {
         <section className="adm-card">
           <h2 className="adm-card-title">Bookings · last 7 days</h2>
           <div className="adm-chart-bars">
-            {analyticsSeries.map((d) => (
+            {bookingsSeries.map((d) => (
               <div key={d.label} className="adm-chart-bar-wrap">
                 <div
                   className="adm-chart-bar"
-                  style={{ height: `${(d.bookings / maxBar) * 100}%` }}
+                  style={{ height: `${(Number(d.bookings || 0) / maxBar) * 100}%` }}
                   title={`${d.bookings} bookings`}
                 />
                 <span className="adm-chart-label">{d.label}</span>
@@ -57,7 +80,7 @@ export function DashboardPage() {
               <div>
                 <strong>Meta review</strong>
                 <span className="adm-mono" style={{ color: 'var(--muted)' }}>
-                  3 tenants
+                  {recent.filter((c) => c.agentStatus !== 'live').length} tenants
                 </span>
               </div>
               <span className="adm-badge setup">Action</span>
@@ -66,7 +89,7 @@ export function DashboardPage() {
               <div>
                 <strong>Sheet not linked</strong>
                 <span className="adm-mono" style={{ color: 'var(--muted)' }}>
-                  2 tenants
+                  {recent.length} tenants
                 </span>
               </div>
               <span className="adm-badge paused">Warn</span>
@@ -75,7 +98,7 @@ export function DashboardPage() {
               <div>
                 <strong>Past-due invoices</strong>
                 <span className="adm-mono" style={{ color: 'var(--muted)' }}>
-                  €298 at risk
+                  €0 at risk
                 </span>
               </div>
               <span className="adm-badge past_due">Billing</span>

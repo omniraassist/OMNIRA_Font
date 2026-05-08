@@ -55,7 +55,7 @@ export function Navbar() {
               className="btn-primary btn-sm"
               onClick={(e) => {
                 e.preventDefault();
-                openClientPanel('register');
+                openClientPanel('login');
               }}
             >
               Empezar gratis <i className="fa-solid fa-arrow-right" />
@@ -109,7 +109,7 @@ export function Navbar() {
             onClick={(e) => {
               e.preventDefault();
               closeMenu();
-              openClientPanel('register');
+              openClientPanel('login');
             }}
           >
             Empezar gratis →

@@ -14,10 +14,11 @@ export function AuthRegister() {
     setLoading(true);
     const fd = new FormData(e.target);
     try {
-      const res = await apiCall('/api/auth/register', {
+      const res = await apiCall('/api/customer/signup', {
         method: 'POST',
         body: JSON.stringify({
-          businessName: fd.get('regBusiness'),
+          first_name: fd.get('regBusiness'),
+          last_name: '',
           email: fd.get('regEmail'),
           phone: fd.get('regPhone'),
           password: fd.get('regPass'),

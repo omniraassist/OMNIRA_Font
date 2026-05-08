@@ -52,7 +52,7 @@ export function PostLoginPaymentStep() {
               <span className="gradient-text">{plan?.name || 'Seleccionado'}</span>
             </h1>
             <p className="panel-plan-lead">
-              En producción aquí irá Stripe/Checkout. Para frontend demo, pulsa el botón para simular pago exitoso
+              Aquí irá Stripe/Checkout. Pulsa el botón para simular pago exitoso
               y continuar a configuración de <strong>WhatsApp Business + Twilio</strong>.
             </p>
 
