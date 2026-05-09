@@ -359,7 +359,7 @@
 
 /* Floating WhatsApp — safe area */
 @media (max-width: 600px) {
-  .wa-float {
+  .wa-stack {
     right: max(14px, env(safe-area-inset-right));
     bottom: max(18px, env(safe-area-inset-bottom));
   }

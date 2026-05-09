@@ -814,6 +814,97 @@ app.post("/api/customer/reset/confirm", async (req, res) => {
   }
 });
 
+const DEFAULT_CHAT_SYSTEM = `Eres el asistente virtual de Omnira (omniraassist@gmail.com), un producto que automatiza WhatsApp Business con IA: reservas, recordatorios y calendario.
+Responde siempre en español, de forma breve y clara. Si preguntan precios: planes desde 49€/mes (1 mes), packs 3/6/12 meses con ahorro (129€, 229€, 399€ totales). Si quieren demo humana o contratar, invítalos a WhatsApp +34 682 49 77 90 o al correo.
+No inventes integraciones técnicas que no existan; si no sabes algo, dilo y ofrece contactar con el equipo.`;
+
+function sanitizeChatMessages(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const m of raw) {
+    if (!m || typeof m !== "object") continue;
+    if (m.role !== "user" && m.role !== "assistant") continue;
+    const content = String(m.content || "").trim().slice(0, 12000);
+    if (!content) continue;
+    out.push({ role: m.role, content });
+  }
+  return out.slice(-24);
+}
+
+app.post("/api/public/chat", async (req, res) => {
+  try {
+    const apiKey = String(process.env.OPENAI_API_KEY || "").trim();
+    if (!apiKey) {
+      return res.status(503).json({
+        ok: false,
+        message: "El asistente no está configurado en el servidor (OPENAI_API_KEY)."
+      });
+    }
+
+    const userAssistant = sanitizeChatMessages(req.body?.messages);
+    if (userAssistant.length === 0) {
+      return res.status(400).json({ ok: false, message: "Envía al menos un mensaje de usuario o asistente." });
+    }
+
+    const systemPrompt = String(process.env.OMNIRA_CHAT_SYSTEM_PROMPT || DEFAULT_CHAT_SYSTEM).slice(0, 8000);
+    const model = String(process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini").trim() || "gpt-4o-mini";
+
+    const messages = [{ role: "system", content: systemPrompt }, ...userAssistant];
+
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 55000);
+
+    let upstream;
+    try {
+      upstream = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: 0.65,
+          max_tokens: 900
+        }),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(t);
+    }
+
+    const rawText = await upstream.text();
+    let data = {};
+    try {
+      data = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      return res.status(502).json({ ok: false, message: "Respuesta inválida del proveedor de IA." });
+    }
+
+    if (!upstream.ok) {
+      const errMsg = data?.error?.message || upstream.statusText || "Error del proveedor de IA";
+      return res.status(upstream.status >= 400 && upstream.status < 600 ? upstream.status : 502).json({
+        ok: false,
+        message: errMsg
+      });
+    }
+
+    const reply = data?.choices?.[0]?.message?.content;
+    if (!reply || typeof reply !== "string") {
+      return res.status(502).json({ ok: false, message: "Sin respuesta del modelo." });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      message: { role: "assistant", content: reply.trim() }
+    });
+  } catch (error) {
+    const msg = error?.name === "AbortError" ? "Tiempo de espera agotado." : error.message || "Error desconocido";
+    return res.status(500).json({ ok: false, message: msg });
+  }
+});
+
 app.get("/health", async (_req, res) => {
   try {
     await testSupabaseConnection();
