@@ -1,42 +1,39 @@
-import { API_BASE, API_FALLBACK_BASE } from '../constants/site.js';
-
-function uniqueBases() {
-  return [...new Set([API_BASE, API_FALLBACK_BASE].filter(Boolean))];
-}
+import { API_BASE } from '../constants/site.js';
 
 /**
  * Public site assistant (no auth). Body: { messages: { role, content }[] }
+ *
+ * - **Development:** same-origin `/api/public/chat` → Vite proxy → local server.
+ * - **Production:** always `API_BASE` (defaults to https://omnira-backend.vercel.app), never localhost.
  */
-export async function sendPublicChat(messages) {
-  const body = JSON.stringify({ messages });
-  let lastErr = null;
-  for (const base of uniqueBases()) {
-    try {
-      const r = await fetch(`${base.replace(/\/$/, '')}/api/public/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body,
-      });
-      const text = await r.text();
-      let j = {};
-      try {
-        j = text ? JSON.parse(text) : {};
-      } catch {
-        lastErr = new Error('Respuesta inválida del servidor');
-        continue;
-      }
-      if (!r.ok) {
-        lastErr = new Error(j.message || `Error ${r.status}`);
-        continue;
-      }
-      if (!j.ok || !j.message?.content) {
-        lastErr = new Error(j.message || 'Respuesta incompleta');
-        continue;
-      }
-      return j;
-    } catch (e) {
-      lastErr = e;
-    }
+export function resolvePublicChatUrl() {
+  if (import.meta.env.DEV) {
+    return '/api/public/chat';
   }
-  throw lastErr instanceof Error ? lastErr : new Error('No se pudo conectar al asistente.');
+  const base = API_BASE.replace(/\/$/, '');
+  return `${base}/api/public/chat`;
+}
+
+export async function sendPublicChat(messages) {
+  const url = resolvePublicChatUrl();
+  const body = JSON.stringify({ messages });
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+  });
+  const text = await r.text();
+  let j = {};
+  try {
+    j = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error('Respuesta inválida del servidor');
+  }
+  if (!r.ok) {
+    throw new Error(j.message || `Error ${r.status}`);
+  }
+  if (!j.ok || !j.message?.content) {
+    throw new Error(j.message || 'Respuesta incompleta');
+  }
+  return j;
 }

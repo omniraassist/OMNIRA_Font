@@ -831,19 +831,25 @@ function sanitizeChatMessages(raw) {
   return out.slice(-24);
 }
 
+const FALLBACK_CHAT_REPLY = `Gracias por escribirnos. Omnira automatiza WhatsApp Business con IA: reservas, recordatorios y calendario. Planes desde 49€/mes; también packs de 3 meses (129€), 6 meses (229€) y 12 meses (399€).
+
+Para hablar con el equipo ahora: WhatsApp +34 682 49 77 90 o omniraassist@gmail.com.`;
+
 app.post("/api/public/chat", async (req, res) => {
   try {
     const apiKey = String(process.env.OPENAI_API_KEY || "").trim();
-    if (!apiKey) {
-      return res.status(503).json({
-        ok: false,
-        message: "El asistente no está configurado en el servidor (OPENAI_API_KEY)."
-      });
-    }
 
     const userAssistant = sanitizeChatMessages(req.body?.messages);
     if (userAssistant.length === 0) {
       return res.status(400).json({ ok: false, message: "Envía al menos un mensaje de usuario o asistente." });
+    }
+
+    if (!apiKey) {
+      return res.status(200).json({
+        ok: true,
+        degraded: true,
+        message: { role: "assistant", content: FALLBACK_CHAT_REPLY }
+      });
     }
 
     const systemPrompt = String(process.env.OMNIRA_CHAT_SYSTEM_PROMPT || DEFAULT_CHAT_SYSTEM).slice(0, 8000);
