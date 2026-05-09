@@ -836,7 +836,7 @@ export function Dashboard() {
                 </div>
                 <div style={{ padding: '20px 0' }}>
                   <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 42, fontWeight: 800, color: 'var(--em)' }}>
-                    99€<span style={{ fontSize: 14, color: 'var(--muted)', fontWeight: 400 }}>/mes</span>
+                    49€<span style={{ fontSize: 14, color: 'var(--muted)', fontWeight: 400 }}>/mes</span>
                   </div>
                   <div style={{ fontSize: 13, color: 'var(--soft)', marginTop: 8 }}>Plan Mensual · Sin permanencia</div>
                   <div style={{ marginTop: 24 }}>
@@ -986,7 +986,7 @@ export function Dashboard() {
 
       {upgradeOpen && (
         <div id="upgradeModal" className="modal-overlay active" style={{ zIndex: 10002, position: 'fixed' }}>
-          <div className="modal-box" style={{ maxWidth: 520 }}>
+          <div className="modal-box" style={{ maxWidth: 560 }}>
             <div className="modal-header">
               <h3 className="modal-title">Activa el bot de WhatsApp</h3>
               <button type="button" className="modal-close-btn" onClick={() => setUpgradeOpen(false)}>
@@ -997,21 +997,39 @@ export function Dashboard() {
               Con Omnira Pro, tu negocio responde automáticamente, confirma citas y gestiona tu agenda{' '}
               <strong style={{ color: 'var(--text)' }}>24/7 sin esfuerzo</strong>.
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 22 }}>
-              <div className="p-card" style={{ textAlign: 'center', padding: 18 }}>
-                <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>Mensual</div>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 36, fontWeight: 800, color: '#fff' }}>99€</div>
-                <div style={{ fontSize: 11, color: 'var(--muted)' }}>/mes</div>
-                <a href="https://wa.me/34682497790?text=Pro%20mensual" target="_blank" rel="noopener noreferrer" className="btn-save-form" style={{ display: 'flex', justifyContent: 'center', marginTop: 16, textDecoration: 'none' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 22 }}>
+              <div className="p-card" style={{ textAlign: 'center', padding: 14 }}>
+                <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>1 mes</div>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 28, fontWeight: 800, color: '#fff' }}>49€</div>
+                <div style={{ fontSize: 10, color: 'var(--muted)' }}>/mes · total 49€</div>
+                <a href="https://wa.me/34682497790?text=Hola%2C%20quiero%20el%20pack%201%20mes%20%2849%E2%82%AC%29" target="_blank" rel="noopener noreferrer" className="btn-save-form" style={{ display: 'flex', justifyContent: 'center', marginTop: 12, textDecoration: 'none', fontSize: 13 }}>
                   Contratar
                 </a>
               </div>
-              <div className="p-card" style={{ textAlign: 'center', padding: 18, borderColor: 'var(--em)', background: 'rgba(0,229,160,0.04)' }}>
-                <div style={{ fontSize: 11, color: 'var(--em)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>⚡ Semestral</div>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 36, fontWeight: 800, color: '#fff' }}>81€</div>
-                <div style={{ fontSize: 11, color: 'var(--muted)' }}>/mes · Total 480€</div>
-                <div style={{ fontSize: 11, color: 'var(--em)', marginTop: 4 }}>Ahorras 114€</div>
-                <a href="https://wa.me/34682497790?text=Pro%20semestral" target="_blank" rel="noopener noreferrer" className="btn-save-form" style={{ display: 'flex', justifyContent: 'center', marginTop: 10, textDecoration: 'none' }}>
+              <div className="p-card" style={{ textAlign: 'center', padding: 14 }}>
+                <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>3 meses</div>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 28, fontWeight: 800, color: '#fff' }}>43€</div>
+                <div style={{ fontSize: 10, color: 'var(--muted)' }}>/mes equiv. · total 129€</div>
+                <div style={{ fontSize: 10, color: 'var(--em)', marginTop: 2 }}>Ahorras 18€</div>
+                <a href="https://wa.me/34682497790?text=Hola%2C%20quiero%20el%20pack%203%20meses%20%28129%E2%82%AC%29" target="_blank" rel="noopener noreferrer" className="btn-save-form" style={{ display: 'flex', justifyContent: 'center', marginTop: 8, textDecoration: 'none', fontSize: 13 }}>
+                  Contratar
+                </a>
+              </div>
+              <div className="p-card" style={{ textAlign: 'center', padding: 14 }}>
+                <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>6 meses</div>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 28, fontWeight: 800, color: '#fff' }}>38€</div>
+                <div style={{ fontSize: 10, color: 'var(--muted)' }}>/mes equiv. · total 229€</div>
+                <div style={{ fontSize: 10, color: 'var(--em)', marginTop: 2 }}>Ahorras 65€</div>
+                <a href="https://wa.me/34682497790?text=Hola%2C%20quiero%20el%20pack%206%20meses%20%28229%E2%82%AC%29" target="_blank" rel="noopener noreferrer" className="btn-save-form" style={{ display: 'flex', justifyContent: 'center', marginTop: 8, textDecoration: 'none', fontSize: 13 }}>
+                  Contratar
+                </a>
+              </div>
+              <div className="p-card" style={{ textAlign: 'center', padding: 14, borderColor: 'var(--em)', background: 'rgba(0,229,160,0.04)' }}>
+                <div style={{ fontSize: 10, color: 'var(--em)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>⚡ 12 meses</div>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 28, fontWeight: 800, color: '#fff' }}>33€</div>
+                <div style={{ fontSize: 10, color: 'var(--muted)' }}>/mes equiv. · total 399€</div>
+                <div style={{ fontSize: 10, color: 'var(--em)', marginTop: 2 }}>Ahorras 189€</div>
+                <a href="https://wa.me/34682497790?text=Hola%2C%20quiero%20el%20pack%2012%20meses%20%28399%E2%82%AC%29" target="_blank" rel="noopener noreferrer" className="btn-save-form" style={{ display: 'flex', justifyContent: 'center', marginTop: 8, textDecoration: 'none', fontSize: 13 }}>
                   Contratar
                 </a>
               </div>

@@ -124,7 +124,7 @@ export function PostLoginPlanHome() {
                     aria-pressed={isSel}
                     aria-label={`Seleccionar plan ${plan.name}`}
                   >
-                    {plan.featured ? <div className="plan-ribbon">⚡ Más popular</div> : null}
+                    {plan.featured ? <div className="plan-ribbon">⚡ Mejor valor</div> : null}
                     <div className={`plan-header${plan.featured ? ' with-ribbon' : ''}`}>
                       <div className="plan-top-meta">
                         {plan.savings ? (

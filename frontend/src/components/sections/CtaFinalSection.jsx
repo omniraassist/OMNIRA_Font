@@ -21,7 +21,7 @@ export function CtaFinalSection() {
           <div className="cta-btns reveal">
             <a href="https://buy.stripe.com/REPLACE" className="btn-primary btn-lg">
               <i className="fa-solid fa-rocket" />
-              Empezar — 99€/mes
+              Empezar — desde 49€/mes
             </a>
             <a
               href="https://wa.me/34682497790?text=Hola%2C%20me%20gustar%C3%ADa%20solicitar%20una%20demo%20de%20Omnira"

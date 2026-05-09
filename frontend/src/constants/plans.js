@@ -3,10 +3,10 @@
 export const OMNIRA_PLANS = [
   {
     id: 'monthly',
-    name: 'Mensual',
-    priceNum: '129',
+    name: '1 mes',
+    priceNum: '49',
     period: '/mes',
-    totalRow: 'Sin permanencia',
+    totalRow: 'Precio total: 49€ · Sin permanencia',
     savings: null,
     featured: false,
     features: [
@@ -20,11 +20,11 @@ export const OMNIRA_PLANS = [
   },
   {
     id: 'quarterly',
-    name: '3 Meses',
-    priceNum: '109',
+    name: '3 meses',
+    priceNum: '43',
     period: '/mes',
-    totalRow: 'Total: 327€ · En lugar de 387€',
-    savings: '✦ Ahorras 60€',
+    totalRow: 'Precio total: 129€ · Ahorras 18€',
+    savings: '✦ Ahorras 18€',
     featured: false,
     features: [
       'Todo del plan mensual',
@@ -37,12 +37,12 @@ export const OMNIRA_PLANS = [
   },
   {
     id: 'semiannual',
-    name: '6 Meses',
-    priceNum: '99',
+    name: '6 meses',
+    priceNum: '38',
     period: '/mes',
-    totalRow: 'Total: 594€ · En lugar de 774€',
-    savings: '✦ Mejor precio/mes',
-    featured: true,
+    totalRow: 'Precio total: 229€ · Ahorras 65€ · Equiv. a 294€ en 1 mes × 6',
+    savings: '✦ Ahorras 65€',
+    featured: false,
     features: [
       'Todo del plan mensual',
       'Activación automática',
@@ -54,13 +54,13 @@ export const OMNIRA_PLANS = [
   },
   {
     id: 'annual',
-    name: 'Anual',
-    priceNum: '79',
+    name: '12 meses',
+    priceNum: '33',
     period: '/mes',
-    totalRow: 'Total: 948€ · En lugar de 1.548€',
-    savings: '🔥 Máximo ahorro — 600€',
+    totalRow: 'Precio total: 399€ · Ahorras 189€',
+    savings: '🔥 Mejor valor — ahorras 189€',
     savingsHot: true,
-    featured: false,
+    featured: true,
     features: [
       'Todo del plan mensual',
       'Activación automática',

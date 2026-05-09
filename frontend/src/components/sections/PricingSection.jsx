@@ -19,13 +19,13 @@ export function PricingSection() {
           <div className="plan-card">
             <div className="plan-header">
               <div className="plan-top-meta" aria-hidden="true" />
-              <div className="plan-name">Mensual</div>
+              <div className="plan-name">1 mes</div>
               <div className="plan-price-row">
                 <span className="plan-cur">€</span>
-                <span className="plan-num">129</span>
+                <span className="plan-num">49</span>
                 <span className="plan-period">/mes</span>
               </div>
-              <div className="plan-total-row">Sin permanencia</div>
+              <div className="plan-total-row">Precio total: 49€ · Sin permanencia</div>
             </div>
             <div className="plan-body">
               <div className="plan-divider" />
@@ -56,16 +56,16 @@ export function PricingSection() {
           <div className="plan-card">
             <div className="plan-header">
               <div className="plan-top-meta">
-                <span className="plan-saving">✦ Ahorras 60€</span>
+                <span className="plan-saving">✦ Ahorras 18€</span>
               </div>
-              <div className="plan-name">3 Meses</div>
+              <div className="plan-name">3 meses</div>
               <div className="plan-price-row">
                 <span className="plan-cur">€</span>
-                <span className="plan-num">109</span>
+                <span className="plan-num">43</span>
                 <span className="plan-period">/mes</span>
               </div>
               <div className="plan-total-row">
-                Total: <strong>327€</strong> · En lugar de 387€
+                Total: <strong>129€</strong> · Equivalente mensual
               </div>
             </div>
             <div className="plan-body">
@@ -94,20 +94,19 @@ export function PricingSection() {
             </div>
           </div>
 
-          <div className="plan-card featured">
-            <div className="plan-ribbon">⚡ Más popular</div>
-            <div className="plan-header with-ribbon">
+          <div className="plan-card">
+            <div className="plan-header">
               <div className="plan-top-meta">
-                <span className="plan-saving">✦ Mejor precio/mes</span>
+                <span className="plan-saving">✦ Ahorras 65€</span>
               </div>
-              <div className="plan-name">6 Meses</div>
+              <div className="plan-name">6 meses</div>
               <div className="plan-price-row">
                 <span className="plan-cur">€</span>
-                <span className="plan-num featured-num">99</span>
+                <span className="plan-num">38</span>
                 <span className="plan-period">/mes</span>
               </div>
               <div className="plan-total-row">
-                Total: <strong>594€</strong> · En lugar de 774€
+                Total: <strong>229€</strong> · Equivalente mensual
               </div>
             </div>
             <div className="plan-body">
@@ -129,26 +128,27 @@ export function PricingSection() {
                   </div>
                 ))}
               </div>
-              <a href="https://buy.stripe.com/REPLACE_6M" className="plan-cta primary-cta">
+              <a href="https://buy.stripe.com/REPLACE_6M" className="plan-cta">
                 Empezar ahora →
               </a>
               <p className="plan-note">🔒 Pago único semestral</p>
             </div>
           </div>
 
-          <div className="plan-card">
-            <div className="plan-header">
+          <div className="plan-card featured">
+            <div className="plan-ribbon">⚡ Mejor valor</div>
+            <div className="plan-header with-ribbon">
               <div className="plan-top-meta">
-                <span className="plan-saving hot">🔥 Máximo ahorro — 600€</span>
+                <span className="plan-saving hot">🔥 Ahorras 189€</span>
               </div>
-              <div className="plan-name">Anual</div>
+              <div className="plan-name">12 meses</div>
               <div className="plan-price-row">
                 <span className="plan-cur">€</span>
-                <span className="plan-num">79</span>
+                <span className="plan-num featured-num">33</span>
                 <span className="plan-period">/mes</span>
               </div>
               <div className="plan-total-row">
-                Total: <strong>948€</strong> · En lugar de 1.548€
+                Total: <strong>399€</strong> · Equivalente mensual
               </div>
             </div>
             <div className="plan-body">
@@ -176,7 +176,7 @@ export function PricingSection() {
                   <span className="gold-feat">Consultoría mensual 1h</span>
                 </div>
               </div>
-              <a href="https://buy.stripe.com/REPLACE_12M" className="plan-cta">
+              <a href="https://buy.stripe.com/REPLACE_12M" className="plan-cta primary-cta">
                 Empezar ahora →
               </a>
               <p className="plan-note">🔒 Pago único anual</p>

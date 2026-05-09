@@ -117,7 +117,7 @@ export function Hero() {
                 Solicitar demo gratis
               </a>
               <a href="#precios" className="btn-ghost btn-lg">
-                Ver planes — desde 79€/mes
+                Ver planes — desde 33€/mes (12 meses)
               </a>
             </div>
             <div className="hero-proof">
