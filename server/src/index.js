@@ -21,6 +21,20 @@ app.use(
   })
 );
 
+/** OpenAI key for POST /api/public/chat — must be set on the backend (e.g. Vercel env), never in the frontend. */
+function resolveOpenAiApiKey() {
+  for (const name of ["OPENAI_API_KEY", "OPENAI_KEY"]) {
+    const v = String(process.env[name] || "").trim();
+    if (v) return v;
+  }
+  return "";
+}
+
+function openAiStaticFallbackEnabled() {
+  const v = String(process.env.OMNIRA_CHAT_STATIC_FALLBACK || "").trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
@@ -837,7 +851,7 @@ Para hablar con el equipo ahora: WhatsApp +34 682 49 77 90 o omniraassist@gmail.
 
 app.post("/api/public/chat", async (req, res) => {
   try {
-    const apiKey = String(process.env.OPENAI_API_KEY || "").trim();
+    const apiKey = resolveOpenAiApiKey();
 
     const userAssistant = sanitizeChatMessages(req.body?.messages);
     if (userAssistant.length === 0) {
@@ -845,10 +859,17 @@ app.post("/api/public/chat", async (req, res) => {
     }
 
     if (!apiKey) {
-      return res.status(200).json({
-        ok: true,
-        degraded: true,
-        message: { role: "assistant", content: FALLBACK_CHAT_REPLY }
+      if (openAiStaticFallbackEnabled()) {
+        return res.status(200).json({
+          ok: true,
+          degraded: true,
+          message: { role: "assistant", content: FALLBACK_CHAT_REPLY }
+        });
+      }
+      return res.status(503).json({
+        ok: false,
+        message:
+          "OpenAI no está activo: el backend no tiene OPENAI_API_KEY. En Vercel abre el proyecto del API (omnira-backend) → Settings → Environment Variables → añade OPENAI_API_KEY con tu clave sk-… → Redeploy. La clave no va en el frontend ni en VITE_*."
       });
     }
 
@@ -889,7 +910,13 @@ app.post("/api/public/chat", async (req, res) => {
     }
 
     if (!upstream.ok) {
-      const errMsg = data?.error?.message || upstream.statusText || "Error del proveedor de IA";
+      let errMsg = data?.error?.message || upstream.statusText || "Error del proveedor de IA";
+      if (upstream.status === 401) {
+        errMsg =
+          "OpenAI devolvió 401 (clave inválida o revocada). Revisa OPENAI_API_KEY en Vercel y vuelve a desplegar.";
+      } else if (upstream.status === 429) {
+        errMsg = "OpenAI: límite de uso (429). Prueba en unos minutos o revisa tu plan en OpenAI.";
+      }
       return res.status(upstream.status >= 400 && upstream.status < 600 ? upstream.status : 502).json({
         ok: false,
         message: errMsg
@@ -916,7 +943,8 @@ app.get("/health", async (_req, res) => {
     await testSupabaseConnection();
     return res.status(200).json({
       ok: true,
-      message: "Server is running and Supabase is connected."
+      message: "Server is running and Supabase is connected.",
+      openai_chat_configured: Boolean(resolveOpenAiApiKey())
     });
   } catch (error) {
     return res.status(500).json({
