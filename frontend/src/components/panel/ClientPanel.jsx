@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { usePanel } from '../../context/PanelContext.jsx';
 import { AuthForgot } from './AuthForgot.jsx';
 import { AuthLogin } from './AuthLogin.jsx';
@@ -8,7 +9,14 @@ import { PostLoginPlanHome } from './PostLoginPlanHome.jsx';
 import { PostLoginWhatsAppSetup } from './PostLoginWhatsAppSetup.jsx';
 
 export function ClientPanel() {
-  const { open, view } = usePanel();
+  const { open, view, setView, user } = usePanel();
+
+  useEffect(() => {
+    if (open && view === 'whatsAppSetup' && user && user.subscriptionActive === false) {
+      setView('paymentStep');
+    }
+  }, [open, view, user, setView]);
+
   if (!open) return null;
 
   return (

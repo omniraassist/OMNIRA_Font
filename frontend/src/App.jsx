@@ -24,8 +24,27 @@ function AppInner() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const checkout = params.get('checkout');
+    const sessionId = params.get('session_id');
+    if (checkout === 'success' && sessionId) {
+      sessionStorage.setItem('omnira_pending_checkout', sessionId);
+      window.history.replaceState({}, '', `${window.location.pathname}${window.location.hash || ''}`);
+      const t = setTimeout(() => openClientPanel('stripe-return'), 80);
+      return () => clearTimeout(t);
+    }
+    if (checkout === 'canceled') {
+      window.history.replaceState({}, '', `${window.location.pathname}${window.location.hash || ''}`);
+      const t = setTimeout(() => openClientPanel('stripe-canceled'), 80);
+      return () => clearTimeout(t);
+    }
+    return undefined;
+  }, [openClientPanel]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
     const panelParam = params.get('panel');
     if (panelParam) return;
+    if (params.get('checkout')) return;
 
     try {
       const raw = localStorage.getItem('omnira_session');

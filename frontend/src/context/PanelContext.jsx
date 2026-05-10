@@ -1,7 +1,24 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { apiCall } from '../api/client.js';
 import { ONBOARDING_DONE_KEY, PLAN_STORAGE_KEY } from '../constants/plans.js';
 
 const PanelContext = createContext(null);
+
+function readSession() {
+  try {
+    const raw = localStorage.getItem('omnira_session');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionUser(user) {
+  const s = readSession();
+  if (!s?.token) return;
+  const next = { ...s, user: { ...s.user, ...user } };
+  localStorage.setItem('omnira_session', JSON.stringify(next));
+}
 
 export function PanelProvider({ children }) {
   const [open, setOpen] = useState(false);
@@ -15,6 +32,31 @@ export function PanelProvider({ children }) {
 
   const enterDashboard = useCallback((u) => {
     setUser(u);
+    setView('dashboard');
+  }, []);
+
+  /** Tras login/registro: panel según suscripción y onboarding */
+  const completeCustomerAuth = useCallback((res) => {
+    try {
+      localStorage.setItem('omnira_session', JSON.stringify(res));
+    } catch {
+      /* ignore */
+    }
+    const u = res.user;
+    setUser(u);
+    if (!u?.subscriptionActive) {
+      setView('planHome');
+      return;
+    }
+    try {
+      const done = localStorage.getItem(ONBOARDING_DONE_KEY) === 'true';
+      if (!done) {
+        setView('whatsAppSetup');
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
     setView('dashboard');
   }, []);
 
@@ -44,25 +86,82 @@ export function PanelProvider({ children }) {
     async (initial) => {
       setOpen(true);
       document.body.style.overflow = 'hidden';
+
+      if (initial === 'stripe-return') {
+        const sid = sessionStorage.getItem('omnira_pending_checkout');
+        sessionStorage.removeItem('omnira_pending_checkout');
+        const sess = readSession();
+        if (!sess?.token) {
+          setView('login');
+          return;
+        }
+        setUser(sess.user);
+        if (!sid) {
+          setView(sess.user?.subscriptionActive ? 'dashboard' : 'paymentStep');
+          return;
+        }
+        try {
+          const r = await apiCall('/api/customer/stripe/confirm', {
+            method: 'POST',
+            body: JSON.stringify({ session_id: sid }),
+          });
+          if (r.ok && r.user) {
+            writeSessionUser(r.user);
+            setUser(r.user);
+            setView('whatsAppSetup');
+            return;
+          }
+        } catch {
+          /* fall through */
+        }
+        setView('paymentStep');
+        return;
+      }
+
+      if (initial === 'stripe-canceled') {
+        const sess = readSession();
+        if (sess?.user && sess?.token) {
+          setUser(sess.user);
+          setView('paymentStep');
+        } else {
+          setView('login');
+        }
+        return;
+      }
+
       if (initial === 'login' || initial === 'register' || initial === 'forgot') {
         setView(initial === 'register' ? 'login' : initial);
         return;
       }
-      const sess = localStorage.getItem('omnira_session');
-      if (sess) {
+
+      const sess = readSession();
+      if (sess?.user && sess?.token) {
+        setUser(sess.user);
         try {
-          const data = JSON.parse(sess);
-          if (data.user && data.token) {
-            enterPlanHome(data.user);
+          const me = await apiCall('/api/customer/me');
+          const u = me.user;
+          writeSessionUser(u);
+          setUser(u);
+          if (!u.subscriptionActive) {
+            setView('planHome');
             return;
           }
+          const done = localStorage.getItem(ONBOARDING_DONE_KEY) === 'true';
+          setView(done ? 'dashboard' : 'whatsAppSetup');
+          return;
         } catch {
-          /* ignore */
+          if (!sess.user?.subscriptionActive) {
+            setView('planHome');
+            return;
+          }
+          const done = localStorage.getItem(ONBOARDING_DONE_KEY) === 'true';
+          setView(done ? 'dashboard' : 'whatsAppSetup');
+          return;
         }
       }
       setView(initial === 'register' ? 'register' : 'login');
     },
-    [enterPlanHome]
+    []
   );
 
   const showLogin = useCallback(() => setView('login'), []);
@@ -81,6 +180,22 @@ export function PanelProvider({ children }) {
     setView('login');
   }, []);
 
+  const refreshCustomerUser = useCallback(async () => {
+    const sess = readSession();
+    if (!sess?.token) return null;
+    try {
+      const me = await apiCall('/api/customer/me');
+      if (me?.user) {
+        writeSessionUser(me.user);
+        setUser(me.user);
+        return me.user;
+      }
+    } catch {
+      /* ignore */
+    }
+    return null;
+  }, []);
+
   const value = useMemo(
     () => ({
       open,
@@ -96,10 +211,12 @@ export function PanelProvider({ children }) {
       showForgot,
       enterDashboard,
       enterPlanHome,
+      completeCustomerAuth,
       completePlanSelection,
       completePaymentStep,
       completeWhatsAppSetup,
       handleLogout,
+      refreshCustomerUser,
     }),
     [
       open,
@@ -112,10 +229,12 @@ export function PanelProvider({ children }) {
       showForgot,
       enterDashboard,
       enterPlanHome,
+      completeCustomerAuth,
       completePlanSelection,
       completePaymentStep,
       completeWhatsAppSetup,
       handleLogout,
+      refreshCustomerUser,
     ]
   );
 

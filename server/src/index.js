@@ -1,30 +1,234 @@
+import { isVercelRuntime } from "./load-env.js";
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import crypto from "crypto";
 import { testSupabaseConnection } from "./config/supabase.js";
 import { supabaseAdmin } from "./config/supabase.js";
-
-dotenv.config();
+import { signCustomerToken, requireCustomer } from "./customerJwt.js";
+import { CHECKOUT_PLANS, isValidPlanId, computeNewSubscriptionEnd } from "./billing.js";
+import { getStripe, applyPaidCheckoutSession } from "./stripeSync.js";
 
 const app = express();
 const port = Number(process.env.PORT || 5000);
 const RESET_TOKEN_TTL_MINUTES = 30;
 
-app.use(express.json());
 app.use(
   cors({
     origin: "*",
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "Stripe-Signature"],
     credentials: false
   })
 );
 
-/** OpenAI key for POST /api/public/chat — must be set on the backend (e.g. Vercel env), never in the frontend. */
+app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+  const whSecret = String(process.env.STRIPE_WEBHOOK_SECRET || "").trim();
+  const stripe = getStripe();
+  if (!stripe || !whSecret) {
+    return res.status(503).send("Webhook not configured");
+  }
+  let event;
+  try {
+    const sig = req.headers["stripe-signature"];
+    event = stripe.webhooks.constructEvent(req.body, sig, whSecret);
+  } catch (err) {
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+  try {
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
+      if (session.mode === "payment") {
+        await applyPaidCheckoutSession(session);
+      }
+    }
+    return res.json({ received: true });
+  } catch (e) {
+    console.error("stripe webhook", e);
+    return res.status(500).json({ ok: false });
+  }
+});
+
+app.use(express.json());
+
+function publicAppUrl() {
+  return String(process.env.PUBLIC_APP_URL || process.env.FRONTEND_URL || "http://localhost:5173").replace(
+    /\/$/,
+    ""
+  );
+}
+
+function buildCustomerUserPayload(row) {
+  const ends = row?.subscription_ends_at;
+  const subscriptionActive = Boolean(ends && new Date(ends) > new Date());
+  const biz =
+    `${row?.first_name || ""} ${row?.last_name || ""}`.trim() || row?.email?.split("@")[0] || "Cliente";
+  return {
+    id: row.id,
+    email: row.email,
+    first_name: row.first_name,
+    last_name: row.last_name,
+    phone: row.phone,
+    businessName: biz,
+    subscription_plan_id: row.subscription_plan_id,
+    subscription_ends_at: row.subscription_ends_at,
+    subscriptionActive
+  };
+}
+
+app.get("/api/customer/me", requireCustomer, async (req, res) => {
+  try {
+    const { data: user, error } = await supabaseAdmin
+      .from("customer_users")
+      .select("id, email, first_name, last_name, phone, subscription_plan_id, subscription_ends_at")
+      .eq("id", req.customerId)
+      .maybeSingle();
+    if (error || !user) {
+      return res.status(404).json({ ok: false, message: "User not found." });
+    }
+    return res.status(200).json({ ok: true, user: buildCustomerUserPayload(user) });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+app.post("/api/customer/stripe/checkout", requireCustomer, async (req, res) => {
+  try {
+    const planId = String(req.body?.plan_id || "").trim();
+    if (!isValidPlanId(planId)) {
+      return res.status(400).json({ ok: false, message: "Invalid plan_id." });
+    }
+    const stripe = getStripe();
+    if (!stripe) {
+      return res.status(503).json({ ok: false, message: "STRIPE_SECRET_KEY not configured on server." });
+    }
+    const plan = CHECKOUT_PLANS[planId];
+    const base = publicAppUrl();
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      payment_method_types: ["card"],
+      customer_email: req.customerEmail || undefined,
+      line_items: [
+        {
+          price_data: {
+            currency: "eur",
+            unit_amount: plan.amountCents,
+            product_data: {
+              name: `Omnira — ${plan.label}`,
+              description: `Acceso al panel (${plan.label}).`
+            }
+          },
+          quantity: 1
+        }
+      ],
+      success_url: `${base}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${base}/?checkout=canceled`,
+      metadata: {
+        customer_user_id: req.customerId,
+        plan_id: planId
+      },
+      client_reference_id: req.customerId
+    });
+    return res.status(200).json({ ok: true, url: session.url });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message || "Checkout error." });
+  }
+});
+
+app.post("/api/customer/stripe/confirm", requireCustomer, async (req, res) => {
+  try {
+    const sessionId = String(req.body?.session_id || "").trim();
+    if (!sessionId) {
+      return res.status(400).json({ ok: false, message: "session_id is required." });
+    }
+    const stripe = getStripe();
+    if (!stripe) {
+      return res.status(503).json({ ok: false, message: "STRIPE_SECRET_KEY not configured." });
+    }
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ["payment_intent"]
+    });
+    if (session.metadata?.customer_user_id !== req.customerId) {
+      return res.status(403).json({ ok: false, message: "Invalid session for this user." });
+    }
+    if (session.payment_status !== "paid") {
+      return res.status(202).json({ ok: false, pending: true, message: "Payment not completed yet." });
+    }
+    const applied = await applyPaidCheckoutSession(session);
+    if (!applied.ok) {
+      return res.status(400).json({ ok: false, message: applied.reason || "Confirm failed." });
+    }
+    const { data: user } = await supabaseAdmin
+      .from("customer_users")
+      .select("id, email, first_name, last_name, phone, subscription_plan_id, subscription_ends_at")
+      .eq("id", req.customerId)
+      .maybeSingle();
+    return res.status(200).json({
+      ok: true,
+      user: user ? buildCustomerUserPayload(user) : null
+    });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** Dev / QA only: grant subscription without Stripe when OMNIRA_ALLOW_SUBSCRIPTION_SIMULATE=true */
+app.post("/api/customer/subscription/simulate", requireCustomer, async (req, res) => {
+  try {
+    const allow = String(process.env.OMNIRA_ALLOW_SUBSCRIPTION_SIMULATE || "").trim() === "true";
+    if (!allow) {
+      return res.status(403).json({ ok: false, message: "Simulate disabled." });
+    }
+    const planId = String(req.body?.plan_id || "").trim();
+    if (!isValidPlanId(planId)) {
+      return res.status(400).json({ ok: false, message: "Invalid plan_id." });
+    }
+    const plan = CHECKOUT_PLANS[planId];
+    const { data: row } = await supabaseAdmin
+      .from("customer_users")
+      .select("subscription_ends_at")
+      .eq("id", req.customerId)
+      .maybeSingle();
+    const newEnd = computeNewSubscriptionEnd(row?.subscription_ends_at, plan.durationDays);
+    const { data: user, error } = await supabaseAdmin
+      .from("customer_users")
+      .update({
+        subscription_plan_id: planId,
+        subscription_ends_at: newEnd,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", req.customerId)
+      .select("id, email, first_name, last_name, phone, subscription_plan_id, subscription_ends_at")
+      .maybeSingle();
+    if (error || !user) {
+      return res.status(500).json({ ok: false, message: error?.message || "Update failed." });
+    }
+    return res.status(200).json({ ok: true, user: buildCustomerUserPayload(user) });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** OpenAI key for POST /api/public/chat — set on the backend (Vercel env), never in the frontend. */
+function cleanEnvSecret(value) {
+  let s = String(value ?? "")
+    .trim()
+    .replace(/^\uFEFF/, "");
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    s = s.slice(1, -1).trim();
+  }
+  return s;
+}
+
 function resolveOpenAiApiKey() {
-  for (const name of ["OPENAI_API_KEY", "OPENAI_KEY"]) {
-    const v = String(process.env[name] || "").trim();
+  const names = [
+    "OPENAI_API_KEY",
+    "OPENAI_KEY",
+    "OPEN_AI_API_KEY",
+    "OPENAI_SECRET_KEY",
+    "CHAT_OPENAI_API_KEY"
+  ];
+  for (const name of names) {
+    const v = cleanEnvSecret(process.env[name]);
     if (v) return v;
   }
   return "";
@@ -676,7 +880,7 @@ app.post("/api/customer/signup", async (req, res) => {
         last_name: lastName,
         phone
       })
-      .select("id, email, first_name, last_name, phone")
+      .select("id, email, first_name, last_name, phone, subscription_plan_id, subscription_ends_at")
       .single();
 
     if (error) throw error;
@@ -684,7 +888,8 @@ app.post("/api/customer/signup", async (req, res) => {
     return res.status(201).json({
       ok: true,
       message: "Customer signup successful.",
-      user: data
+      token: signCustomerToken(data.id, data.email),
+      user: buildCustomerUserPayload(data)
     });
   } catch (error) {
     return res.status(500).json({ ok: false, message: `Customer signup failed: ${error.message}` });
@@ -702,7 +907,9 @@ app.post("/api/customer/login", async (req, res) => {
 
     const { data: customer, error } = await supabaseAdmin
       .from("customer_users")
-      .select("id, email, first_name, last_name, is_active, password_hash")
+      .select(
+        "id, email, first_name, last_name, phone, is_active, password_hash, subscription_plan_id, subscription_ends_at"
+      )
       .eq("email", email)
       .maybeSingle();
 
@@ -724,12 +931,8 @@ app.post("/api/customer/login", async (req, res) => {
     return res.status(200).json({
       ok: true,
       message: "Customer login successful.",
-      user: {
-        id: customer.id,
-        email: customer.email,
-        first_name: customer.first_name,
-        last_name: customer.last_name
-      }
+      token: signCustomerToken(customer.id, customer.email),
+      user: buildCustomerUserPayload(customer)
     });
   } catch (error) {
     return res.status(500).json({ ok: false, message: `Customer login failed: ${error.message}` });
@@ -869,7 +1072,7 @@ app.post("/api/public/chat", async (req, res) => {
       return res.status(503).json({
         ok: false,
         message:
-          "OpenAI no está activo: el backend no tiene OPENAI_API_KEY. En Vercel abre el proyecto del API (omnira-backend) → Settings → Environment Variables → añade OPENAI_API_KEY con tu clave sk-… → Redeploy. La clave no va en el frontend ni en VITE_*."
+          "OpenAI no está activo: el backend no ve ninguna clave válida (OPENAI_API_KEY u otras soportadas). En Vercel: proyecto del API → Settings → Environment Variables → nombre exacto OPENAI_API_KEY → valor sk-… sin comillas → marca Production (y Preview si hace falta) → Redeploy. Comprueba GET /health → openai_chat_configured y openai_key_hint."
       });
     }
 
@@ -941,10 +1144,18 @@ app.post("/api/public/chat", async (req, res) => {
 app.get("/health", async (_req, res) => {
   try {
     await testSupabaseConnection();
+    const key = resolveOpenAiApiKey();
+    const keyHint =
+      !key ? "missing" : key.startsWith("sk-") ? "sk_prefix_ok" : "present_non_sk_prefix";
     return res.status(200).json({
       ok: true,
       message: "Server is running and Supabase is connected.",
-      openai_chat_configured: Boolean(resolveOpenAiApiKey())
+      openai_chat_configured: Boolean(key),
+      openai_key_hint: keyHint,
+      stripe_secret_configured: Boolean(getStripe()),
+      stripe_webhook_secret_configured: Boolean(String(process.env.STRIPE_WEBHOOK_SECRET || "").trim()),
+      customer_jwt_configured: Boolean(String(process.env.CUSTOMER_JWT_SECRET || "").trim()),
+      runtime: isVercelRuntime ? "vercel" : "node"
     });
   } catch (error) {
     return res.status(500).json({
@@ -996,4 +1207,8 @@ async function startServer() {
   }
 }
 
-startServer();
+if (!isVercelRuntime) {
+  startServer();
+}
+
+export { app, startServer };

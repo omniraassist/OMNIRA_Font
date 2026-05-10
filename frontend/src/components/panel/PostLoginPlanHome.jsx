@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { LogoMark } from '../brand/LogoMark.jsx';
-import { OMNIRA_PLANS, PLAN_STORAGE_KEY } from '../../constants/plans.js';
+import { OMNIRA_PLANS_CHECKOUT_ORDER } from '../../constants/plans.js';
 import { usePanel } from '../../context/PanelContext.jsx';
 
 export function PostLoginPlanHome() {
@@ -105,7 +105,7 @@ export function PostLoginPlanHome() {
 
           <div className="container panel-plan-cards-wrap">
             <div className="plans-grid panel-plan-cards-grid">
-              {OMNIRA_PLANS.map((plan) => {
+              {OMNIRA_PLANS_CHECKOUT_ORDER.map((plan) => {
                 const isSel = selectedId === plan.id;
                 const cardClass = [
                   'plan-card',

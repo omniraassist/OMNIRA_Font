@@ -4,7 +4,7 @@ import { LogoMark } from '../brand/LogoMark.jsx';
 import { usePanel } from '../../context/PanelContext.jsx';
 
 export function AuthLogin() {
-  const { closeClientPanel, showRegister, showForgot, enterPlanHome } = usePanel();
+  const { closeClientPanel, showRegister, showForgot, completeCustomerAuth } = usePanel();
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -20,8 +20,7 @@ export function AuthLogin() {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
-      localStorage.setItem('omnira_session', JSON.stringify(res));
-      enterPlanHome(res.user);
+      completeCustomerAuth(res);
     } catch (ex) {
       setErr(ex.message || 'Error');
     } finally {

@@ -4,6 +4,7 @@ import mammoth from 'mammoth';
 import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { apiCall } from '../../api/client.js';
+import { canAccessDashboardPage, OMNIRA_PLANS } from '../../constants/plans.js';
 import { LogoMark } from '../brand/LogoMark.jsx';
 import { usePanel } from '../../context/PanelContext.jsx';
 
@@ -165,6 +166,12 @@ export function Dashboard() {
   }, [loadData]);
 
   useEffect(() => {
+    if (user?.subscription_plan_id && !canAccessDashboardPage(user.subscription_plan_id, page)) {
+      setPage('dash');
+    }
+  }, [user?.subscription_plan_id, page]);
+
+  useEffect(() => {
     if (page !== 'calendar') return;
     (async () => {
       const ev = await apiCall('/api/events').catch(() => []);
@@ -175,6 +182,25 @@ export function Dashboard() {
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast({ msg: '', type: '' }), 3500);
+  };
+
+  function planDisplayName(planId) {
+    return OMNIRA_PLANS.find((p) => p.id === planId)?.name || planId || 'Plan';
+  }
+
+  function subscriptionDaysLeft(endsAt) {
+    if (!endsAt) return 0;
+    const ms = new Date(endsAt).getTime() - Date.now();
+    return Math.max(0, Math.ceil(ms / 86400000));
+  }
+
+  const openNavPage = (p) => {
+    if (!canAccessDashboardPage(user?.subscription_plan_id, p)) {
+      showToast('Tu plan no incluye esta sección. Elige un pack superior en Facturación.', 'error');
+      setUpgradeOpen(true);
+      return;
+    }
+    showPage(p);
   };
 
   const showPage = (p) => {
@@ -435,35 +461,56 @@ export function Dashboard() {
           <nav className="p-sidebar-nav">
             <div className="p-nav-section">
               <div className="p-nav-label">Panel</div>
-              <button type="button" className={`p-nav-item${page === 'dash' ? ' active' : ''}`} onClick={() => showPage('dash')}>
+              <button type="button" className={`p-nav-item${page === 'dash' ? ' active' : ''}`} onClick={() => openNavPage('dash')}>
                 <i className="fa-solid fa-table-cells-large" /> Resumen
               </button>
-              <button type="button" className={`p-nav-item${page === 'calendar' ? ' active' : ''}`} onClick={() => showPage('calendar')}>
+              <button type="button" className={`p-nav-item${page === 'calendar' ? ' active' : ''}`} onClick={() => openNavPage('calendar')}>
                 <i className="fa-solid fa-calendar-days" /> Calendario
               </button>
-              <button type="button" className={`p-nav-item${page === 'booking' ? ' active' : ''}`} onClick={() => showPage('booking')}>
+              <button type="button" className={`p-nav-item${page === 'booking' ? ' active' : ''}`} onClick={() => openNavPage('booking')}>
                 <i className="fa-solid fa-calendar-check" /> Booking
               </button>
-              <button type="button" className={`p-nav-item${page === 'convs' ? ' active' : ''}`} onClick={() => showPage('convs')}>
+              <button type="button" className={`p-nav-item${page === 'convs' ? ' active' : ''}`} onClick={() => openNavPage('convs')}>
                 <i className="fa-brands fa-whatsapp" /> Conversaciones
               </button>
-              <button type="button" className={`p-nav-item${page === 'stats' ? ' active' : ''}`} onClick={() => showPage('stats')}>
+              <button
+                type="button"
+                className={`p-nav-item${page === 'stats' ? ' active' : ''}${!canAccessDashboardPage(user?.subscription_plan_id, 'stats') ? ' p-nav-locked' : ''}`}
+                onClick={() => openNavPage('stats')}
+              >
                 <i className="fa-solid fa-chart-line" /> Estadísticas
+                {!canAccessDashboardPage(user?.subscription_plan_id, 'stats') ? (
+                  <i className="fa-solid fa-lock" style={{ marginLeft: 'auto', opacity: 0.45, fontSize: 11 }} />
+                ) : null}
               </button>
             </div>
             <div className="p-nav-section">
               <div className="p-nav-label">Configuración</div>
-              <button type="button" className={`p-nav-item${page === 'negocio' ? ' active' : ''}`} onClick={() => showPage('negocio')}>
+              <button type="button" className={`p-nav-item${page === 'negocio' ? ' active' : ''}`} onClick={() => openNavPage('negocio')}>
                 <i className="fa-solid fa-building" /> Mi Negocio
               </button>
-              <button type="button" className={`p-nav-item${page === 'bot' ? ' active' : ''}`} onClick={() => showPage('bot')}>
+              <button type="button" className={`p-nav-item${page === 'bot' ? ' active' : ''}`} onClick={() => openNavPage('bot')}>
                 <i className="fa-solid fa-robot" /> Bot
               </button>
-              <button type="button" className={`p-nav-item${page === 'factura' ? ' active' : ''}`} onClick={() => showPage('factura')}>
+              <button
+                type="button"
+                className={`p-nav-item${page === 'factura' ? ' active' : ''}${!canAccessDashboardPage(user?.subscription_plan_id, 'factura') ? ' p-nav-locked' : ''}`}
+                onClick={() => openNavPage('factura')}
+              >
                 <i className="fa-solid fa-credit-card" /> Facturación
+                {!canAccessDashboardPage(user?.subscription_plan_id, 'factura') ? (
+                  <i className="fa-solid fa-lock" style={{ marginLeft: 'auto', opacity: 0.45, fontSize: 11 }} />
+                ) : null}
               </button>
-              <button type="button" className={`p-nav-item${page === 'knowledge' ? ' active' : ''}`} onClick={() => showPage('knowledge')}>
+              <button
+                type="button"
+                className={`p-nav-item${page === 'knowledge' ? ' active' : ''}${!canAccessDashboardPage(user?.subscription_plan_id, 'knowledge') ? ' p-nav-locked' : ''}`}
+                onClick={() => openNavPage('knowledge')}
+              >
                 <i className="fa-solid fa-brain" /> Knowledge Training
+                {!canAccessDashboardPage(user?.subscription_plan_id, 'knowledge') ? (
+                  <i className="fa-solid fa-lock" style={{ marginLeft: 'auto', opacity: 0.45, fontSize: 11 }} />
+                ) : null}
               </button>
             </div>
           </nav>
@@ -482,6 +529,31 @@ export function Dashboard() {
         </aside>
 
         <main className="p-main">
+          {user?.subscriptionActive && user?.subscription_ends_at ? (
+            <div className="p-subscription-banner" role="status">
+              <div className="p-subscription-banner-shine" aria-hidden />
+              <div className="p-subscription-banner-content">
+                <span className="p-subscription-badge">
+                  <i className="fa-solid fa-gem" /> {planDisplayName(user.subscription_plan_id)}
+                </span>
+                <div className="p-subscription-countdown">
+                  <span className="p-subscription-days">{subscriptionDaysLeft(user.subscription_ends_at)}</span>
+                  <span className="p-subscription-days-label">días restantes</span>
+                </div>
+                <div className="p-subscription-until">
+                  Acceso hasta el{' '}
+                  <strong>
+                    {new Date(user.subscription_ends_at).toLocaleDateString('es-ES', {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          ) : null}
           <div id="page-dash" className={`p-page${page === 'dash' ? ' active' : ''}`}>
             <div id="dashUpgradeBanner" className="upgrade-banner" style={{ display: isPro ? 'none' : 'flex' }}>
               <div className="upgrade-text">
