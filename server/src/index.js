@@ -1247,3 +1247,4 @@ if (!isVercelRuntime) {
 }
 
 export { app, startServer };
+export default app;

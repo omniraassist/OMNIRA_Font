@@ -1,5 +1,15 @@
 # Omnira Server
 
+## Deploy on Vercel (important)
+
+1. Create a **separate Vercel project** for this API (not the same as the marketing frontend).
+2. In **Project → Settings → General → Root Directory**, set **`server`** (the folder that contains `package.json` and `server.js`).  
+   If Root Directory is the monorepo root, Vercel will **not** install `server/package.json` dependencies and the function will crash.
+3. Add all variables from `env.vercel.production.template` (especially `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`).
+4. Redeploy. `GET /` and `GET /health` should return JSON.
+
+Vercel looks for Express at `server.js`, `index.js`, or **`src/index.js`**. This repo’s app lives in `src/index.js` and is now **`export default app`** so auto-detection works.
+
 ## Setup
 
 1. Install dependencies:
