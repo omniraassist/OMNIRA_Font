@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { LogoMark } from '../brand/LogoMark.jsx';
 import { PLAN_STORAGE_KEY } from '../../constants/plans.js';
 import { apiCall } from '../../api/client.js';
 import { usePanel } from '../../context/PanelContext.jsx';
+import { EmbeddedStripePay } from './EmbeddedStripePay.jsx';
 
 export function PostLoginPaymentStep() {
   const { closeClientPanel, completePaymentStep, refreshCustomerUser } = usePanel();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [embed, setEmbed] = useState(null);
+
   let plan = null;
   try {
     plan = JSON.parse(localStorage.getItem(PLAN_STORAGE_KEY) || 'null');
@@ -15,7 +18,55 @@ export function PostLoginPaymentStep() {
     plan = null;
   }
 
-  async function startStripe() {
+  const persistUser = useCallback(
+    async (user) => {
+      try {
+        const sess = JSON.parse(localStorage.getItem('omnira_session') || '{}');
+        if (sess.token) {
+          localStorage.setItem('omnira_session', JSON.stringify({ ...sess, user }));
+        }
+      } catch {
+        /* ignore */
+      }
+      await refreshCustomerUser();
+      if (user) completePaymentStep();
+    },
+    [completePaymentStep, refreshCustomerUser]
+  );
+
+  /** Embedded card pay (PaymentIntent + Elements) — same pattern as test.js */
+  async function startEmbeddedPay() {
+    if (!plan?.id) return;
+    setErr('');
+    setBusy(true);
+    setEmbed(null);
+    try {
+      const keyRes = await apiCall('/api/public/stripe-publishable-key');
+      const pk = keyRes.publishableKey;
+      if (!pk) {
+        throw new Error('El servidor no tiene STRIPE_PUBLISHABLE_KEY configurada.');
+      }
+      const piRes = await apiCall('/api/customer/stripe/payment-intent', {
+        method: 'POST',
+        body: JSON.stringify({ plan_id: plan.id }),
+      });
+      if (!piRes.clientSecret || !piRes.paymentIntentId) {
+        throw new Error('No se pudo crear el pago.');
+      }
+      setEmbed({
+        publishableKey: pk,
+        clientSecret: piRes.clientSecret,
+        paymentIntentId: piRes.paymentIntentId,
+      });
+    } catch (e) {
+      setErr(e.message || 'Error al iniciar el pago embebido');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Stripe-hosted Checkout (redirect) */
+  async function startStripeRedirect() {
     if (!plan?.id) return;
     setErr('');
     setBusy(true);
@@ -46,12 +97,7 @@ export function PostLoginPaymentStep() {
         body: JSON.stringify({ plan_id: plan.id }),
       });
       if (r.user) {
-        const sess = JSON.parse(localStorage.getItem('omnira_session') || '{}');
-        if (sess.token) {
-          localStorage.setItem('omnira_session', JSON.stringify({ ...sess, user: r.user }));
-        }
-        await refreshCustomerUser();
-        completePaymentStep();
+        await persistUser(r.user);
         return;
       }
       setErr('No se pudo simular el plan.');
@@ -60,6 +106,11 @@ export function PostLoginPaymentStep() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function handleEmbeddedPaid(user) {
+    setEmbed(null);
+    void persistUser(user);
   }
 
   return (
@@ -103,8 +154,8 @@ export function PostLoginPaymentStep() {
               <span className="gradient-text">{plan?.name || 'Seleccionado'}</span>
             </h1>
             <p className="panel-plan-lead">
-              Pago seguro con <strong>Stripe</strong>. Tras completar el checkout volverás aquí para configurar{' '}
-              <strong>WhatsApp Business + Twilio</strong>.
+              Pago seguro con <strong>Stripe</strong>. Tras pagar podrás configurar{' '}
+              <strong>WhatsApp Business + Twilio</strong> y usar el panel.
             </p>
             <div className="panel-payment-summary">
               <div>
@@ -126,16 +177,44 @@ export function PostLoginPaymentStep() {
 
             {err ? <div className="auth-error show" style={{ marginBottom: 14 }}>{err}</div> : null}
 
-            <button type="button" className="btn-primary panel-plan-cta" onClick={startStripe} disabled={busy || !plan?.id}>
-              {busy ? 'Redirigiendo a Stripe…' : 'Pagar con tarjeta (Stripe)'}
-              <i className="fa-solid fa-arrow-right" />
-            </button>
-            <p className="panel-plan-lead" style={{ marginTop: 16, fontSize: 13, opacity: 0.85 }}>
-              Solo desarrollo: si Stripe no está configurado, usa el botón de abajo.
-            </p>
-            <button type="button" className="btn-ghost" style={{ width: '100%', marginTop: 8 }} onClick={simulateLocal} disabled={busy}>
-              Simular pago (requiere OMNIRA_ALLOW_SUBSCRIPTION_SIMULATE en servidor)
-            </button>
+            {!embed ? (
+              <>
+                <button
+                  type="button"
+                  className="btn-primary panel-plan-cta"
+                  onClick={startEmbeddedPay}
+                  disabled={busy || !plan?.id}
+                >
+                  {busy ? 'Preparando pago…' : 'Pagar con tarjeta (aquí)'}
+                  <i className="fa-solid fa-credit-card" style={{ marginLeft: 8 }} />
+                </button>
+                <p className="panel-plan-lead" style={{ marginTop: 14, fontSize: 13, opacity: 0.85 }}>
+                  También puedes abrir el checkout de Stripe en una nueva página.
+                </p>
+                <button type="button" className="btn-ghost" style={{ width: '100%', marginTop: 6 }} onClick={startStripeRedirect} disabled={busy || !plan?.id}>
+                  Abrir Stripe Checkout (redirección)
+                </button>
+              </>
+            ) : (
+              <EmbeddedStripePay
+                publishableKey={embed.publishableKey}
+                clientSecret={embed.clientSecret}
+                paymentIntentId={embed.paymentIntentId}
+                onPaid={handleEmbeddedPaid}
+                onError={(m) => setErr(m || 'Error de pago')}
+              />
+            )}
+
+            {!embed ? (
+              <>
+                <p className="panel-plan-lead" style={{ marginTop: 16, fontSize: 13, opacity: 0.85 }}>
+                  Solo desarrollo: si Stripe no está configurado, usa el botón de abajo.
+                </p>
+                <button type="button" className="btn-ghost" style={{ width: '100%', marginTop: 8 }} onClick={simulateLocal} disabled={busy}>
+                  Simular pago (requiere OMNIRA_ALLOW_SUBSCRIPTION_SIMULATE en servidor)
+                </button>
+              </>
+            ) : null}
           </div>
         </div>
       </main>

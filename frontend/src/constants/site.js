@@ -9,10 +9,10 @@ function trimOrEmpty(v) {
 }
 
 /**
- * Backend origin used from the browser (customer/admin `apiCall`, public chat in prod).
+ * Backend origin used from the browser (customer/admin `apiCall`).
  */
 export const API_BASE = trimOrEmpty(import.meta.env.VITE_API_BASE) || DEFAULT_BACKEND;
 
-/** Dev-only: second host when primary fails (e.g. local Express). Not used for public chat in production. */
+/** Dev-only: second host when primary fails (e.g. local Express). */
 export const API_FALLBACK_BASE = trimOrEmpty(import.meta.env.VITE_API_FALLBACK_BASE) || 'http://localhost:5000';
 

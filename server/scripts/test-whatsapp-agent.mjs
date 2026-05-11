@@ -1,0 +1,181 @@
+/**
+ * CLI: verify Meta WhatsApp marketing agent (OpenAI + Graph) and HTTP webhook.
+ *
+ * From server/:
+ *   node scripts/test-whatsapp-agent.mjs
+ *   node scripts/test-whatsapp-agent.mjs "¿Cuánto cuesta el plan mensual?"
+ *
+ * Env:
+ *   OMNIRA_WA_TEST_TO_E164 — recipient in digits only (must be allowed by WhatsApp 24h/session rules).
+ *   OMNIRA_WA_TEST_BASE — default http://127.0.0.1:$PORT
+ */
+
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { config } from "dotenv";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+config({ path: path.join(__dirname, "..", ".env") });
+
+const question =
+  process.argv.slice(2).join(" ").trim() ||
+  process.env.OMNIRA_WA_TEST_QUESTION ||
+  "¿Cuánto cuesta Omnira al mes y qué incluye el plan básico?";
+
+const port = Number(process.env.PORT || 5000);
+const base = String(process.env.OMNIRA_WA_TEST_BASE || `http://127.0.0.1:${port}`).replace(/\/$/, "");
+const testTo = String(process.env.OMNIRA_WA_TEST_TO_E164 || "").replace(/\D/g, "");
+
+function buildMetaWebhookBody(fromDigits, text) {
+  const phoneNumberId = String(process.env.META_WABA_PHONE_NUMBER_ID || "").trim();
+  return {
+    object: "whatsapp_business_account",
+    entry: [
+      {
+        id: String(process.env.META_WABA_BUSINESS_ACCOUNT_ID || "test_waba"),
+        changes: [
+          {
+            field: "messages",
+            value: {
+              messaging_product: "whatsapp",
+              metadata: {
+                display_phone_number: "15550000000",
+                phone_number_id: phoneNumberId
+              },
+              contacts: [{ profile: { name: "CLI Test" }, wa_id: fromDigits }],
+              messages: [
+                {
+                  from: fromDigits,
+                  id: `wamid.cli.${Date.now()}`,
+                  timestamp: String(Math.floor(Date.now() / 1000)),
+                  type: "text",
+                  text: { body: text }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  };
+}
+
+async function runStep(title, fn) {
+  process.stdout.write(`\n── ${title} ──\n`);
+  try {
+    const result = await fn();
+    if (result !== undefined) {
+      console.log(typeof result === "string" ? result : JSON.stringify(result, null, 2));
+    }
+    return { ok: true, result };
+  } catch (e) {
+    console.error("FAIL:", e?.message || e);
+    if (e?.cause?.code === "ECONNREFUSED" || /fetch failed|ECONNREFUSED/i.test(String(e?.message || ""))) {
+      console.error("Hint: start the API in another terminal:  cd server && node server.js");
+    }
+    return { ok: false, error: e };
+  }
+}
+
+async function main() {
+  console.log("Omnira WhatsApp agent CLI test");
+  console.log("Question:", question);
+  console.log("HTTP base:", base);
+  console.log("OMNIRA_WA_TEST_TO_E164:", testTo || "(empty — set to your WhatsApp number for full send test)");
+
+  let exit = 0;
+
+  const { runMarketingAgentReplyForTest, openAiReplyToInbound } = await import("../src/metaWhatsAppWebhook.js");
+
+  const aiOnly = await runStep("OpenAI only (marketing system prompt)", async () => {
+    const key = String(process.env.OPENAI_API_KEY || "").trim();
+    if (!key) {
+      return "FAIL: OPENAI_API_KEY missing in .env";
+    }
+    const reply = await openAiReplyToInbound(question);
+    if (!reply) {
+      return "FAIL: OpenAI returned empty (check key / quota / model)";
+    }
+    return { preview: reply.slice(0, 400) + (reply.length > 400 ? "…" : "") };
+  });
+  if (!aiOnly.ok || (typeof aiOnly.result === "string" && aiOnly.result.startsWith("FAIL"))) exit = 1;
+
+  const direct = await runStep("Direct pipeline: OpenAI → Graph (same as webhook handler)", async () => {
+    if (!testTo) {
+      return "SKIP: set OMNIRA_WA_TEST_TO_E164 (digits, e.g. 34612345678) to verify Graph API delivery.";
+    }
+    const out = await runMarketingAgentReplyForTest({ from: testTo, body: question });
+    if (!out.ok) {
+      if (out.status === 401) {
+        console.error(
+          "\nMeta Graph API 401: META_WABA_ACCESS_TOKEN is expired or revoked.\n" +
+            "Fix: Meta Business Suite → WhatsApp → API setup (or developers.facebook.com) → generate a new token\n" +
+            "with whatsapp_business_messaging, then update META_WABA_ACCESS_TOKEN in server/.env and redeploy.\n"
+        );
+      }
+      return { ...out, FAIL: true };
+    }
+    return out;
+  });
+  if (!direct.ok || (direct.result && direct.result.FAIL)) exit = 1;
+
+  const health = await runStep("GET /health (meta flags)", async () => {
+    const res = await fetch(`${base}/health`, { signal: AbortSignal.timeout(15000) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { http: res.status, body: j, FAIL: true };
+    }
+    return j;
+  });
+  if (!health.ok || (health.result && health.result.FAIL)) exit = 1;
+
+  const webhook = await runStep("POST /api/meta/whatsapp/webhook (simulated Meta JSON)", async () => {
+    if (!testTo) {
+      return "SKIP webhook HTTP test (needs OMNIRA_WA_TEST_TO_E164 so the handler has a valid `from`).";
+    }
+    const bodyObj = buildMetaWebhookBody(testTo, question);
+    const raw = JSON.stringify(bodyObj);
+    const res = await fetch(`${base}/api/meta/whatsapp/webhook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: raw,
+      signal: AbortSignal.timeout(120000)
+    });
+    const text = await res.text();
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = text.slice(0, 400);
+    }
+    if (!res.ok) return { status: res.status, body: parsed, FAIL: true };
+    return { status: res.status, body: parsed };
+  });
+  if (!webhook.ok || (webhook.result && webhook.result.FAIL)) exit = 1;
+
+  const verify = await runStep("GET webhook verify (Meta subscription check)", async () => {
+    const tok = String(process.env.META_WABA_VERIFY_TOKEN || "").trim();
+    if (!tok) {
+      return "SKIP: META_WABA_VERIFY_TOKEN empty";
+    }
+    const u = new URL(`${base}/api/meta/whatsapp/webhook`);
+    u.searchParams.set("hub.mode", "subscribe");
+    u.searchParams.set("hub.verify_token", tok);
+    u.searchParams.set("hub.challenge", "test_challenge_ok");
+    const res = await fetch(u.toString(), { signal: AbortSignal.timeout(15000) });
+    const body = await res.text();
+    if (res.status !== 200 || body !== "test_challenge_ok") {
+      return { status: res.status, body: body.slice(0, 200), FAIL: true };
+    }
+    return { status: res.status, challengeEcho: body };
+  });
+  if (!verify.ok || (verify.result && verify.result.FAIL)) exit = 1;
+
+  process.exitCode = exit;
+  console.log(exit === 0 ? "\nDone: all executed steps passed (or were skipped)." : "\nDone: some steps failed — see above.");
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exitCode = 1;
+});

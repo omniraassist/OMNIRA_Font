@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { LogoMark } from '../brand/LogoMark.jsx';
-import { OMNIRA_PLANS_CHECKOUT_ORDER } from '../../constants/plans.js';
+import { OMNIRA_PLANS, OMNIRA_PLANS_CHECKOUT_ORDER, PLAN_STORAGE_KEY } from '../../constants/plans.js';
 import { usePanel } from '../../context/PanelContext.jsx';
 
 export function PostLoginPlanHome() {

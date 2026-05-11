@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Secure Payment — $10.00</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --card: #1a1a26;
+      --border: #2a2a3d;
+      --accent: #c8a96e;
+      --accent-light: #e8c97e;
+      --text: #f0ede8;
+      --muted: #7a7a9a;
+      --success: #4caf82;
+      --error: #e05c6a;
+    }
+
+    body {
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'DM Sans', sans-serif;
+      color: var(--text);
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Atmospheric background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 20% 20%, rgba(200,169,110,0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 60% at 80% 80%, rgba(100,80,200,0.06) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    /* Grain texture */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      opacity: 0.5;
+    }
+
+    .wrapper {
+      width: 100%;
+      max-width: 460px;
+      position: relative;
+      z-index: 2;
+      opacity: 1;
+      /* Do not animate opacity: "both" fill-mode left some browsers stuck at opacity:0 */
+      animation: fadeUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes fadeUp {
+      from { transform: translateY(20px); }
+      to { transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .wrapper { animation: none; transform: none; }
+    }
+
+    /* Brand header */
+    .brand {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .brand-icon {
+      width: 52px;
+      height: 52px;
+      background: linear-gradient(135deg, var(--accent) 0%, #a07840 100%);
+      border-radius: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      box-shadow: 0 8px 32px rgba(200,169,110,0.25);
+    }
+
+    .brand-icon svg { width: 26px; height: 26px; fill: #0a0a0f; }
+
+    .brand h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.6rem;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+
+    .brand p {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 4px;
+      font-weight: 300;
+    }
+
+    /* Card container */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.03),
+        0 24px 64px rgba(0,0,0,0.5);
+    }
+
+    /* Order summary stripe */
+    .order-summary {
+      background: linear-gradient(135deg, rgba(200,169,110,0.12) 0%, rgba(200,169,110,0.04) 100%);
+      border-bottom: 1px solid rgba(200,169,110,0.15);
+      padding: 20px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .order-label {
+      font-size: 0.78rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 500;
+    }
+
+    .order-desc {
+      font-size: 0.92rem;
+      color: var(--text);
+      margin-top: 3px;
+      font-weight: 400;
+    }
+
+    .order-amount {
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem;
+      font-weight: 600;
+      color: var(--accent-light);
+      letter-spacing: -0.02em;
+    }
+
+    /* Form */
+    .form-body { padding: 28px; }
+
+    .section-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      margin-bottom: 16px;
+      font-weight: 500;
+    }
+
+    .field {
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    label {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 7px;
+      font-weight: 400;
+      letter-spacing: 0.02em;
+    }
+
+    input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 13px 16px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.92rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      -webkit-appearance: none;
+    }
+
+    input::placeholder { color: rgba(122,122,154,0.5); }
+
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(200,169,110,0.1);
+    }
+
+    input.error {
+      border-color: var(--error);
+      box-shadow: 0 0 0 3px rgba(224,92,106,0.1);
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    /* Stripe element containers */
+    .stripe-field {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .stripe-field.focused {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(200,169,110,0.1);
+    }
+
+    .stripe-field.error {
+      border-color: var(--error);
+      box-shadow: 0 0 0 3px rgba(224,92,106,0.1);
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 22px 0;
+    }
+
+    /* Card visual hint */
+    .card-icons {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .card-icon {
+      height: 24px;
+      border-radius: 5px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 2px 7px;
+      display: flex;
+      align-items: center;
+      font-size: 0.65rem;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    .card-icon.visa { color: #1a6fe8; }
+    .card-icon.mc { color: #eb5504; }
+    .card-icon.amex { color: #2e77bc; }
+
+    /* Pay button */
+    .pay-btn {
+      width: 100%;
+      margin-top: 24px;
+      padding: 16px;
+      background: linear-gradient(135deg, var(--accent) 0%, #a07840 100%);
+      border: none;
+      border-radius: 14px;
+      color: #0a0a0f;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0.01em;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+      box-shadow: 0 6px 24px rgba(200,169,110,0.3);
+    }
+
+    .pay-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0);
+      transition: background 0.15s;
+    }
+
+    .pay-btn:hover:not(:disabled)::before { background: rgba(255,255,255,0.08); }
+    .pay-btn:active:not(:disabled) { transform: scale(0.98); }
+    .pay-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .pay-btn .btn-content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .pay-btn .lock-icon { opacity: 0.7; font-size: 0.9rem; }
+
+    /* Spinner */
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(0,0,0,0.2);
+      border-top-color: #0a0a0f;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .pay-btn.loading .spinner { display: block; }
+    .pay-btn.loading .btn-text { display: none; }
+    .pay-btn.loading .lock-icon { display: none; }
+
+    /* Messages — hidden until .is-visible (avoid empty red/green boxes) */
+    .message {
+      margin-top: 16px;
+      padding: 13px 16px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: 400;
+      display: none;
+      align-items: flex-start;
+      gap: 8px;
+      line-height: 1.45;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .message.is-visible {
+      display: flex;
+    }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    .message.error {
+      background: rgba(224,92,106,0.12);
+      border: 1px solid rgba(224,92,106,0.35);
+      color: #f0a8b0;
+    }
+
+    .message .msg-dismiss {
+      margin-left: auto;
+      background: transparent;
+      border: none;
+      color: inherit;
+      opacity: 0.7;
+      cursor: pointer;
+      font-size: 1.1rem;
+      line-height: 1;
+      padding: 0 0 0 8px;
+    }
+
+    .message .msg-dismiss:hover { opacity: 1; }
+
+    /* Success replaces checkout form */
+    .success-panel {
+      display: none;
+      text-align: center;
+      padding: 8px 0 12px;
+      animation: fadeIn 0.45s ease;
+    }
+
+    .success-panel.is-visible {
+      display: block;
+    }
+
+    .success-icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 20px;
+      border-radius: 50%;
+      background: rgba(76,175,130,0.15);
+      border: 2px solid rgba(76,175,130,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      color: var(--success);
+    }
+
+    .success-panel h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.35rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .success-panel p {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .success-panel .receipt-email {
+      font-size: 0.85rem;
+      color: var(--accent-light);
+      word-break: break-all;
+    }
+
+    /* Local dev banners */
+    .dev-banner {
+      max-width: 460px;
+      margin: 0 auto 16px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      line-height: 1.45;
+      display: none;
+      border: 1px solid var(--border);
+      background: rgba(200,169,110,0.08);
+      color: var(--muted);
+    }
+
+    .dev-banner.is-visible { display: block; position: relative; z-index: 3; }
+
+    .dev-banner.warn {
+      border-color: rgba(224,92,106,0.35);
+      background: rgba(224,92,106,0.08);
+      color: #e8a0a8;
+    }
+
+    .dev-banner a {
+      color: var(--accent-light);
+    }
+
+    #checkout-panel.is-hidden {
+      display: none;
+    }
+
+    /* Security badge */
+    .security {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      margin-top: 20px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      opacity: 0.7;
+    }
+
+    .security svg { width: 13px; height: 13px; fill: var(--muted); }
+
+    /* Field error hints */
+    .field-error {
+      font-size: 0.73rem;
+      color: var(--error);
+      margin-top: 5px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="banner-insecure" class="dev-banner warn" role="status"></div>
+  <div id="banner-config" class="dev-banner warn" role="alert"></div>
+
+  <div class="wrapper">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+      </div>
+      <h1>Complete Your Order</h1>
+      <p>Secure checkout powered by Stripe</p>
+    </div>
+
+    <div class="card">
+      <div class="order-summary">
+        <div>
+          <div class="order-label">Order Total</div>
+          <div class="order-desc">Premium Access — One-time</div>
+        </div>
+        <div class="order-amount">$10</div>
+      </div>
+
+      <div class="form-body">
+        <div id="checkout-panel">
+        <div class="section-title">Billing Information</div>
+
+        <div class="field">
+          <label>Full Name</label>
+          <input type="text" id="name" placeholder="John Appleseed" autocomplete="name"/>
+          <div class="field-error" id="name-error">Please enter your full name.</div>
+        </div>
+
+        <div class="field">
+          <label>Email Address</label>
+          <input type="email" id="email" placeholder="john@example.com" autocomplete="email"/>
+          <div class="field-error" id="email-error">Please enter a valid email address.</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="section-title">Card Details</div>
+
+        <div class="card-icons">
+          <div class="card-icon visa">VISA</div>
+          <div class="card-icon mc">MC</div>
+          <div class="card-icon amex">AMEX</div>
+        </div>
+
+        <div class="field">
+          <label>Card Number</label>
+          <div class="stripe-field" id="card-number-wrapper">
+            <div id="card-number"></div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label>Expiry Date</label>
+            <div class="stripe-field" id="card-expiry-wrapper">
+              <div id="card-expiry"></div>
+            </div>
+          </div>
+          <div class="field">
+            <label>CVC</label>
+            <div class="stripe-field" id="card-cvc-wrapper">
+              <div id="card-cvc"></div>
+            </div>
+          </div>
+        </div>
+
+        <button class="pay-btn" id="pay-btn" type="button">
+          <div class="btn-content">
+            <span class="lock-icon">🔒</span>
+            <span class="btn-text">Pay $10.00 Securely</span>
+            <div class="spinner"></div>
+          </div>
+        </button>
+
+        <div class="message error" id="error-msg" role="alert" aria-live="polite">
+          <span aria-hidden="true">⚠</span>
+          <span id="error-text"></span>
+          <button type="button" class="msg-dismiss" id="error-dismiss" aria-label="Dismiss error">×</button>
+        </div>
+        </div>
+
+        <div id="success-panel" class="success-panel" aria-live="polite">
+          <div class="success-icon" aria-hidden="true">✓</div>
+          <h2>Payment complete</h2>
+          <p>Thank you. Your card was charged successfully.</p>
+          <p class="receipt-email" id="success-receipt-hint"></p>
+          <p style="margin-top: 16px; font-size: 0.8rem; color: var(--muted);">A receipt may be sent to your email.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="security">
+      <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+      256-bit SSL encryption · PCI DSS compliant
+    </div>
+  </div>
+
+  <script src="/payment-env.js"></script>
+  <script src="https://js.stripe.com/v3/"></script>
+  <script>
+    (function () {
+      const BACKEND_URL = window.location.origin;
+      const PUBLISHABLE_KEY = window.__STRIPE_PUBLISHABLE_KEY || '';
+
+      const bannerInsecure = document.getElementById('banner-insecure');
+      const bannerConfig = document.getElementById('banner-config');
+      const checkoutPanel = document.getElementById('checkout-panel');
+      const successPanel = document.getElementById('success-panel');
+      const successReceiptHint = document.getElementById('success-receipt-hint');
+
+      function showConfigBanner(html) {
+        bannerConfig.innerHTML = html;
+        bannerConfig.classList.add('is-visible');
+      }
+
+      if (!PUBLISHABLE_KEY) {
+        showConfigBanner(
+          'Missing <code>STRIPE_PUBLISHABLE_KEY</code> in <code>.env</code> — add your publishable key and restart <code>node test.js</code>.'
+        );
+        return;
+      }
+
+      if (typeof Stripe !== 'function') {
+        showConfigBanner(
+          'Stripe.js did not load (check your network or ad blocker). The form below may not accept cards until it loads.'
+        );
+        return;
+      }
+
+      if (!window.isSecureContext) {
+        const p = window.location.port || '500';
+        const httpUrl = 'http://localhost:' + p + '/';
+        bannerInsecure.innerHTML =
+          'This page is not a <strong>secure context</strong>, so browsers may limit cards/autofill. ' +
+          'Default dev server: <a href="' +
+          httpUrl +
+          '">' +
+          httpUrl +
+          '</a> (<code>node test.js</code>). For HTTPS use <code>TEST_JS_HTTPS=1</code> + mkcert — see <code>test.js</code> header.';
+        bannerInsecure.classList.add('is-visible');
+      }
+
+      let stripe;
+      try {
+        stripe = Stripe(PUBLISHABLE_KEY);
+      } catch (e) {
+        showConfigBanner('Stripe failed to initialize: ' + String(e.message || e));
+        return;
+      }
+      const elements = stripe.elements({
+        appearance: {
+          theme: 'night',
+          variables: {
+            colorBackground: '#12121a',
+            colorText: '#f0ede8',
+            colorTextPlaceholder: 'rgba(122,122,154,0.5)',
+            colorDanger: '#e05c6a',
+            fontFamily: 'DM Sans, sans-serif',
+            borderRadius: '0px',
+            focusBoxShadow: 'none',
+            focusOutline: 'none',
+          },
+          rules: {
+            '.Input': { border: 'none', padding: '0', background: 'transparent', outline: 'none' },
+          },
+        },
+      });
+
+      const style = {
+        style: {
+          base: {
+            color: '#f0ede8',
+            fontFamily: '"DM Sans", sans-serif',
+            fontSize: '15px',
+            fontWeight: '400',
+            '::placeholder': { color: 'rgba(122,122,154,0.5)' },
+          },
+          invalid: { color: '#e05c6a' },
+        },
+      };
+
+      let cardNumber;
+      let cardExpiry;
+      let cardCvc;
+      try {
+        cardNumber = elements.create('cardNumber', style);
+        cardExpiry = elements.create('cardExpiry', style);
+        cardCvc = elements.create('cardCvc', style);
+        cardNumber.mount('#card-number');
+        cardExpiry.mount('#card-expiry');
+        cardCvc.mount('#card-cvc');
+      } catch (e) {
+        showConfigBanner('Could not display card fields: ' + String(e.message || e) + '. Try a hard refresh (Ctrl+F5).');
+        return;
+      }
+
+      function addFocusListeners(element, wrapperId) {
+        const el = document.getElementById(wrapperId);
+        if (!el) return;
+        element.on('focus', () => el.classList.add('focused'));
+        element.on('blur', () => el.classList.remove('focused'));
+        element.on('change', (e) => {
+          if (e.error) el.classList.add('error');
+          else el.classList.remove('error');
+        });
+      }
+
+      addFocusListeners(cardNumber, 'card-number-wrapper');
+      addFocusListeners(cardExpiry, 'card-expiry-wrapper');
+      addFocusListeners(cardCvc, 'card-cvc-wrapper');
+
+      function showFieldError(id, msg) {
+        const el = document.getElementById(id + '-error');
+        const inp = document.getElementById(id);
+        el.textContent = msg;
+        el.style.display = 'block';
+        inp.classList.add('error');
+      }
+
+      function clearFieldError(id) {
+        const el = document.getElementById(id + '-error');
+        const inp = document.getElementById(id);
+        if (el) el.style.display = 'none';
+        if (inp) inp.classList.remove('error');
+      }
+
+      document.getElementById('name').addEventListener('input', () => clearFieldError('name'));
+      document.getElementById('email').addEventListener('input', () => clearFieldError('email'));
+
+      function validateFields() {
+        let valid = true;
+        const name = document.getElementById('name').value.trim();
+        const email = document.getElementById('email').value.trim();
+
+        if (!name || name.split(/\s+/).filter(Boolean).length < 2) {
+          showFieldError('name', 'Please enter your full name (first & last).');
+          valid = false;
+        } else clearFieldError('name');
+
+        const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRx.test(email)) {
+          showFieldError('email', 'Please enter a valid email address.');
+          valid = false;
+        } else clearFieldError('email');
+
+        return valid;
+      }
+
+      const payBtn = document.getElementById('pay-btn');
+      const errorMsg = document.getElementById('error-msg');
+      const errText = document.getElementById('error-text');
+
+      function setLoading(on) {
+        payBtn.disabled = on;
+        payBtn.classList.toggle('loading', on);
+      }
+
+      function hideError() {
+        errorMsg.classList.remove('is-visible');
+        errText.textContent = '';
+      }
+
+      function showError(msg) {
+        errText.textContent = msg;
+        errorMsg.classList.add('is-visible');
+      }
+
+      document.getElementById('error-dismiss').addEventListener('click', hideError);
+
+      function showSuccess(email) {
+        checkoutPanel.classList.add('is-hidden');
+        successPanel.classList.add('is-visible');
+        if (email) successReceiptHint.textContent = email;
+        else successReceiptHint.textContent = '';
+      }
+
+      payBtn.addEventListener('click', async () => {
+        if (!validateFields()) return;
+
+        setLoading(true);
+        hideError();
+
+        const name = document.getElementById('name').value.trim();
+        const email = document.getElementById('email').value.trim();
+
+        try {
+          const res = await fetch(BACKEND_URL + '/create-payment-intent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount: 1000, currency: 'usd', email, name }),
+          });
+
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            throw new Error(data.error || 'Server error. Please try again.');
+          }
+
+          const { clientSecret } = data;
+          if (!clientSecret) {
+            throw new Error('Invalid response from server.');
+          }
+
+          const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+            payment_method: {
+              card: cardNumber,
+              billing_details: { name, email },
+            },
+          });
+
+          if (error) {
+            showError(error.message);
+          } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+            showSuccess(email);
+          }
+        } catch (err) {
+          showError(err.message || 'An unexpected error occurred.');
+        } finally {
+          setLoading(false);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

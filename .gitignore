@@ -39,3 +39,6 @@ temp/
 .cache/
 *.pid
 
+# Local HTTPS (mkcert / custom PEMs) — do not commit
+dev-certs/
+

@@ -6,39 +6,63 @@ import { testSupabaseConnection } from "./config/supabase.js";
 import { supabaseAdmin } from "./config/supabase.js";
 import { signCustomerToken, requireCustomer } from "./customerJwt.js";
 import { CHECKOUT_PLANS, isValidPlanId, computeNewSubscriptionEnd } from "./billing.js";
-import { getStripe, applyPaidCheckoutSession } from "./stripeSync.js";
+import { getStripe, applyPaidCheckoutSession, applyPaidPaymentIntent, OMNIRA_PAYMENT_INTENT_FLOW } from "./stripeSync.js";
+import { handleMetaWhatsAppGet, handleMetaWhatsAppPost } from "./metaWhatsAppWebhook.js";
 
 const app = express();
 const port = Number(process.env.PORT || 5000);
 const RESET_TOKEN_TTL_MINUTES = 30;
 
-app.use(
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "Stripe-Signature"],
-    credentials: false
-  })
-);
+const corsOptions = {
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Stripe-Signature", "X-Hub-Signature-256"],
+  credentials: false
+};
+
+app.use(cors(corsOptions));
 
 app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async (req, res) => {
   const whSecret = String(process.env.STRIPE_WEBHOOK_SECRET || "").trim();
-  const stripe = getStripe();
-  if (!stripe || !whSecret) {
-    return res.status(503).send("Webhook not configured");
-  }
+  const insecureLocal =
+    !isVercelRuntime &&
+    process.env.NODE_ENV !== "production" &&
+    String(process.env.STRIPE_WEBHOOK_INSECURE_LOCAL || "").trim() === "true" &&
+    !whSecret;
+
   let event;
-  try {
-    const sig = req.headers["stripe-signature"];
-    event = stripe.webhooks.constructEvent(req.body, sig, whSecret);
-  } catch (err) {
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+  if (insecureLocal) {
+    try {
+      const buf = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body);
+      event = JSON.parse(buf.toString("utf8"));
+      console.warn("[stripe webhook] STRIPE_WEBHOOK_INSECURE_LOCAL: no signature verification (local dev only)");
+    } catch {
+      return res.status(400).send("Invalid JSON body");
+    }
+  } else {
+    const stripe = getStripe();
+    if (!stripe || !whSecret) {
+      return res.status(503).send("Webhook not configured (set STRIPE_WEBHOOK_SECRET or local dev flags — see .env.example)");
+    }
+    try {
+      const sig = req.headers["stripe-signature"];
+      event = stripe.webhooks.constructEvent(req.body, sig, whSecret);
+    } catch (err) {
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
   }
+
   try {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
       if (session.mode === "payment") {
         await applyPaidCheckoutSession(session);
+      }
+    }
+    if (event.type === "payment_intent.succeeded") {
+      const pi = event.data.object;
+      if (String(pi.metadata?.omnira_flow || "").trim() === OMNIRA_PAYMENT_INTENT_FLOW) {
+        await applyPaidPaymentIntent(pi);
       }
     }
     return res.json({ received: true });
@@ -47,6 +71,15 @@ app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async
     return res.status(500).json({ ok: false });
   }
 });
+
+const metaWhatsappJson = express.json({
+  verify: (req, _res, buf) => {
+    req.rawBody = Buffer.isBuffer(buf) ? buf : Buffer.from(buf || []);
+  }
+});
+
+app.get("/api/meta/whatsapp/webhook", handleMetaWhatsAppGet);
+app.post("/api/meta/whatsapp/webhook", metaWhatsappJson, handleMetaWhatsAppPost);
 
 app.use(express.json());
 
@@ -123,10 +156,10 @@ app.post("/api/customer/stripe/checkout", requireCustomer, async (req, res) => {
       success_url: `${base}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${base}/?checkout=canceled`,
       metadata: {
-        customer_user_id: req.customerId,
+        customer_user_id: String(req.customerId),
         plan_id: planId
       },
-      client_reference_id: req.customerId
+      client_reference_id: String(req.customerId)
     });
     return res.status(200).json({ ok: true, url: session.url });
   } catch (error) {
@@ -147,7 +180,7 @@ app.post("/api/customer/stripe/confirm", requireCustomer, async (req, res) => {
     const session = await stripe.checkout.sessions.retrieve(sessionId, {
       expand: ["payment_intent"]
     });
-    if (session.metadata?.customer_user_id !== req.customerId) {
+    if (String(session.metadata?.customer_user_id || "").trim() !== String(req.customerId).trim()) {
       return res.status(403).json({ ok: false, message: "Invalid session for this user." });
     }
     if (session.payment_status !== "paid") {
@@ -156,6 +189,85 @@ app.post("/api/customer/stripe/confirm", requireCustomer, async (req, res) => {
     const applied = await applyPaidCheckoutSession(session);
     if (!applied.ok) {
       return res.status(400).json({ ok: false, message: applied.reason || "Confirm failed." });
+    }
+    const { data: user } = await supabaseAdmin
+      .from("customer_users")
+      .select("id, email, first_name, last_name, phone, subscription_plan_id, subscription_ends_at")
+      .eq("id", req.customerId)
+      .maybeSingle();
+    return res.status(200).json({
+      ok: true,
+      user: user ? buildCustomerUserPayload(user) : null
+    });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** Publishable Stripe key for embedded Elements (safe to expose; rate-limit in production if needed). */
+app.get("/api/public/stripe-publishable-key", (_req, res) => {
+  const key = String(process.env.STRIPE_PUBLISHABLE_KEY || "").trim();
+  if (!key) {
+    return res.status(503).json({ ok: false, message: "STRIPE_PUBLISHABLE_KEY not configured." });
+  }
+  return res.status(200).json({ ok: true, publishableKey: key });
+});
+
+/** Create PaymentIntent for embedded card pay (same plans as Checkout redirect). */
+app.post("/api/customer/stripe/payment-intent", requireCustomer, async (req, res) => {
+  try {
+    const planId = String(req.body?.plan_id || "").trim();
+    if (!isValidPlanId(planId)) {
+      return res.status(400).json({ ok: false, message: "Invalid plan_id." });
+    }
+    const stripe = getStripe();
+    if (!stripe) {
+      return res.status(503).json({ ok: false, message: "STRIPE_SECRET_KEY not configured." });
+    }
+    const plan = CHECKOUT_PLANS[planId];
+    const pi = await stripe.paymentIntents.create({
+      amount: plan.amountCents,
+      currency: "eur",
+      automatic_payment_methods: { enabled: true },
+      receipt_email: req.customerEmail || undefined,
+      description: `Omnira — ${plan.label}`,
+      metadata: {
+        omnira_flow: OMNIRA_PAYMENT_INTENT_FLOW,
+        customer_user_id: String(req.customerId),
+        plan_id: planId
+      }
+    });
+    return res.status(200).json({
+      ok: true,
+      clientSecret: pi.client_secret,
+      paymentIntentId: pi.id
+    });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message || "PaymentIntent error." });
+  }
+});
+
+/** After client confirms card, sync subscription (idempotent; webhook may already have applied). */
+app.post("/api/customer/stripe/payment-intent/sync", requireCustomer, async (req, res) => {
+  try {
+    const piId = String(req.body?.payment_intent_id || "").trim();
+    if (!piId) {
+      return res.status(400).json({ ok: false, message: "payment_intent_id is required." });
+    }
+    const stripe = getStripe();
+    if (!stripe) {
+      return res.status(503).json({ ok: false, message: "STRIPE_SECRET_KEY not configured." });
+    }
+    const pi = await stripe.paymentIntents.retrieve(piId);
+    if (String(pi.metadata?.customer_user_id || "").trim() !== String(req.customerId).trim()) {
+      return res.status(403).json({ ok: false, message: "Invalid payment for this user." });
+    }
+    if (pi.status !== "succeeded") {
+      return res.status(202).json({ ok: false, pending: true, message: "Payment not completed yet." });
+    }
+    const applied = await applyPaidPaymentIntent(pi);
+    if (!applied.ok && applied.reason !== "duplicate") {
+      return res.status(400).json({ ok: false, message: applied.reason || "Sync failed." });
     }
     const { data: user } = await supabaseAdmin
       .from("customer_users")
@@ -207,37 +319,6 @@ app.post("/api/customer/subscription/simulate", requireCustomer, async (req, res
     return res.status(500).json({ ok: false, message: error.message });
   }
 });
-
-/** OpenAI key for POST /api/public/chat — set on the backend (Vercel env), never in the frontend. */
-function cleanEnvSecret(value) {
-  let s = String(value ?? "")
-    .trim()
-    .replace(/^\uFEFF/, "");
-  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
-    s = s.slice(1, -1).trim();
-  }
-  return s;
-}
-
-function resolveOpenAiApiKey() {
-  const names = [
-    "OPENAI_API_KEY",
-    "OPENAI_KEY",
-    "OPEN_AI_API_KEY",
-    "OPENAI_SECRET_KEY",
-    "CHAT_OPENAI_API_KEY"
-  ];
-  for (const name of names) {
-    const v = cleanEnvSecret(process.env[name]);
-    if (v) return v;
-  }
-  return "";
-}
-
-function openAiStaticFallbackEnabled() {
-  const v = String(process.env.OMNIRA_CHAT_STATIC_FALLBACK || "").trim().toLowerCase();
-  return v === "1" || v === "true" || v === "yes";
-}
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
@@ -1031,128 +1112,23 @@ app.post("/api/customer/reset/confirm", async (req, res) => {
   }
 });
 
-const DEFAULT_CHAT_SYSTEM = `Eres el asistente virtual de Omnira (omniraassist@gmail.com), un producto que automatiza WhatsApp Business con IA: reservas, recordatorios y calendario.
-Responde siempre en español, de forma breve y clara. Si preguntan precios: planes desde 49€/mes (1 mes), packs 3/6/12 meses con ahorro (129€, 229€, 399€ totales). Si quieren demo humana o contratar, invítalos a WhatsApp +34 682 49 77 90 o al correo.
-No inventes integraciones técnicas que no existan; si no sabes algo, dilo y ofrece contactar con el equipo.`;
-
-function sanitizeChatMessages(raw) {
-  if (!Array.isArray(raw)) return [];
-  const out = [];
-  for (const m of raw) {
-    if (!m || typeof m !== "object") continue;
-    if (m.role !== "user" && m.role !== "assistant") continue;
-    const content = String(m.content || "").trim().slice(0, 12000);
-    if (!content) continue;
-    out.push({ role: m.role, content });
-  }
-  return out.slice(-24);
-}
-
-const FALLBACK_CHAT_REPLY = `Gracias por escribirnos. Omnira automatiza WhatsApp Business con IA: reservas, recordatorios y calendario. Planes desde 49€/mes; también packs de 3 meses (129€), 6 meses (229€) y 12 meses (399€).
-
-Para hablar con el equipo ahora: WhatsApp +34 682 49 77 90 o omniraassist@gmail.com.`;
-
-app.post("/api/public/chat", async (req, res) => {
-  try {
-    const apiKey = resolveOpenAiApiKey();
-
-    const userAssistant = sanitizeChatMessages(req.body?.messages);
-    if (userAssistant.length === 0) {
-      return res.status(400).json({ ok: false, message: "Envía al menos un mensaje de usuario o asistente." });
-    }
-
-    if (!apiKey) {
-      if (openAiStaticFallbackEnabled()) {
-        return res.status(200).json({
-          ok: true,
-          degraded: true,
-          message: { role: "assistant", content: FALLBACK_CHAT_REPLY }
-        });
-      }
-      return res.status(503).json({
-        ok: false,
-        message:
-          "OpenAI no está activo: el backend no ve ninguna clave válida (OPENAI_API_KEY u otras soportadas). En Vercel: proyecto del API → Settings → Environment Variables → nombre exacto OPENAI_API_KEY → valor sk-… sin comillas → marca Production (y Preview si hace falta) → Redeploy. Comprueba GET /health → openai_chat_configured y openai_key_hint."
-      });
-    }
-
-    const systemPrompt = String(process.env.OMNIRA_CHAT_SYSTEM_PROMPT || DEFAULT_CHAT_SYSTEM).slice(0, 8000);
-    const model = String(process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini").trim() || "gpt-4o-mini";
-
-    const messages = [{ role: "system", content: systemPrompt }, ...userAssistant];
-
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 55000);
-
-    let upstream;
-    try {
-      upstream = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model,
-          messages,
-          temperature: 0.65,
-          max_tokens: 900
-        }),
-        signal: controller.signal
-      });
-    } finally {
-      clearTimeout(t);
-    }
-
-    const rawText = await upstream.text();
-    let data = {};
-    try {
-      data = rawText ? JSON.parse(rawText) : {};
-    } catch {
-      return res.status(502).json({ ok: false, message: "Respuesta inválida del proveedor de IA." });
-    }
-
-    if (!upstream.ok) {
-      let errMsg = data?.error?.message || upstream.statusText || "Error del proveedor de IA";
-      if (upstream.status === 401) {
-        errMsg =
-          "OpenAI devolvió 401 (clave inválida o revocada). Revisa OPENAI_API_KEY en Vercel y vuelve a desplegar.";
-      } else if (upstream.status === 429) {
-        errMsg = "OpenAI: límite de uso (429). Prueba en unos minutos o revisa tu plan en OpenAI.";
-      }
-      return res.status(upstream.status >= 400 && upstream.status < 600 ? upstream.status : 502).json({
-        ok: false,
-        message: errMsg
-      });
-    }
-
-    const reply = data?.choices?.[0]?.message?.content;
-    if (!reply || typeof reply !== "string") {
-      return res.status(502).json({ ok: false, message: "Sin respuesta del modelo." });
-    }
-
-    return res.status(200).json({
-      ok: true,
-      message: { role: "assistant", content: reply.trim() }
-    });
-  } catch (error) {
-    const msg = error?.name === "AbortError" ? "Tiempo de espera agotado." : error.message || "Error desconocido";
-    return res.status(500).json({ ok: false, message: msg });
-  }
-});
-
 app.get("/health", async (_req, res) => {
   try {
     await testSupabaseConnection();
-    const key = resolveOpenAiApiKey();
-    const keyHint =
-      !key ? "missing" : key.startsWith("sk-") ? "sk_prefix_ok" : "present_non_sk_prefix";
+    const verifyTok = Boolean(String(process.env.META_WABA_VERIFY_TOKEN || "").trim());
+    const appSecret = Boolean(String(process.env.META_WABA_APP_SECRET || "").trim());
+    const graphSend = Boolean(
+      String(process.env.META_WABA_ACCESS_TOKEN || "").trim() &&
+        String(process.env.META_WABA_PHONE_NUMBER_ID || "").trim()
+    );
     return res.status(200).json({
       ok: true,
       message: "Server is running and Supabase is connected.",
-      openai_chat_configured: Boolean(key),
-      openai_key_hint: keyHint,
+      meta_whatsapp_webhook_verify_token_set: verifyTok,
+      meta_whatsapp_app_secret_set: appSecret,
+      meta_whatsapp_graph_send_configured: graphSend,
       stripe_secret_configured: Boolean(getStripe()),
+      stripe_publishable_configured: Boolean(String(process.env.STRIPE_PUBLISHABLE_KEY || "").trim()),
       stripe_webhook_secret_configured: Boolean(String(process.env.STRIPE_WEBHOOK_SECRET || "").trim()),
       customer_jwt_configured: Boolean(String(process.env.CUSTOMER_JWT_SECRET || "").trim()),
       runtime: isVercelRuntime ? "vercel" : "node"
@@ -1188,15 +1164,6 @@ async function startServer() {
     const server = app.listen(port, () => {
       console.log(`Server running on http://localhost:${port}`);
     });
-
-    setInterval(async () => {
-      try {
-        await testSupabaseConnection();
-        console.log("Supabase ping ok");
-      } catch (error) {
-        console.error(`Supabase ping failed: ${error.message}`);
-      }
-    }, 30000);
 
     server.on("error", (error) => {
       console.error(`Server runtime error: ${error.message}`);

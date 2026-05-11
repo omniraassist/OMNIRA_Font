@@ -1,0 +1,13 @@
+{
+  "scripts": {
+    "payment": "node test.js",
+    "payment:https": "node scripts/payment-https.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "selfsigned": "^5.5.0",
+    "stripe": "^22.1.1"
+  }
+}

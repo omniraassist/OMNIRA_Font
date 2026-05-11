@@ -1,13 +1,39 @@
 import { useEffect } from 'react';
 import { PanelProvider, usePanel } from './context/PanelContext.jsx';
 import { useReveal } from './hooks/useReveal.js';
+import { usePathname } from './hooks/usePathname.js';
 import { Navbar } from './components/layout/Navbar.jsx';
 import { Footer } from './components/layout/Footer.jsx';
 import { WhatsAppFloat } from './components/layout/WhatsAppFloat.jsx';
 import { ClientPanel } from './components/panel/ClientPanel.jsx';
 import { LandingPage } from './pages/LandingPage.jsx';
+import { PrivacyPage } from './pages/PrivacyPage.jsx';
+import { TermsPage } from './pages/TermsPage.jsx';
+
+function normalizePath(pathname) {
+  const p = pathname.replace(/\/$/, '') || '/';
+  const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+  if (base && base !== '/' && p.startsWith(base)) {
+    return (p.slice(base.length) || '/').replace(/\/$/, '') || '/';
+  }
+  return p;
+}
 
 function AppInner() {
+  const pathname = usePathname();
+  const path = normalizePath(pathname);
+
+  if (path === '/privacidad') {
+    return <PrivacyPage />;
+  }
+  if (path === '/terminos') {
+    return <TermsPage />;
+  }
+
+  return <LandingShell />;
+}
+
+function LandingShell() {
   useReveal();
   const { openClientPanel } = usePanel();
 
