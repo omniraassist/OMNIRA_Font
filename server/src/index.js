@@ -2,7 +2,7 @@ import { isVercelRuntime } from "./load-env.js";
 import express from "express";
 import cors from "cors";
 import crypto from "crypto";
-import { testSupabaseConnection } from "./config/supabase.js";
+import { testSupabaseConnection, isSupabaseConfigured } from "./config/supabase.js";
 import { supabaseAdmin } from "./config/supabase.js";
 import { signCustomerToken, requireCustomer } from "./customerJwt.js";
 import { CHECKOUT_PLANS, isValidPlanId, computeNewSubscriptionEnd } from "./billing.js";
@@ -13,10 +13,35 @@ const app = express();
 const port = Number(process.env.PORT || 5000);
 const RESET_TOKEN_TTL_MINUTES = 30;
 
+/**
+ * Answer CORS preflight first — avoids Express 5 / proxy edge cases where OPTIONS
+ * would otherwise miss headers or hit a failing handler (browser shows CORS + 500).
+ */
+app.use((req, res, next) => {
+  if (req.method !== "OPTIONS") return next();
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
+  res.setHeader("Access-Control-Allow-Credentials", "false");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+  const requested = req.headers["access-control-request-headers"];
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    requested ||
+      "Content-Type, Authorization, Stripe-Signature, X-Hub-Signature-256, Accept, Origin, X-Requested-With, Cache-Control, Pragma"
+  );
+  res.setHeader("Access-Control-Max-Age", "86400");
+  return res.status(204).end();
+});
+
 const corsOptions = {
   origin: "*",
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "Stripe-Signature", "X-Hub-Signature-256"],
+  allowedHeaders:
+    "Content-Type, Authorization, Stripe-Signature, X-Hub-Signature-256, Accept, Origin, X-Requested-With, Cache-Control, Pragma",
   credentials: false
 };
 
@@ -82,6 +107,16 @@ app.get("/api/meta/whatsapp/webhook", handleMetaWhatsAppGet);
 app.post("/api/meta/whatsapp/webhook", metaWhatsappJson, handleMetaWhatsAppPost);
 
 app.use(express.json());
+
+app.get("/", (_req, res) => {
+  res.status(200).json({
+    ok: true,
+    service: "omnira-api",
+    health: "/health",
+    runtime: isVercelRuntime ? "vercel" : "node",
+    supabase_env_configured: isSupabaseConfigured()
+  });
+});
 
 function publicAppUrl() {
   return String(process.env.PUBLIC_APP_URL || process.env.FRONTEND_URL || "http://localhost:5173").replace(
@@ -1114,16 +1149,36 @@ app.post("/api/customer/reset/confirm", async (req, res) => {
 
 app.get("/health", async (_req, res) => {
   try {
-    await testSupabaseConnection();
+    const supabaseEnvOk = isSupabaseConfigured();
+    let supabaseLive = false;
+    let supabaseError = "";
+    if (supabaseEnvOk) {
+      try {
+        await testSupabaseConnection();
+        supabaseLive = true;
+      } catch (e) {
+        supabaseError = e?.message || String(e);
+      }
+    } else {
+      supabaseError =
+        "Missing SUPABASE_URL or service key (SUPABASE_SERVICE_ROLE_KEY / SUPABASE_SECRET_KEY). Set them in Vercel Environment Variables.";
+    }
+
     const verifyTok = Boolean(String(process.env.META_WABA_VERIFY_TOKEN || "").trim());
     const appSecret = Boolean(String(process.env.META_WABA_APP_SECRET || "").trim());
     const graphSend = Boolean(
       String(process.env.META_WABA_ACCESS_TOKEN || "").trim() &&
         String(process.env.META_WABA_PHONE_NUMBER_ID || "").trim()
     );
+
     return res.status(200).json({
       ok: true,
-      message: "Server is running and Supabase is connected.",
+      message: supabaseLive
+        ? "Server is running and Supabase is connected."
+        : "Server process is up; see supabase_live and supabase_error.",
+      supabase_env_configured: supabaseEnvOk,
+      supabase_live: supabaseLive,
+      supabase_error: supabaseError || undefined,
       meta_whatsapp_webhook_verify_token_set: verifyTok,
       meta_whatsapp_app_secret_set: appSecret,
       meta_whatsapp_graph_send_configured: graphSend,
@@ -1139,6 +1194,19 @@ app.get("/health", async (_req, res) => {
       message: error.message
     });
   }
+});
+
+app.use((req, res) => {
+  res.status(404).json({ ok: false, message: `Not found: ${req.method} ${req.path}` });
+});
+
+app.use((err, _req, res, _next) => {
+  console.error("[omnira-api]", err);
+  if (res.headersSent) return;
+  res.status(500).json({
+    ok: false,
+    message: err?.message || "Internal server error"
+  });
 });
 
 async function testSupabaseWithRetry(retries = 3) {

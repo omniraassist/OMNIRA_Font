@@ -8,6 +8,27 @@ function isAuthEndpoint(endpoint) {
   );
 }
 
+function normalizeBase(b) {
+  return String(b || '')
+    .trim()
+    .replace(/\/$/, '');
+}
+
+/** Primary then fallback backend origins (deduped). */
+function orderedApiBases() {
+  const a = normalizeBase(API_BASE);
+  const b = normalizeBase(API_FALLBACK_BASE);
+  const out = [];
+  if (a) out.push(a);
+  if (b && b !== a) out.push(b);
+  return out.length ? out : ['http://localhost:5000'];
+}
+
+function joinUrl(base, endpoint) {
+  const ep = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  return `${base}${ep}`;
+}
+
 export async function apiCall(endpoint, opts = {}) {
   const sess = JSON.parse(localStorage.getItem('omnira_session') || '{}');
   const headers = { 'Content-Type': 'application/json' };
@@ -15,36 +36,54 @@ export async function apiCall(endpoint, opts = {}) {
 
   const requestInit = {
     ...opts,
-    headers: { ...headers, ...(opts.headers || {}) },
+    headers: { ...headers, ...(opts.headers || {}) }
   };
 
-  let r;
-  try {
-    r = await fetch(API_BASE + endpoint, requestInit);
-  } catch {
+  const bases = orderedApiBases();
+  let lastNetworkError = null;
+
+  for (let i = 0; i < bases.length; i += 1) {
+    const base = bases[i];
+    let r;
     try {
-      r = await fetch(API_FALLBACK_BASE + endpoint, requestInit);
-    } catch {
-      if (isAuthEndpoint(endpoint)) {
-        throw new Error('Auth server unavailable. Please try again.');
-      }
-      return localFallback(endpoint, opts);
+      r = await fetch(joinUrl(base, endpoint), requestInit);
+    } catch (err) {
+      lastNetworkError = err;
+      continue;
     }
+
+    let j = {};
+    let text = '';
+    try {
+      text = await r.text();
+      j = text ? JSON.parse(text) : {};
+    } catch {
+      if (!r.ok && !isAuthEndpoint(endpoint)) return localFallback(endpoint, opts);
+      const retryableStatus = r.status >= 502 && r.status <= 504;
+      if (retryableStatus && i < bases.length - 1 && isAuthEndpoint(endpoint)) continue;
+      throw new Error('Respuesta inválida del servidor');
+    }
+
+    if (!r.ok) {
+      const retryable = [500, 502, 503, 504].includes(r.status);
+      if (retryable && i < bases.length - 1 && isAuthEndpoint(endpoint)) {
+        continue;
+      }
+      throw new Error(j.message || `Error ${r.status}`);
+    }
+
+    return j;
   }
 
-  let j = {};
-  try {
-    const text = await r.text();
-    j = text ? JSON.parse(text) : {};
-  } catch {
-    if (!r.ok && !isAuthEndpoint(endpoint)) return localFallback(endpoint, opts);
-    throw new Error('Respuesta inválida del servidor');
+  if (isAuthEndpoint(endpoint)) {
+    const hint =
+      bases.length > 1
+        ? ' No se pudo conectar con el API (Vercel ni local). Comprueba que el servidor esté en marcha y las URLs en .env (VITE_API_BASE / VITE_API_FALLBACK_BASE).'
+        : ' No se pudo conectar con el servidor. Inténtalo de nuevo.';
+    throw new Error((lastNetworkError && lastNetworkError.message) || `Auth server unavailable.${hint}`);
   }
 
-  if (!r.ok) {
-    throw new Error(j.message || `Error ${r.status}`);
-  }
-  return j;
+  return localFallback(endpoint, opts);
 }
 
 function localFallback(endpoint, opts) {
@@ -88,7 +127,7 @@ function localFallback(endpoint, opts) {
     return {
       stats: { reservas: res, mensajes: 0, respuesta: '2s' },
       recentReservations: upcoming.slice(0, 4),
-      recentConversations: [],
+      recentConversations: []
     };
   }
   if (endpoint.includes('/api/business')) {

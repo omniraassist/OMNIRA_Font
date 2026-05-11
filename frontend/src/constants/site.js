@@ -9,10 +9,14 @@ function trimOrEmpty(v) {
 }
 
 /**
- * Backend origin used from the browser (customer/admin `apiCall`).
+ * Primary backend origin (browser `apiCall`). Set `VITE_API_BASE` in `.env.local` / Vercel.
+ * Default: deployed Vercel API.
  */
 export const API_BASE = trimOrEmpty(import.meta.env.VITE_API_BASE) || DEFAULT_BACKEND;
 
-/** Dev-only: second host when primary fails (e.g. local Express). */
+/**
+ * Fallback when the primary host fails (CORS/network/5xx on auth routes). Default: local Express.
+ * Set `VITE_API_FALLBACK_BASE` empty to disable second hop.
+ */
 export const API_FALLBACK_BASE = trimOrEmpty(import.meta.env.VITE_API_FALLBACK_BASE) || 'http://localhost:5000';
 
