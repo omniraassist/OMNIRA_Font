@@ -70,6 +70,29 @@ THIS SCRIPT
 `;
 }
 
+function inferWhatsAppReady(hr) {
+  if (hr.meta_whatsapp_replies_ready === true) return { ok: true, detail: "meta_whatsapp_replies_ready" };
+  if (hr.meta_whatsapp_replies_ready === false) return { ok: false, detail: "meta_whatsapp_replies_ready_false" };
+  const issues = hr.meta_whatsapp_deploy_issues;
+  if (Array.isArray(issues) && issues.length) return { ok: false, detail: "deploy_issues" };
+  if (
+    hr.meta_whatsapp_webhook_verify_token_set === true &&
+    hr.meta_whatsapp_graph_send_configured === true
+  ) {
+    return { ok: true, detail: "legacy_health_ok" };
+  }
+  return { ok: false, detail: "incomplete" };
+}
+
+function isLocalBase(url) {
+  try {
+    const h = new URL(url).hostname;
+    return h === "127.0.0.1" || h === "localhost";
+  } catch {
+    return false;
+  }
+}
+
 async function main() {
   console.log("Omnira — production verification CLI");
   console.log("Target base:", base);
@@ -180,15 +203,19 @@ async function main() {
     }
   }
 
-  if (health.meta_whatsapp_replies_ready !== true) {
-    problems.push("WHATSAPP: meta_whatsapp_replies_ready is not true — fix meta_whatsapp_deploy_issues on /health.");
+  const wa = inferWhatsAppReady(health);
+  if (!wa.ok) {
+    problems.push(`WHATSAPP: readiness failed (${wa.detail}) — see /health or env.`);
     exit = 1;
-    section("WhatsApp deploy_issues (from last /health)");
-    for (const line of health.meta_whatsapp_deploy_issues || []) {
-      console.log(" •", line);
+    const issues = health.meta_whatsapp_deploy_issues;
+    if (Array.isArray(issues) && issues.length) {
+      section("WhatsApp deploy_issues (from last /health)");
+      for (const line of issues) {
+        console.log(" •", line);
+      }
     }
   } else {
-    console.log("\nPASS: meta_whatsapp_replies_ready=true");
+    console.log("\nPASS: WhatsApp readiness OK (" + wa.detail + ")");
   }
 
   section("Summary");
@@ -198,8 +225,9 @@ async function main() {
       console.log(" •", p);
     }
     console.log(
-      "\nNext steps: Vercel → project that serves this URL → Settings → Environment Variables →\n" +
-        "enable every variable for **Production**, then **Redeploy**. Confirm Root Directory = **server**.\n"
+      isLocalBase(base)
+        ? "\nLocal: restart `node server.js` from server/ after pulling latest code; confirm server/.env matches.\n"
+        : "\nProduction: Vercel → backend → Environment Variables (Production) → Redeploy.\n"
     );
   } else {
     console.log("All automated checks passed for:", base);

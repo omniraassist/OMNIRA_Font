@@ -97,14 +97,33 @@ app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async
   }
 });
 
-const metaWhatsappJson = express.json({
-  verify: (req, _res, buf) => {
-    req.rawBody = Buffer.isBuffer(buf) ? buf : Buffer.from(buf || []);
-  }
+/**
+ * Meta requires verifying HMAC over the exact raw POST bytes. On some serverless hosts,
+ * express.json({ verify }) does not populate rawBody reliably — use raw + manual parse.
+ */
+function metaWhatsappRawBody(req) {
+  const ct = String(req.headers["content-type"] || "").toLowerCase();
+  return ct.includes("application/json") || ct.includes("json");
+}
+
+const metaWhatsappRaw = express.raw({
+  type: metaWhatsappRawBody,
+  limit: "1024kb"
 });
 
+function metaWhatsappParseJson(req, res, next) {
+  const buf = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || []);
+  req.rawBody = buf;
+  try {
+    req.body = buf.length ? JSON.parse(buf.toString("utf8")) : {};
+  } catch {
+    req.body = {};
+  }
+  next();
+}
+
 app.get("/api/meta/whatsapp/webhook", handleMetaWhatsAppGet);
-app.post("/api/meta/whatsapp/webhook", metaWhatsappJson, handleMetaWhatsAppPost);
+app.post("/api/meta/whatsapp/webhook", metaWhatsappRaw, metaWhatsappParseJson, handleMetaWhatsAppPost);
 
 app.use(express.json());
 

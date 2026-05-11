@@ -259,6 +259,9 @@ export function handleMetaWhatsAppGet(req, res) {
 
 export async function handleMetaWhatsAppPost(req, res) {
   try {
+    const raw = req.rawBody;
+    console.info("[meta whatsapp] POST webhook received", Buffer.isBuffer(raw) ? raw.length : 0, "bytes");
+
     const appSecret = String(process.env.META_WABA_APP_SECRET || "").trim();
     const insecureLocal =
       process.env.NODE_ENV !== "production" &&
@@ -267,7 +270,6 @@ export async function handleMetaWhatsAppPost(req, res) {
     const skipSignature =
       String(process.env.META_WABA_WEBHOOK_SKIP_SIGNATURE || "").trim().toLowerCase() === "true";
 
-    const raw = req.rawBody;
     if (!Buffer.isBuffer(raw)) {
       return res.status(500).json({ ok: false, message: "Server misconfiguration: raw body missing for webhook." });
     }
