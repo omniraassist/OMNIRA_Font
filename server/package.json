@@ -12,7 +12,8 @@
     "db:up": "node schema.js up",
     "db:down": "node schema.js down --yes",
     "db:reset": "node schema.js reset --yes",
-    "test:wa-agent": "node scripts/test-whatsapp-agent.mjs"
+    "test:wa-agent": "node scripts/test-whatsapp-agent.mjs",
+    "verify:production": "node scripts/verify-production.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

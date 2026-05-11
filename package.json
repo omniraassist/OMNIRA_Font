@@ -1,7 +1,8 @@
 {
   "scripts": {
     "payment": "node test.js",
-    "payment:https": "node scripts/payment-https.js"
+    "payment:https": "node scripts/payment-https.js",
+    "verify:production": "npm run verify:production --prefix server"
   },
   "dependencies": {
     "cors": "^2.8.6",

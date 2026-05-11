@@ -109,12 +109,21 @@ app.post("/api/meta/whatsapp/webhook", metaWhatsappJson, handleMetaWhatsAppPost)
 app.use(express.json());
 
 app.get("/", (_req, res) => {
+  const meta = getMetaWhatsAppDeployDiagnostics();
   res.status(200).json({
     ok: true,
     service: "omnira-api",
     health: "/health",
     runtime: isVercelRuntime ? "vercel" : "node",
-    supabase_env_configured: isSupabaseConfigured()
+    /** Vercel-injected: should be "production" on your live API URL (if "preview", env may be wrong scope). */
+    vercel_env: isVercelRuntime ? String(process.env.VERCEL_ENV || "").trim() || undefined : undefined,
+    vercel_url: isVercelRuntime ? String(process.env.VERCEL_URL || "").trim() || undefined : undefined,
+    supabase_env_configured: isSupabaseConfigured(),
+    meta_whatsapp_replies_ready: meta.meta_whatsapp_replies_ready,
+    meta_whatsapp_graph_send_configured: meta.meta_whatsapp_graph_send_configured,
+    meta_whatsapp_webhook_verify_token_set: meta.meta_whatsapp_webhook_verify_token_set,
+    meta_whatsapp_openai_configured: meta.meta_whatsapp_openai_configured,
+    meta_whatsapp_skip_signature_env: meta.meta_whatsapp_skip_signature_env
   });
 });
 
@@ -1174,6 +1183,8 @@ app.get("/health", async (_req, res) => {
       supabase_env_configured: supabaseEnvOk,
       supabase_live: supabaseLive,
       supabase_error: supabaseError || undefined,
+      vercel_env: isVercelRuntime ? String(process.env.VERCEL_ENV || "").trim() || undefined : undefined,
+      vercel_url: isVercelRuntime ? String(process.env.VERCEL_URL || "").trim() || undefined : undefined,
       ...metaWa,
       stripe_secret_configured: Boolean(getStripe()),
       stripe_publishable_configured: Boolean(String(process.env.STRIPE_PUBLISHABLE_KEY || "").trim()),

@@ -146,6 +146,11 @@ export function getMetaWhatsAppDeployDiagnostics() {
       "Set OPENAI_API_KEY in Vercel (or META_WABA_MARKETING_AUTO_REPLY for a fixed text) so inbound messages get a composed reply."
     );
   }
+  if (productionLike && process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "production") {
+    issues.push(
+      `VERCEL_ENV is "${process.env.VERCEL_ENV}" (not "production"). Variables must be enabled for this environment in Vercel, or open the production deployment URL so Meta hits Production-scoped env.`
+    );
+  }
 
   const replies_ready = verifyTok && graphSend && !postWillRejectSignature && (staticReply || openai);
 
