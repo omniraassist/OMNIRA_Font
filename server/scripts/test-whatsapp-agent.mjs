@@ -27,6 +27,15 @@ const port = Number(process.env.PORT || 5000);
 const base = String(process.env.OMNIRA_WA_TEST_BASE || `http://127.0.0.1:${port}`).replace(/\/$/, "");
 const testTo = String(process.env.OMNIRA_WA_TEST_TO_E164 || "").replace(/\D/g, "");
 
+function isRemoteBackend(url) {
+  try {
+    const h = new URL(url).hostname;
+    return h !== "127.0.0.1" && h !== "localhost";
+  } catch {
+    return false;
+  }
+}
+
 function buildMetaWebhookBody(fromDigits, text) {
   const phoneNumberId = String(process.env.META_WABA_PHONE_NUMBER_ID || "").trim();
   return {
@@ -131,6 +140,11 @@ async function main() {
     return { http: res.status, display_phone_number: data.display_phone_number, verified_name: data.verified_name };
   });
   if (!graphPhoneNode.ok || (graphPhoneNode.result && graphPhoneNode.result.FAIL)) exit = 1;
+  if (graphPhoneNode.ok && isRemoteBackend(base)) {
+    console.warn(
+      "[cli] Graph smoke used local server/.env. If GET /health on this base shows meta_whatsapp_graph_send_configured=false, copy META_WABA_* and OPENAI_API_KEY into Vercel and redeploy."
+    );
+  }
 
   const aiOnly = await runStep("OpenAI only (marketing system prompt)", async () => {
     const key = resolveOpenAiKey();
@@ -180,6 +194,26 @@ async function main() {
     return j;
   });
   if (!health.ok || (health.result && health.result.FAIL)) exit = 1;
+  if (health.ok && isRemoteBackend(base)) {
+    const hr = health.result || {};
+    const issues = hr.meta_whatsapp_deploy_issues;
+    if (Array.isArray(issues) && issues.length) {
+      console.error(
+        "\n[health] This **deployed** host reports WhatsApp is not fully configured. Add these in Vercel → backend project → Environment Variables → Production, then redeploy:\n\n" +
+          issues.map((s) => `  • ${s}`).join("\n") +
+          `\n\nmeta_whatsapp_replies_ready=${hr.meta_whatsapp_replies_ready}\n`
+      );
+      exit = 1;
+    } else if (
+      hr.meta_whatsapp_replies_ready !== true &&
+      (hr.meta_whatsapp_graph_send_configured === false || hr.meta_whatsapp_webhook_verify_token_set === false)
+    ) {
+      console.error(
+        "\n[health] Remote backend is missing WhatsApp env (graph_send and/or verify_token false). Copy from local server/.env into Vercel: META_WABA_ACCESS_TOKEN, META_WABA_PHONE_NUMBER_ID, META_WABA_VERIFY_TOKEN, OPENAI_API_KEY, plus META_WABA_APP_SECRET or META_WABA_WEBHOOK_SKIP_SIGNATURE=true. Redeploy, set Meta webhook to https://<backend>/api/meta/whatsapp/webhook. See server/env.vercel.production.template\n"
+      );
+      exit = 1;
+    }
+  }
 
   const webhook = await runStep("POST /api/meta/whatsapp/webhook (simulated Meta JSON)", async () => {
     if (!testTo) {
@@ -222,6 +256,16 @@ async function main() {
     return { status: res.status, challengeEcho: body };
   });
   if (!verify.ok || (verify.result && verify.result.FAIL)) exit = 1;
+  if (
+    verify.result &&
+    verify.result.FAIL &&
+    verify.result.status === 403 &&
+    isRemoteBackend(base)
+  ) {
+    console.error(
+      "\n[verify] GET /webhook returned 403 — Vercel’s META_WABA_VERIFY_TOKEN is missing or does not match the token you used in this CLI (local .env). Copy the same verify token string into the backend project on Vercel and redeploy, then re-save the webhook in Meta if needed.\n"
+    );
+  }
 
   process.exitCode = exit;
   console.log(exit === 0 ? "\nDone: all executed steps passed (or were skipped)." : "\nDone: some steps failed — see above.");

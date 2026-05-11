@@ -96,6 +96,72 @@ function resolveOpenAiKey() {
   return "";
 }
 
+/**
+ * Non-secret flags for GET /health (Vercel vs local misconfiguration is the #1 reason webhooks “don’t reply”).
+ */
+export function getMetaWhatsAppDeployDiagnostics() {
+  const verifyTok = Boolean(String(process.env.META_WABA_VERIFY_TOKEN || "").trim());
+  const appSecret = Boolean(String(process.env.META_WABA_APP_SECRET || "").trim());
+  const token = String(process.env.META_WABA_ACCESS_TOKEN || "").trim();
+  const phoneNumberId = String(process.env.META_WABA_PHONE_NUMBER_ID || "").trim();
+  const graphSend = Boolean(token && phoneNumberId);
+  const skipSignature =
+    String(process.env.META_WABA_WEBHOOK_SKIP_SIGNATURE || "").trim().toLowerCase() === "true";
+  const insecureLocal =
+    process.env.NODE_ENV !== "production" &&
+    String(process.env.META_WABA_WEBHOOK_INSECURE_LOCAL || "").trim().toLowerCase() === "true" &&
+    !appSecret;
+  const productionLike = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
+  const staticReply = Boolean(String(process.env.META_WABA_MARKETING_AUTO_REPLY || "").trim());
+  const openai = Boolean(resolveOpenAiKey());
+
+  const signatureMode = skipSignature
+    ? "skip"
+    : insecureLocal
+      ? "insecure_local_dev"
+      : appSecret
+        ? "hmac_verify"
+        : "missing_app_secret";
+
+  const postWillRejectSignature = !skipSignature && !insecureLocal && !appSecret;
+
+  const issues = [];
+  if (!verifyTok) {
+    issues.push(
+      "Set META_WABA_VERIFY_TOKEN in Vercel (same string as Meta → WhatsApp → Configuration → Verify token). Until then GET /api/meta/whatsapp/webhook returns 403 and Meta cannot subscribe."
+    );
+  }
+  if (!graphSend) {
+    issues.push(
+      "Set META_WABA_ACCESS_TOKEN and META_WABA_PHONE_NUMBER_ID in Vercel (same values as local .env). Without them the server cannot send WhatsApp messages."
+    );
+  }
+  if (postWillRejectSignature && productionLike) {
+    issues.push(
+      "Vercel/production: set META_WABA_APP_SECRET (Meta → App → Settings → Basic → App secret) so X-Hub-Signature-256 is verified, OR temporarily set META_WABA_WEBHOOK_SKIP_SIGNATURE=true. Otherwise Meta POSTs get 403 and no reply is sent."
+    );
+  }
+  if (!staticReply && !openai) {
+    issues.push(
+      "Set OPENAI_API_KEY in Vercel (or META_WABA_MARKETING_AUTO_REPLY for a fixed text) so inbound messages get a composed reply."
+    );
+  }
+
+  const replies_ready = verifyTok && graphSend && !postWillRejectSignature && (staticReply || openai);
+
+  return {
+    meta_whatsapp_webhook_verify_token_set: verifyTok,
+    meta_whatsapp_app_secret_set: appSecret,
+    meta_whatsapp_graph_send_configured: graphSend,
+    meta_whatsapp_skip_signature_env: skipSignature,
+    meta_whatsapp_signature_mode: signatureMode,
+    meta_whatsapp_openai_configured: openai,
+    meta_whatsapp_marketing_auto_reply_set: staticReply,
+    meta_whatsapp_replies_ready: replies_ready,
+    meta_whatsapp_deploy_issues: issues
+  };
+}
+
 export async function openAiReplyToInbound(userMessage) {
   const apiKey = resolveOpenAiKey();
   if (!apiKey || !String(userMessage || "").trim()) return null;
@@ -180,6 +246,9 @@ export function handleMetaWhatsAppGet(req, res) {
   if (mode === "subscribe" && expected && token === expected && challenge) {
     return res.status(200).send(String(challenge));
   }
+  console.warn(
+    "[meta whatsapp] GET /webhook verify 403 — set META_WABA_VERIFY_TOKEN on this host and use the same value in Meta as the verify token"
+  );
   return res.sendStatus(403);
 }
 
@@ -205,6 +274,9 @@ export async function handleMetaWhatsAppPost(req, res) {
     } else if (!insecureLocal) {
       const sig = req.headers["x-hub-signature-256"];
       if (!appSecret || !verifyMetaAppSecretSignature(raw, sig, appSecret)) {
+        console.warn(
+          "[meta whatsapp] POST /webhook 403 — signature missing or invalid. Set META_WABA_APP_SECRET to Meta App Secret, or temporarily META_WABA_WEBHOOK_SKIP_SIGNATURE=true on Vercel."
+        );
         return res.sendStatus(403);
       }
     } else {
@@ -222,6 +294,10 @@ export async function handleMetaWhatsAppPost(req, res) {
       } catch (e) {
         console.error("[meta whatsapp] reply error", e?.message || e);
       }
+    } else if (req.body?.object === "whatsapp_business_account") {
+      console.warn(
+        "[meta whatsapp] WABA payload received but no user text extracted (send a normal text message, or subscribe to the right fields in Meta)"
+      );
     }
 
     return res.status(200).json({ ok: true });

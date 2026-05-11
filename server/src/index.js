@@ -7,7 +7,7 @@ import { supabaseAdmin } from "./config/supabase.js";
 import { signCustomerToken, requireCustomer } from "./customerJwt.js";
 import { CHECKOUT_PLANS, isValidPlanId, computeNewSubscriptionEnd } from "./billing.js";
 import { getStripe, applyPaidCheckoutSession, applyPaidPaymentIntent, OMNIRA_PAYMENT_INTENT_FLOW } from "./stripeSync.js";
-import { handleMetaWhatsAppGet, handleMetaWhatsAppPost } from "./metaWhatsAppWebhook.js";
+import { handleMetaWhatsAppGet, handleMetaWhatsAppPost, getMetaWhatsAppDeployDiagnostics } from "./metaWhatsAppWebhook.js";
 
 const app = express();
 const port = Number(process.env.PORT || 5000);
@@ -1164,12 +1164,7 @@ app.get("/health", async (_req, res) => {
         "Missing SUPABASE_URL or service key (SUPABASE_SERVICE_ROLE_KEY / SUPABASE_SECRET_KEY). Set them in Vercel Environment Variables.";
     }
 
-    const verifyTok = Boolean(String(process.env.META_WABA_VERIFY_TOKEN || "").trim());
-    const appSecret = Boolean(String(process.env.META_WABA_APP_SECRET || "").trim());
-    const graphSend = Boolean(
-      String(process.env.META_WABA_ACCESS_TOKEN || "").trim() &&
-        String(process.env.META_WABA_PHONE_NUMBER_ID || "").trim()
-    );
+    const metaWa = getMetaWhatsAppDeployDiagnostics();
 
     return res.status(200).json({
       ok: true,
@@ -1179,9 +1174,7 @@ app.get("/health", async (_req, res) => {
       supabase_env_configured: supabaseEnvOk,
       supabase_live: supabaseLive,
       supabase_error: supabaseError || undefined,
-      meta_whatsapp_webhook_verify_token_set: verifyTok,
-      meta_whatsapp_app_secret_set: appSecret,
-      meta_whatsapp_graph_send_configured: graphSend,
+      ...metaWa,
       stripe_secret_configured: Boolean(getStripe()),
       stripe_publishable_configured: Boolean(String(process.env.STRIPE_PUBLISHABLE_KEY || "").trim()),
       stripe_webhook_secret_configured: Boolean(String(process.env.STRIPE_WEBHOOK_SECRET || "").trim()),
