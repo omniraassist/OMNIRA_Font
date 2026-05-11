@@ -6,8 +6,9 @@
  *   node scripts/test-whatsapp-agent.mjs "¿Cuánto cuesta el plan mensual?"
  *
  * Env:
- *   OMNIRA_WA_TEST_TO_E164 — recipient in digits only (must be allowed by WhatsApp 24h/session rules).
+ *   OMNIRA_WA_TEST_TO_E164 — recipient in digits only (for real outbound + webhook simulation; optional).
  *   OMNIRA_WA_TEST_BASE — default http://127.0.0.1:$PORT
+ * Always runs a Graph GET on phone_number_id (no send) to validate META_WABA_ACCESS_TOKEN + META_WABA_PHONE_NUMBER_ID.
  */
 
 import path from "node:path";
@@ -87,10 +88,54 @@ async function main() {
 
   const { runMarketingAgentReplyForTest, openAiReplyToInbound } = await import("../src/metaWhatsAppWebhook.js");
 
+  function resolveOpenAiKey() {
+    const names = ["OPENAI_API_KEY", "OPENAI_KEY", "OPEN_AI_API_KEY", "OPENAI_SECRET_KEY", "CHAT_OPENAI_API_KEY"];
+    for (const n of names) {
+      const v = String(process.env[n] || "").trim();
+      if (v) return v;
+    }
+    return "";
+  }
+
+  const graphVersion = (() => {
+    const gv = String(process.env.META_WABA_GRAPH_VERSION || "v21.0").trim();
+    return gv.startsWith("v") ? gv : `v${gv}`;
+  })();
+
+  const graphPhoneNode = await runStep("Meta Graph: phone_number_id (token + ID smoke, no outbound send)", async () => {
+    const token = String(process.env.META_WABA_ACCESS_TOKEN || "").trim();
+    const phoneNumberId = String(process.env.META_WABA_PHONE_NUMBER_ID || "").trim();
+    if (!token || !phoneNumberId) {
+      return "FAIL: META_WABA_ACCESS_TOKEN or META_WABA_PHONE_NUMBER_ID missing in .env";
+    }
+    const url = `https://graph.facebook.com/${graphVersion}/${phoneNumberId}?fields=display_phone_number,verified_name`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(30000)
+    });
+    const raw = await res.text();
+    let data;
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch {
+      data = { parse_error: true, raw: raw.slice(0, 300) };
+    }
+    if (!res.ok) {
+      if (res.status === 401) {
+        console.error(
+          "\nMeta Graph API 401: token invalid/expired — generate a new long-lived token with whatsapp_business_messaging.\n"
+        );
+      }
+      return { http: res.status, body: data, FAIL: true };
+    }
+    return { http: res.status, display_phone_number: data.display_phone_number, verified_name: data.verified_name };
+  });
+  if (!graphPhoneNode.ok || (graphPhoneNode.result && graphPhoneNode.result.FAIL)) exit = 1;
+
   const aiOnly = await runStep("OpenAI only (marketing system prompt)", async () => {
-    const key = String(process.env.OPENAI_API_KEY || "").trim();
+    const key = resolveOpenAiKey();
     if (!key) {
-      return "FAIL: OPENAI_API_KEY missing in .env";
+      return "FAIL: no OpenAI API key (set OPENAI_API_KEY or CHAT_OPENAI_API_KEY in .env)";
     }
     const reply = await openAiReplyToInbound(question);
     if (!reply) {
@@ -111,6 +156,13 @@ async function main() {
           "\nMeta Graph API 401: META_WABA_ACCESS_TOKEN is expired or revoked.\n" +
             "Fix: Meta Business Suite → WhatsApp → API setup (or developers.facebook.com) → generate a new token\n" +
             "with whatsapp_business_messaging, then update META_WABA_ACCESS_TOKEN in server/.env and redeploy.\n"
+        );
+      }
+      if (out.status === 400 && /Invalid parameter/i.test(String(out.snippet || ""))) {
+        console.error(
+          "\nMeta returned 400 Invalid parameter for outbound `to`. Common causes:\n" +
+            "  • OMNIRA_WA_TEST_TO_E164 is the same as your WhatsApp Business number — use a different phone (your personal WA in digits, country code without +).\n" +
+            "  • No open customer care / 24h session with that user — they must message you first or you use an approved template.\n"
         );
       }
       return { ...out, FAIL: true };

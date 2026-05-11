@@ -87,8 +87,17 @@ const DEFAULT_WA_AI_SYSTEM = `Eres el asistente comercial de Omnira (producto de
 Responde siempre en español, breve y cordial (máximo ~600 caracteres). Incluye cuando encaje: planes desde 49€/mes; packs 3 meses 129€, 6 meses 229€, 12 meses 399€.
 Invita a registrarse en la web para activar el agente en su propio número con WhatsApp Business verificado (Meta). No inventes integraciones que no existan.`;
 
+function resolveOpenAiKey() {
+  const names = ["OPENAI_API_KEY", "OPENAI_KEY", "OPEN_AI_API_KEY", "OPENAI_SECRET_KEY", "CHAT_OPENAI_API_KEY"];
+  for (const n of names) {
+    const v = String(process.env[n] || "").trim();
+    if (v) return v;
+  }
+  return "";
+}
+
 export async function openAiReplyToInbound(userMessage) {
-  const apiKey = String(process.env.OPENAI_API_KEY || "").trim();
+  const apiKey = resolveOpenAiKey();
   if (!apiKey || !String(userMessage || "").trim()) return null;
   const system = String(process.env.META_WABA_OPENAI_SYSTEM || DEFAULT_WA_AI_SYSTEM).slice(0, 8000);
   const model = String(process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini").trim() || "gpt-4o-mini";
@@ -140,10 +149,14 @@ async function sendReplyForInbound(inbound) {
     return await sendMarketingWhatsAppReply(inbound.from, staticReply);
   }
   const ai = await openAiReplyToInbound(inbound.body);
+  const fallback =
+    String(process.env.META_WABA_OPENAI_FALLBACK_REPLY || "").trim() ||
+    "¡Hola! Gracias por escribir a Omnira. Ahora mismo no puedo generar la respuesta automática; prueba en unos minutos o escribe a omniraassist@gmail.com. Planes desde 49€/mes y packs en omnira.";
+  const textToSend = ai || fallback;
   if (!ai) {
-    return { ok: false, status: 0, snippet: "openai_no_reply_or_missing_OPENAI_API_KEY" };
+    console.warn("[meta whatsapp] OpenAI returned empty — sending fallback WhatsApp message");
   }
-  return await sendMarketingWhatsAppReply(inbound.from, ai);
+  return await sendMarketingWhatsAppReply(inbound.from, textToSend);
 }
 
 /**
@@ -177,13 +190,19 @@ export async function handleMetaWhatsAppPost(req, res) {
       process.env.NODE_ENV !== "production" &&
       String(process.env.META_WABA_WEBHOOK_INSECURE_LOCAL || "").trim().toLowerCase() === "true" &&
       !appSecret;
+    const skipSignature =
+      String(process.env.META_WABA_WEBHOOK_SKIP_SIGNATURE || "").trim().toLowerCase() === "true";
 
     const raw = req.rawBody;
     if (!Buffer.isBuffer(raw)) {
       return res.status(500).json({ ok: false, message: "Server misconfiguration: raw body missing for webhook." });
     }
 
-    if (!insecureLocal) {
+    if (skipSignature) {
+      console.warn(
+        "[meta whatsapp] META_WABA_WEBHOOK_SKIP_SIGNATURE=true — NOT verifying X-Hub-Signature-256 (set META_WABA_APP_SECRET and remove this flag when possible)"
+      );
+    } else if (!insecureLocal) {
       const sig = req.headers["x-hub-signature-256"];
       if (!appSecret || !verifyMetaAppSecretSignature(raw, sig, appSecret)) {
         return res.sendStatus(403);
