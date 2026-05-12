@@ -284,7 +284,12 @@ export async function handleMetaWhatsAppPost(req, res) {
         console.warn(
           "[meta whatsapp] POST /webhook 403 — signature missing or invalid. Set META_WABA_APP_SECRET to Meta App Secret, or temporarily META_WABA_WEBHOOK_SKIP_SIGNATURE=true on Vercel."
         );
-        return res.sendStatus(403);
+        return res.status(403).json({
+          ok: false,
+          error: "signature_required",
+          message:
+            "Invalid or missing X-Hub-Signature-256. Meta signs the raw JSON body with your App Secret. For Postman: run `npm run sign:meta-webhook -- body.json` (same bytes as Postman raw body), add that header, or set META_WABA_WEBHOOK_SKIP_SIGNATURE=true only for temporary testing."
+        });
       }
     } else {
       console.warn("[meta whatsapp] META_WABA_WEBHOOK_INSECURE_LOCAL: signature not verified (dev only)");
