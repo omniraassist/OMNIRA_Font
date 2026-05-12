@@ -1,0 +1,831 @@
+================================================================================
+OMNIRA — WhatsApp Cloud API webhook bundle for external AI review (Claude etc.)
+================================================================================
+DO NOT paste real API keys, tokens, or App Secret into public chats. This file
+contains source code only (no .env values).
+
+WHAT THIS IS
+-------------
+- NOT Next.js. There is NO pages/api/ or app/api/ route folder.
+- Backend: Express 5 in server/src/index.js, default export for Vercel from
+  server/server.js (Node serverless-style entry: server.js → import app).
+- Meta webhook path: GET + POST  /api/meta/whatsapp/webhook
+- Raw body: express.raw() then manual JSON.parse so HMAC matches Meta’s bytes.
+
+RELEVANT FOLDER TREE (not Next.js App Router)
+---------------------------------------------
+Omnira-web1/
+  server/
+    server.js                 ← Vercel serverless entry (exports Express app)
+    vercel.json
+    package.json
+    src/
+      index.js                ← Express app + routes (full ~1274 lines; excerpts below)
+      metaWhatsAppWebhook.js   ← GET/POST webhook handlers + OpenAI + Graph send
+      load-env.js
+    scripts/
+      test-whatsapp-agent.mjs  ← npm run test:wa-agent
+      verify-production.mjs    ← npm run verify:production
+  frontend/                    ← Vite marketing site; NOT where Meta webhook lives
+
+VERCEL / META (you fill manually when asking another AI)
+---------------------------------------------------------
+- Production webhook URL you configured in Meta:
+  https://<YOUR_BACKEND_HOST>/api/meta/whatsapp/webhook
+- Meta dashboard: webhook shows verified? (GET challenge)  YES / NO
+- Vercel → Project → Logs: paste ONLY lines containing [meta whatsapp]
+  (redact any tokens if present).
+
+ENV VAR NAMES (values intentionally omitted — see server/.env.example)
+-----------------------------------------------------------------------
+META_WABA_VERIFY_TOKEN
+META_WABA_APP_SECRET
+META_WABA_ACCESS_TOKEN
+META_WABA_PHONE_NUMBER_ID
+META_WABA_BUSINESS_ACCOUNT_ID   (optional; used in CLI sample payload)
+META_WABA_GRAPH_VERSION
+META_WABA_WEBHOOK_SKIP_SIGNATURE
+META_WABA_WEBHOOK_INSECURE_LOCAL
+META_WABA_MARKETING_AUTO_REPLY
+META_WABA_OPENAI_SYSTEM
+META_WABA_OPENAI_FALLBACK_REPLY
+OPENAI_API_KEY (or OPENAI_KEY, OPEN_AI_API_KEY, OPENAI_SECRET_KEY, CHAT_OPENAI_API_KEY)
+OPENAI_CHAT_MODEL
+
+CLI: server/scripts/test-whatsapp-agent.mjs  (npm run test:wa-agent)
+OMNIRA_WA_TEST_TO_E164, OMNIRA_WA_TEST_BASE, META_WABA_APP_SECRET for signed POST
+
+================================================================================
+FILE: server/server.js  (Vercel entry — entire file)
+================================================================================
+
+import "./src/load-env.js";
+import { app } from "./src/index.js";
+
+export default app;
+
+================================================================================
+FILE: server/vercel.json
+================================================================================
+
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "server.js": {
+      "maxDuration": 60
+    }
+  }
+}
+
+================================================================================
+FILE: server/src/index.js  (EXCERPTS ONLY — full file is ~1274 lines)
+Imports at top include:
+  import { handleMetaWhatsAppGet, handleMetaWhatsAppPost, getMetaWhatsAppDeployDiagnostics } from "./metaWhatsAppWebhook.js";
+
+--- excerpt: Meta raw body + webhook routes + root GET (approx lines 100–147) ---
+
+/**
+ * Meta requires verifying HMAC over the exact raw POST bytes. On some serverless hosts,
+ * express.json({ verify }) does not populate rawBody reliably — use raw + manual parse.
+ */
+function metaWhatsappRawBody(req) {
+  const ct = String(req.headers["content-type"] || "").toLowerCase();
+  return ct.includes("application/json") || ct.includes("json");
+}
+
+const metaWhatsappRaw = express.raw({
+  type: metaWhatsappRawBody,
+  limit: "1024kb"
+});
+
+function metaWhatsappParseJson(req, res, next) {
+  const buf = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || []);
+  req.rawBody = buf;
+  try {
+    req.body = buf.length ? JSON.parse(buf.toString("utf8")) : {};
+  } catch {
+    req.body = {};
+  }
+  next();
+}
+
+app.get("/api/meta/whatsapp/webhook", handleMetaWhatsAppGet);
+app.post("/api/meta/whatsapp/webhook", metaWhatsappRaw, metaWhatsappParseJson, handleMetaWhatsAppPost);
+
+app.use(express.json());
+
+app.get("/", (_req, res) => {
+  const meta = getMetaWhatsAppDeployDiagnostics();
+  res.status(200).json({
+    ok: true,
+    service: "omnira-api",
+    health: "/health",
+    runtime: isVercelRuntime ? "vercel" : "node",
+    vercel_env: isVercelRuntime ? String(process.env.VERCEL_ENV || "").trim() || undefined : undefined,
+    vercel_url: isVercelRuntime ? String(process.env.VERCEL_URL || "").trim() || undefined : undefined,
+    supabase_env_configured: isSupabaseConfigured(),
+    meta_whatsapp_replies_ready: meta.meta_whatsapp_replies_ready,
+    meta_whatsapp_graph_send_configured: meta.meta_whatsapp_graph_send_configured,
+    meta_whatsapp_webhook_verify_token_set: meta.meta_whatsapp_webhook_verify_token_set,
+    meta_whatsapp_openai_configured: meta.meta_whatsapp_openai_configured,
+    meta_whatsapp_skip_signature_env: meta.meta_whatsapp_skip_signature_env
+  });
+});
+
+--- excerpt: GET /health merges getMetaWhatsAppDeployDiagnostics() (approx 1178–1213) ---
+
+app.get("/health", async (_req, res) => {
+  try {
+    const supabaseEnvOk = isSupabaseConfigured();
+    let supabaseLive = false;
+    let supabaseError = "";
+    if (supabaseEnvOk) {
+      try {
+        await testSupabaseConnection();
+        supabaseLive = true;
+      } catch (e) {
+        supabaseError = e?.message || String(e);
+      }
+    } else {
+      supabaseError =
+        "Missing SUPABASE_URL or service key (SUPABASE_SERVICE_ROLE_KEY / SUPABASE_SECRET_KEY). Set them in Vercel Environment Variables.";
+    }
+
+    const metaWa = getMetaWhatsAppDeployDiagnostics();
+
+    return res.status(200).json({
+      ok: true,
+      message: supabaseLive
+        ? "Server is running and Supabase is connected."
+        : "Server process is up; see supabase_live and supabase_error.",
+      supabase_env_configured: supabaseEnvOk,
+      supabase_live: supabaseLive,
+      supabase_error: supabaseError || undefined,
+      vercel_env: isVercelRuntime ? String(process.env.VERCEL_ENV || "").trim() || undefined : undefined,
+      vercel_url: isVercelRuntime ? String(process.env.VERCEL_URL || "").trim() || undefined : undefined,
+      ...metaWa,
+      stripe_secret_configured: Boolean(getStripe()),
+      stripe_publishable_configured: Boolean(String(process.env.STRIPE_PUBLISHABLE_KEY || "").trim()),
+      stripe_webhook_secret_configured: Boolean(String(process.env.STRIPE_WEBHOOK_SECRET || "").trim()),
+      customer_jwt_configured: Boolean(String(process.env.CUSTOMER_JWT_SECRET || "").trim()),
+      runtime: isVercelRuntime ? "vercel" : "node"
+    });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      message: error.message
+    });
+  }
+});
+
+NOTE: CORS allowedHeaders in index.js includes "X-Hub-Signature-256" for preflight.
+
+================================================================================
+FILE: server/src/metaWhatsAppWebhook.js  (ENTIRE FILE — main webhook logic)
+================================================================================
+
+
+import crypto from "crypto";
+
+const _gv = String(process.env.META_WABA_GRAPH_VERSION || "v21.0").trim();
+const GRAPH_VERSION = _gv.startsWith("v") ? _gv : `v${_gv}`;
+
+function timingSafeEqualHex(a, b) {
+  try {
+    const ba = Buffer.from(String(a), "utf8");
+    const bb = Buffer.from(String(b), "utf8");
+    if (ba.length !== bb.length) return false;
+    return crypto.timingSafeEqual(ba, bb);
+  } catch {
+    return false;
+  }
+}
+
+export function verifyMetaAppSecretSignature(rawBodyBuffer, signatureHeader, appSecret) {
+  const secret = String(appSecret || "").trim();
+  if (!secret || !rawBodyBuffer || !Buffer.isBuffer(rawBodyBuffer)) return false;
+  const expected =
+    "sha256=" + crypto.createHmac("sha256", secret).update(rawBodyBuffer).digest("hex");
+  const got = String(signatureHeader || "").trim();
+  return got.length > 0 && timingSafeEqualHex(expected, got);
+}
+
+function inboundBodyFromMessage(m) {
+  if (!m || typeof m !== "object") return null;
+  if (m.type === "text" && m.text?.body) {
+    return String(m.text.body || "").trim().slice(0, 4000);
+  }
+  const ir = m.interactive;
+  if (m.type === "interactive" && ir && typeof ir === "object") {
+    if (ir.type === "button_reply" && ir.button_reply?.title) {
+      return String(ir.button_reply.title || "").trim().slice(0, 4000);
+    }
+    if (ir.type === "list_reply" && ir.list_reply?.title) {
+      return String(ir.list_reply.title || "").trim().slice(0, 4000);
+    }
+  }
+  if (m.type === "button" && m.button?.text) {
+    return String(m.button.text || "").trim().slice(0, 4000);
+  }
+  return null;
+}
+
+export function extractInboundText(body) {
+  try {
+    const entries = body?.entry;
+    if (!Array.isArray(entries)) return null;
+    for (const ent of entries) {
+      const changes = ent?.changes;
+      if (!Array.isArray(changes)) continue;
+      for (const ch of changes) {
+        const msgs = ch?.value?.messages;
+        if (!Array.isArray(msgs)) continue;
+        const phoneNumberId = String(ch?.value?.metadata?.phone_number_id || "");
+        for (const m of msgs) {
+          const textBody = inboundBodyFromMessage(m);
+          if (textBody) {
+            return {
+              from: String(m.from || ""),
+              body: textBody,
+              phoneNumberId
+            };
+          }
+        }
+      }
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+async function sendMarketingWhatsAppReply(toE164Digits, text) {
+  const token = String(process.env.META_WABA_ACCESS_TOKEN || "").trim();
+  const phoneNumberId = String(process.env.META_WABA_PHONE_NUMBER_ID || "").trim();
+  if (!token || !phoneNumberId || !toE164Digits || !text) {
+    return {
+      ok: false,
+      status: 0,
+      snippet: "missing META_WABA_ACCESS_TOKEN, META_WABA_PHONE_NUMBER_ID, or recipient `to`"
+    };
+  }
+
+  const url = `https://graph.facebook.com/${GRAPH_VERSION}/${phoneNumberId}/messages`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to: toE164Digits,
+      type: "text",
+      text: { preview_url: false, body: text.slice(0, 4096) }
+    })
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    console.warn("[meta whatsapp] outbound send failed", res.status, t.slice(0, 500));
+    return { ok: false, status: res.status, snippet: t.slice(0, 500) };
+  }
+  return { ok: true, status: res.status, snippet: "" };
+}
+
+const DEFAULT_WA_AI_SYSTEM = `Eres el asistente comercial de Omnira (producto de automatización con IA para WhatsApp Business: reservas, recordatorios, calendario).
+Responde siempre en español, breve y cordial (máximo ~600 caracteres). Incluye cuando encaje: planes desde 49€/mes; packs 3 meses 129€, 6 meses 229€, 12 meses 399€.
+Invita a registrarse en la web para activar el agente en su propio número con WhatsApp Business verificado (Meta). No inventes integraciones que no existan.`;
+
+function resolveOpenAiKey() {
+  const names = ["OPENAI_API_KEY", "OPENAI_KEY", "OPEN_AI_API_KEY", "OPENAI_SECRET_KEY", "CHAT_OPENAI_API_KEY"];
+  for (const n of names) {
+    const v = String(process.env[n] || "").trim();
+    if (v) return v;
+  }
+  return "";
+}
+
+/**
+ * Non-secret flags for GET /health (Vercel vs local misconfiguration is the #1 reason webhooks “don’t reply”).
+ */
+export function getMetaWhatsAppDeployDiagnostics() {
+  const verifyTok = Boolean(String(process.env.META_WABA_VERIFY_TOKEN || "").trim());
+  const appSecret = Boolean(String(process.env.META_WABA_APP_SECRET || "").trim());
+  const token = String(process.env.META_WABA_ACCESS_TOKEN || "").trim();
+  const phoneNumberId = String(process.env.META_WABA_PHONE_NUMBER_ID || "").trim();
+  const graphSend = Boolean(token && phoneNumberId);
+  const skipSignature =
+    String(process.env.META_WABA_WEBHOOK_SKIP_SIGNATURE || "").trim().toLowerCase() === "true";
+  const insecureLocal =
+    process.env.NODE_ENV !== "production" &&
+    String(process.env.META_WABA_WEBHOOK_INSECURE_LOCAL || "").trim().toLowerCase() === "true" &&
+    !appSecret;
+  const productionLike = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
+  const staticReply = Boolean(String(process.env.META_WABA_MARKETING_AUTO_REPLY || "").trim());
+  const openai = Boolean(resolveOpenAiKey());
+
+  const signatureMode = skipSignature
+    ? "skip"
+    : insecureLocal
+      ? "insecure_local_dev"
+      : appSecret
+        ? "hmac_verify"
+        : "missing_app_secret";
+
+  const postWillRejectSignature = !skipSignature && !insecureLocal && !appSecret;
+
+  const issues = [];
+  if (!verifyTok) {
+    issues.push(
+      "Set META_WABA_VERIFY_TOKEN in Vercel (same string as Meta → WhatsApp → Configuration → Verify token). Until then GET /api/meta/whatsapp/webhook returns 403 and Meta cannot subscribe."
+    );
+  }
+  if (!graphSend) {
+    issues.push(
+      "Set META_WABA_ACCESS_TOKEN and META_WABA_PHONE_NUMBER_ID in Vercel (same values as local .env). Without them the server cannot send WhatsApp messages."
+    );
+  }
+  if (postWillRejectSignature && productionLike) {
+    issues.push(
+      "Vercel/production: set META_WABA_APP_SECRET (Meta → App → Settings → Basic → App secret) so X-Hub-Signature-256 is verified, OR temporarily set META_WABA_WEBHOOK_SKIP_SIGNATURE=true. Otherwise Meta POSTs get 403 and no reply is sent."
+    );
+  }
+  if (!staticReply && !openai) {
+    issues.push(
+      "Set OPENAI_API_KEY in Vercel (or META_WABA_MARKETING_AUTO_REPLY for a fixed text) so inbound messages get a composed reply."
+    );
+  }
+  if (productionLike && process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "production") {
+    issues.push(
+      `VERCEL_ENV is "${process.env.VERCEL_ENV}" (not "production"). Variables must be enabled for this environment in Vercel, or open the production deployment URL so Meta hits Production-scoped env.`
+    );
+  }
+
+  const replies_ready = verifyTok && graphSend && !postWillRejectSignature && (staticReply || openai);
+
+  return {
+    meta_whatsapp_webhook_verify_token_set: verifyTok,
+    meta_whatsapp_app_secret_set: appSecret,
+    meta_whatsapp_graph_send_configured: graphSend,
+    meta_whatsapp_skip_signature_env: skipSignature,
+    meta_whatsapp_signature_mode: signatureMode,
+    meta_whatsapp_openai_configured: openai,
+    meta_whatsapp_marketing_auto_reply_set: staticReply,
+    meta_whatsapp_replies_ready: replies_ready,
+    meta_whatsapp_deploy_issues: issues
+  };
+}
+
+export async function openAiReplyToInbound(userMessage) {
+  const apiKey = resolveOpenAiKey();
+  if (!apiKey || !String(userMessage || "").trim()) return null;
+  const system = String(process.env.META_WABA_OPENAI_SYSTEM || DEFAULT_WA_AI_SYSTEM).slice(0, 8000);
+  const model = String(process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini").trim() || "gpt-4o-mini";
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 45000);
+  try {
+    const upstream = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: String(userMessage).trim().slice(0, 8000) }
+        ],
+        temperature: 0.55,
+        max_tokens: 700
+      }),
+      signal: controller.signal
+    });
+    const rawText = await upstream.text();
+    let data = {};
+    try {
+      data = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      return null;
+    }
+    if (!upstream.ok) {
+      console.warn("[meta whatsapp] OpenAI error", upstream.status, String(data?.error?.message || "").slice(0, 200));
+      return null;
+    }
+    const reply = data?.choices?.[0]?.message?.content;
+    if (!reply || typeof reply !== "string") return null;
+    return reply.trim().slice(0, 4090);
+  } catch (e) {
+    console.warn("[meta whatsapp] OpenAI request failed", e?.name || e?.message || e);
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+async function sendReplyForInbound(inbound) {
+  const staticReply = String(process.env.META_WABA_MARKETING_AUTO_REPLY || "").trim();
+  if (staticReply) {
+    return await sendMarketingWhatsAppReply(inbound.from, staticReply);
+  }
+  const ai = await openAiReplyToInbound(inbound.body);
+  const fallback =
+    String(process.env.META_WABA_OPENAI_FALLBACK_REPLY || "").trim() ||
+    "¡Hola! Gracias por escribir a Omnira. Ahora mismo no puedo generar la respuesta automática; prueba en unos minutos o escribe a omniraassist@gmail.com. Planes desde 49€/mes y packs en omnira.";
+  const textToSend = ai || fallback;
+  if (!ai) {
+    console.warn("[meta whatsapp] OpenAI returned empty — sending fallback WhatsApp message");
+  }
+  return await sendMarketingWhatsAppReply(inbound.from, textToSend);
+}
+
+/**
+ * CLI / integration tests: same path as the Meta webhook after parsing inbound text.
+ * @param {{ from: string, body: string }} inbound
+ */
+export async function runMarketingAgentReplyForTest(inbound) {
+  const from = String(inbound?.from || "").trim();
+  const body = String(inbound?.body || "").trim();
+  if (!from || !body) {
+    throw new Error("runMarketingAgentReplyForTest: requires { from, body } (E.164 digits and user text)");
+  }
+  return await sendReplyForInbound({ from, body, phoneNumberId: "" });
+}
+
+export function handleMetaWhatsAppGet(req, res) {
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+  const expected = String(process.env.META_WABA_VERIFY_TOKEN || "").trim();
+  if (mode === "subscribe" && expected && token === expected && challenge) {
+    return res.status(200).send(String(challenge));
+  }
+  console.warn(
+    "[meta whatsapp] GET /webhook verify 403 — set META_WABA_VERIFY_TOKEN on this host and use the same value in Meta as the verify token"
+  );
+  return res.sendStatus(403);
+}
+
+export async function handleMetaWhatsAppPost(req, res) {
+  try {
+    const raw = req.rawBody;
+    const appSecret = String(process.env.META_WABA_APP_SECRET || "").trim();
+    const insecureLocal =
+      process.env.NODE_ENV !== "production" &&
+      String(process.env.META_WABA_WEBHOOK_INSECURE_LOCAL || "").trim().toLowerCase() === "true" &&
+      !appSecret;
+    const skipSignature =
+      String(process.env.META_WABA_WEBHOOK_SKIP_SIGNATURE || "").trim().toLowerCase() === "true";
+
+    if (!Buffer.isBuffer(raw)) {
+      return res.status(500).json({ ok: false, message: "Server misconfiguration: raw body missing for webhook." });
+    }
+
+    if (skipSignature) {
+      console.warn(
+        "[meta whatsapp] META_WABA_WEBHOOK_SKIP_SIGNATURE=true — NOT verifying X-Hub-Signature-256 (set META_WABA_APP_SECRET and remove this flag when possible)"
+      );
+    } else if (!insecureLocal) {
+      const sig = req.headers["x-hub-signature-256"];
+      if (!appSecret || !verifyMetaAppSecretSignature(raw, sig, appSecret)) {
+        console.warn(
+          "[meta whatsapp] POST /webhook 403 — signature missing or invalid. Set META_WABA_APP_SECRET to Meta App Secret, or temporarily META_WABA_WEBHOOK_SKIP_SIGNATURE=true on Vercel."
+        );
+        return res.sendStatus(403);
+      }
+    } else {
+      console.warn("[meta whatsapp] META_WABA_WEBHOOK_INSECURE_LOCAL: signature not verified (dev only)");
+    }
+
+    const inbound = extractInboundText(req.body);
+    const expectedPnId = String(process.env.META_WABA_PHONE_NUMBER_ID || "").trim();
+    if (inbound?.from && expectedPnId && inbound.phoneNumberId && inbound.phoneNumberId !== expectedPnId) {
+      console.warn(
+        "[meta whatsapp] inbound phone_number_id does not match META_WABA_PHONE_NUMBER_ID — check Meta app / WABA vs env (still attempting reply)"
+      );
+    }
+    if (inbound?.from) {
+      console.info("[meta whatsapp] inbound text from", inbound.from, "len=", inbound.body?.length ?? 0);
+      try {
+        const out = await sendReplyForInbound(inbound);
+        if (out && !out.ok) {
+          console.warn("[meta whatsapp] reply pipeline incomplete", out.status, out.snippet?.slice(0, 200));
+        }
+      } catch (e) {
+        console.error("[meta whatsapp] reply error", e?.message || e);
+      }
+    } else if (req.body?.object === "whatsapp_business_account") {
+      console.warn(
+        "[meta whatsapp] WABA payload received but no user text/button extracted (send plain text, or subscribe to messages in Meta)"
+      );
+    }
+
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error("[meta whatsapp] webhook error", e?.message || e);
+    return res.status(500).json({ ok: false });
+  }
+}
+
+
+================================================================================
+FILE: server/scripts/test-whatsapp-agent.mjs (ENTIRE FILE)
+================================================================================
+
+/**
+ * CLI: verify Meta WhatsApp marketing agent (OpenAI + Graph) and HTTP webhook.
+ *
+ * From server/:
+ *   node scripts/test-whatsapp-agent.mjs
+ *   node scripts/test-whatsapp-agent.mjs "¿Cuánto cuesta el plan mensual?"
+ *
+ * Env:
+ *   OMNIRA_WA_TEST_TO_E164 — recipient in digits only (for real outbound + webhook simulation; optional).
+ *   OMNIRA_WA_TEST_BASE — default http://127.0.0.1:$PORT
+ *   POST /webhook adds X-Hub-Signature-256 when META_WABA_APP_SECRET is set (required for production URL).
+ * Always runs a Graph GET on phone_number_id (no send) to validate META_WABA_ACCESS_TOKEN + META_WABA_PHONE_NUMBER_ID.
+ */
+
+import crypto from "node:crypto";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { config } from "dotenv";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+config({ path: path.join(__dirname, "..", ".env") });
+
+const question =
+  process.argv.slice(2).join(" ").trim() ||
+  process.env.OMNIRA_WA_TEST_QUESTION ||
+  "¿Cuánto cuesta Omnira al mes y qué incluye el plan básico?";
+
+const port = Number(process.env.PORT || 5000);
+const base = String(process.env.OMNIRA_WA_TEST_BASE || `http://127.0.0.1:${port}`).replace(/\/$/, "");
+const testTo = String(process.env.OMNIRA_WA_TEST_TO_E164 || "").replace(/\D/g, "");
+
+function isRemoteBackend(url) {
+  try {
+    const h = new URL(url).hostname;
+    return h !== "127.0.0.1" && h !== "localhost";
+  } catch {
+    return false;
+  }
+}
+
+/** Same algorithm as server `verifyMetaAppSecretSignature` — body bytes must match POST exactly. */
+function hubSignature256FromRawUtf8(rawUtf8, appSecret) {
+  const secret = String(appSecret || "").trim();
+  if (!secret) return null;
+  const buf = Buffer.from(rawUtf8, "utf8");
+  return "sha256=" + crypto.createHmac("sha256", secret).update(buf).digest("hex");
+}
+
+function buildMetaWebhookBody(fromDigits, text) {
+  const phoneNumberId = String(process.env.META_WABA_PHONE_NUMBER_ID || "").trim();
+  return {
+    object: "whatsapp_business_account",
+    entry: [
+      {
+        id: String(process.env.META_WABA_BUSINESS_ACCOUNT_ID || "test_waba"),
+        changes: [
+          {
+            field: "messages",
+            value: {
+              messaging_product: "whatsapp",
+              metadata: {
+                display_phone_number: "15550000000",
+                phone_number_id: phoneNumberId
+              },
+              contacts: [{ profile: { name: "CLI Test" }, wa_id: fromDigits }],
+              messages: [
+                {
+                  from: fromDigits,
+                  id: `wamid.cli.${Date.now()}`,
+                  timestamp: String(Math.floor(Date.now() / 1000)),
+                  type: "text",
+                  text: { body: text }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  };
+}
+
+async function runStep(title, fn) {
+  process.stdout.write(`\n── ${title} ──\n`);
+  try {
+    const result = await fn();
+    if (result !== undefined) {
+      console.log(typeof result === "string" ? result : JSON.stringify(result, null, 2));
+    }
+    return { ok: true, result };
+  } catch (e) {
+    console.error("FAIL:", e?.message || e);
+    if (e?.cause?.code === "ECONNREFUSED" || /fetch failed|ECONNREFUSED/i.test(String(e?.message || ""))) {
+      console.error("Hint: start the API in another terminal:  cd server && node server.js");
+    }
+    return { ok: false, error: e };
+  }
+}
+
+async function main() {
+  console.log("Omnira WhatsApp agent CLI test");
+  console.log("Question:", question);
+  console.log("HTTP base:", base);
+  console.log("OMNIRA_WA_TEST_TO_E164:", testTo || "(empty — set to your WhatsApp number for full send test)");
+
+  let exit = 0;
+
+  const { runMarketingAgentReplyForTest, openAiReplyToInbound } = await import("../src/metaWhatsAppWebhook.js");
+
+  function resolveOpenAiKey() {
+    const names = ["OPENAI_API_KEY", "OPENAI_KEY", "OPEN_AI_API_KEY", "OPENAI_SECRET_KEY", "CHAT_OPENAI_API_KEY"];
+    for (const n of names) {
+      const v = String(process.env[n] || "").trim();
+      if (v) return v;
+    }
+    return "";
+  }
+
+  const graphVersion = (() => {
+    const gv = String(process.env.META_WABA_GRAPH_VERSION || "v21.0").trim();
+    return gv.startsWith("v") ? gv : `v${gv}`;
+  })();
+
+  const graphPhoneNode = await runStep("Meta Graph: phone_number_id (token + ID smoke, no outbound send)", async () => {
+    const token = String(process.env.META_WABA_ACCESS_TOKEN || "").trim();
+    const phoneNumberId = String(process.env.META_WABA_PHONE_NUMBER_ID || "").trim();
+    if (!token || !phoneNumberId) {
+      return "FAIL: META_WABA_ACCESS_TOKEN or META_WABA_PHONE_NUMBER_ID missing in .env";
+    }
+    const url = `https://graph.facebook.com/${graphVersion}/${phoneNumberId}?fields=display_phone_number,verified_name`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(30000)
+    });
+    const raw = await res.text();
+    let data;
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch {
+      data = { parse_error: true, raw: raw.slice(0, 300) };
+    }
+    if (!res.ok) {
+      if (res.status === 401) {
+        console.error(
+          "\nMeta Graph API 401: token invalid/expired — generate a new long-lived token with whatsapp_business_messaging.\n"
+        );
+      }
+      return { http: res.status, body: data, FAIL: true };
+    }
+    return { http: res.status, display_phone_number: data.display_phone_number, verified_name: data.verified_name };
+  });
+  if (!graphPhoneNode.ok || (graphPhoneNode.result && graphPhoneNode.result.FAIL)) exit = 1;
+  if (graphPhoneNode.ok && isRemoteBackend(base)) {
+    console.warn(
+      "[cli] Graph smoke used local server/.env. If GET /health on this base shows meta_whatsapp_graph_send_configured=false, copy META_WABA_* and OPENAI_API_KEY into Vercel and redeploy."
+    );
+  }
+
+  const aiOnly = await runStep("OpenAI only (marketing system prompt)", async () => {
+    const key = resolveOpenAiKey();
+    if (!key) {
+      return "FAIL: no OpenAI API key (set OPENAI_API_KEY or CHAT_OPENAI_API_KEY in .env)";
+    }
+    const reply = await openAiReplyToInbound(question);
+    if (!reply) {
+      return "FAIL: OpenAI returned empty (check key / quota / model)";
+    }
+    return { preview: reply.slice(0, 400) + (reply.length > 400 ? "…" : "") };
+  });
+  if (!aiOnly.ok || (typeof aiOnly.result === "string" && aiOnly.result.startsWith("FAIL"))) exit = 1;
+
+  const direct = await runStep("Direct pipeline: OpenAI → Graph (same as webhook handler)", async () => {
+    if (!testTo) {
+      return "SKIP: set OMNIRA_WA_TEST_TO_E164 (digits, e.g. 34612345678) to verify Graph API delivery.";
+    }
+    const out = await runMarketingAgentReplyForTest({ from: testTo, body: question });
+    if (!out.ok) {
+      if (out.status === 401) {
+        console.error(
+          "\nMeta Graph API 401: META_WABA_ACCESS_TOKEN is expired or revoked.\n" +
+            "Fix: Meta Business Suite → WhatsApp → API setup (or developers.facebook.com) → generate a new token\n" +
+            "with whatsapp_business_messaging, then update META_WABA_ACCESS_TOKEN in server/.env and redeploy.\n"
+        );
+      }
+      if (out.status === 400 && /Invalid parameter/i.test(String(out.snippet || ""))) {
+        console.error(
+          "\nMeta returned 400 Invalid parameter for outbound `to`. Common causes:\n" +
+            "  • OMNIRA_WA_TEST_TO_E164 is the same as your WhatsApp Business number — use a different phone (your personal WA in digits, country code without +).\n" +
+            "  • No open customer care / 24h session with that user — they must message you first or you use an approved template.\n"
+        );
+      }
+      return { ...out, FAIL: true };
+    }
+    return out;
+  });
+  if (!direct.ok || (direct.result && direct.result.FAIL)) exit = 1;
+
+  const health = await runStep("GET /health (meta flags)", async () => {
+    const res = await fetch(`${base}/health`, { signal: AbortSignal.timeout(15000) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { http: res.status, body: j, FAIL: true };
+    }
+    return j;
+  });
+  if (!health.ok || (health.result && health.result.FAIL)) exit = 1;
+  if (health.ok && isRemoteBackend(base)) {
+    const hr = health.result || {};
+    const issues = hr.meta_whatsapp_deploy_issues;
+    if (Array.isArray(issues) && issues.length) {
+      console.error(
+        "\n[health] This **deployed** host reports WhatsApp is not fully configured. Add these in Vercel → backend project → Environment Variables → Production, then redeploy:\n\n" +
+          issues.map((s) => `  • ${s}`).join("\n") +
+          `\n\nmeta_whatsapp_replies_ready=${hr.meta_whatsapp_replies_ready}\n`
+      );
+      exit = 1;
+    } else if (
+      hr.meta_whatsapp_replies_ready !== true &&
+      (hr.meta_whatsapp_graph_send_configured === false || hr.meta_whatsapp_webhook_verify_token_set === false)
+    ) {
+      console.error(
+        "\n[health] Remote backend is missing WhatsApp env (graph_send and/or verify_token false). Copy from local server/.env into Vercel: META_WABA_ACCESS_TOKEN, META_WABA_PHONE_NUMBER_ID, META_WABA_VERIFY_TOKEN, OPENAI_API_KEY, plus META_WABA_APP_SECRET or META_WABA_WEBHOOK_SKIP_SIGNATURE=true. Redeploy, set Meta webhook to https://<backend>/api/meta/whatsapp/webhook. See server/env.vercel.production.template\n"
+      );
+      exit = 1;
+    }
+  }
+
+  const webhook = await runStep("POST /api/meta/whatsapp/webhook (simulated Meta JSON)", async () => {
+    if (!testTo) {
+      return "SKIP webhook HTTP test (needs OMNIRA_WA_TEST_TO_E164 so the handler has a valid `from`).";
+    }
+    const bodyObj = buildMetaWebhookBody(testTo, question);
+    const raw = JSON.stringify(bodyObj);
+    const headers = { "Content-Type": "application/json" };
+    const appSecret = String(process.env.META_WABA_APP_SECRET || "").trim();
+    const sig = hubSignature256FromRawUtf8(raw, appSecret);
+    if (sig) {
+      headers["X-Hub-Signature-256"] = sig;
+    } else if (isRemoteBackend(base)) {
+      console.warn(
+        "[cli] META_WABA_APP_SECRET missing — remote POST will get 403 (Meta always sends X-Hub-Signature-256)."
+      );
+    }
+    const res = await fetch(`${base}/api/meta/whatsapp/webhook`, {
+      method: "POST",
+      headers,
+      body: raw,
+      signal: AbortSignal.timeout(120000)
+    });
+    const text = await res.text();
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = text.slice(0, 400);
+    }
+    if (!res.ok) return { status: res.status, body: parsed, FAIL: true };
+    return { status: res.status, body: parsed };
+  });
+  if (!webhook.ok || (webhook.result && webhook.result.FAIL)) exit = 1;
+
+  const verify = await runStep("GET webhook verify (Meta subscription check)", async () => {
+    const tok = String(process.env.META_WABA_VERIFY_TOKEN || "").trim();
+    if (!tok) {
+      return "SKIP: META_WABA_VERIFY_TOKEN empty";
+    }
+    const u = new URL(`${base}/api/meta/whatsapp/webhook`);
+    u.searchParams.set("hub.mode", "subscribe");
+    u.searchParams.set("hub.verify_token", tok);
+    u.searchParams.set("hub.challenge", "test_challenge_ok");
+    const res = await fetch(u.toString(), { signal: AbortSignal.timeout(15000) });
+    const body = await res.text();
+    if (res.status !== 200 || body !== "test_challenge_ok") {
+      return { status: res.status, body: body.slice(0, 200), FAIL: true };
+    }
+    return { status: res.status, challengeEcho: body };
+  });
+  if (!verify.ok || (verify.result && verify.result.FAIL)) exit = 1;
+  if (
+    verify.result &&
+    verify.result.FAIL &&
+    verify.result.status === 403 &&
+    isRemoteBackend(base)
+  ) {
+    console.error(
+      "\n[verify] GET /webhook returned 403 — Vercel’s META_WABA_VERIFY_TOKEN is missing or does not match the token you used in this CLI (local .env). Copy the same verify token string into the backend project on Vercel and redeploy, then re-save the webhook in Meta if needed.\n"
+    );
+  }
+
+  process.exitCode = exit;
+  console.log(exit === 0 ? "\nDone: all executed steps passed (or were skipped)." : "\nDone: some steps failed — see above.");
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exitCode = 1;
+});

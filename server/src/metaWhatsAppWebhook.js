@@ -279,6 +279,35 @@ export function handleMetaWhatsAppGet(req, res) {
   return res.sendStatus(403);
 }
 
+/**
+ * After HMAC verification: extract inbound user text and send OpenAI/Graph reply.
+ * On Vercel this may run inside `waitUntil` after the HTTP 200 is returned to Meta.
+ */
+async function processMetaWebhookInboundBody(body) {
+  const inbound = extractInboundText(body);
+  const expectedPnId = String(process.env.META_WABA_PHONE_NUMBER_ID || "").trim();
+  if (inbound?.from && expectedPnId && inbound.phoneNumberId && inbound.phoneNumberId !== expectedPnId) {
+    console.warn(
+      "[meta whatsapp] inbound phone_number_id does not match META_WABA_PHONE_NUMBER_ID — check Meta app / WABA vs env (still attempting reply)"
+    );
+  }
+  if (inbound?.from) {
+    console.info("[meta whatsapp] inbound text from", inbound.from, "len=", inbound.body?.length ?? 0);
+    try {
+      const out = await sendReplyForInbound(inbound);
+      if (out && !out.ok) {
+        console.warn("[meta whatsapp] reply pipeline incomplete", out.status, out.snippet?.slice(0, 200));
+      }
+    } catch (e) {
+      console.error("[meta whatsapp] reply error", e?.message || e);
+    }
+  } else if (body?.object === "whatsapp_business_account") {
+    console.warn(
+      "[meta whatsapp] WABA payload received but no user text/button extracted (send plain text, or subscribe to messages in Meta)"
+    );
+  }
+}
+
 export async function handleMetaWhatsAppPost(req, res) {
   try {
     const raw = req.rawBody;
@@ -310,29 +339,17 @@ export async function handleMetaWhatsAppPost(req, res) {
       console.warn("[meta whatsapp] META_WABA_WEBHOOK_INSECURE_LOCAL: signature not verified (dev only)");
     }
 
-    const inbound = extractInboundText(req.body);
-    const expectedPnId = String(process.env.META_WABA_PHONE_NUMBER_ID || "").trim();
-    if (inbound?.from && expectedPnId && inbound.phoneNumberId && inbound.phoneNumberId !== expectedPnId) {
-      console.warn(
-        "[meta whatsapp] inbound phone_number_id does not match META_WABA_PHONE_NUMBER_ID — check Meta app / WABA vs env (still attempting reply)"
-      );
-    }
-    if (inbound?.from) {
-      console.info("[meta whatsapp] inbound text from", inbound.from, "len=", inbound.body?.length ?? 0);
+    if (process.env.VERCEL) {
       try {
-        const out = await sendReplyForInbound(inbound);
-        if (out && !out.ok) {
-          console.warn("[meta whatsapp] reply pipeline incomplete", out.status, out.snippet?.slice(0, 200));
-        }
+        const { waitUntil } = await import("@vercel/functions");
+        waitUntil(processMetaWebhookInboundBody(req.body));
+        return res.status(200).json({ ok: true });
       } catch (e) {
-        console.error("[meta whatsapp] reply error", e?.message || e);
+        console.warn("[meta whatsapp] waitUntil unavailable — running reply inline", e?.message || e);
       }
-    } else if (req.body?.object === "whatsapp_business_account") {
-      console.warn(
-        "[meta whatsapp] WABA payload received but no user text/button extracted (send plain text, or subscribe to messages in Meta)"
-      );
     }
 
+    await processMetaWebhookInboundBody(req.body);
     return res.status(200).json({ ok: true });
   } catch (e) {
     console.error("[meta whatsapp] webhook error", e?.message || e);
