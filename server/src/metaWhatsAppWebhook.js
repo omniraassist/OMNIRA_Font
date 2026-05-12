@@ -266,18 +266,41 @@ export async function runMarketingAgentReplyForTest(inbound) {
 }
 
 export function handleMetaWhatsAppGet(req, res) {
-  const mode = req.query["hub.mode"];
-  const token = req.query["hub.verify_token"];
-  const challenge = req.query["hub.challenge"];
+  const mode = String(req.query["hub.mode"] ?? "").trim();
+  const token = String(req.query["hub.verify_token"] ?? "").trim();
+  const challengeRaw = req.query["hub.challenge"];
+  const ch = challengeRaw != null && challengeRaw !== "" ? String(challengeRaw) : "";
   const expected = String(process.env.META_WABA_VERIFY_TOKEN || "").trim();
-  if (mode === "subscribe" && expected && token === expected && challenge) {
-    return res.status(200).send(String(challenge));
+
+  console.info("[meta whatsapp] GET verify", {
+    mode,
+    tokenLen: token.length,
+    challengeLen: ch.length,
+    expectedConfigured: Boolean(expected)
+  });
+
+  if (mode === "subscribe" && expected && token === expected && ch) {
+    res.status(200);
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    return res.send(ch);
   }
-  console.warn(
-    "[meta whatsapp] GET /webhook verify 403 ΓÇö set META_WABA_VERIFY_TOKEN on this host and use the same value in Meta as the verify token"
-  );
+
+  if (mode !== "subscribe") {
+    console.warn("[meta whatsapp] GET verify 403: hub.mode is not subscribe");
+  } else if (!expected) {
+    console.warn("[meta whatsapp] GET verify 403: META_WABA_VERIFY_TOKEN is empty on this server (set in Vercel)");
+  } else if (token !== expected) {
+    console.warn(
+      "[meta whatsapp] GET verify 403: hub.verify_token does not match META_WABA_VERIFY_TOKEN (Meta vs Vercel must be identical)"
+    );
+  } else if (!ch) {
+    console.warn("[meta whatsapp] GET verify 403: hub.challenge missing");
+  } else {
+    console.warn("[meta whatsapp] GET verify 403: unknown reason");
+  }
   return res.sendStatus(403);
 }
+
 
 /**
  * After HMAC verification: extract inbound user text and send OpenAI/Graph reply.
