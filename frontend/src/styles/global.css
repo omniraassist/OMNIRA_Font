@@ -1511,21 +1511,6 @@ footer {
   max-width: 100%;
 }
 
-.wa-tooltip {
-  background: var(--surf);
-  border: 1px solid rgba(255,255,255,0.08);
-  padding: 10px 14px; border-radius: 10px;
-  font-size: 12px; line-height: 1.45; color: var(--text);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-  opacity: 0; transform: translateX(8px);
-  transition: all 0.3s;
-  max-width: min(300px, calc(100vw - 100px));
-  white-space: normal;
-}
-.wa-tooltip strong { color: var(--em); font-weight: 700; }
-.wa-float:hover .wa-tooltip,
-.wa-float:focus-within .wa-tooltip { opacity: 1; transform: translateX(0); }
-
 .wa-btn {
   width: 58px; height: 58px; border-radius: 50%;
   border: none;

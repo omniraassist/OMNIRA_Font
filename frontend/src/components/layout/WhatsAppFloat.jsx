@@ -6,11 +6,6 @@ export function WhatsAppFloat() {
   return (
     <div className="wa-stack">
       <div className="wa-float">
-        <div className="wa-tooltip" role="note">
-          <strong>Asistente Omnira en WhatsApp</strong>, activo 24/7: planes, precios y cómo automatizar reservas.
-          Para <strong>tu propio</strong> agente en tu número, regístrate y conecta{' '}
-          <strong>WhatsApp Business verificado con Meta</strong>.
-        </div>
         <a
           className="wa-btn"
           href={href}
