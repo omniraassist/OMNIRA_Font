@@ -8,9 +8,11 @@
  * Env:
  *   OMNIRA_WA_TEST_TO_E164 — recipient in digits only (for real outbound + webhook simulation; optional).
  *   OMNIRA_WA_TEST_BASE — default http://127.0.0.1:$PORT
+ *   POST /webhook adds X-Hub-Signature-256 when META_WABA_APP_SECRET is set (required for production URL).
  * Always runs a Graph GET on phone_number_id (no send) to validate META_WABA_ACCESS_TOKEN + META_WABA_PHONE_NUMBER_ID.
  */
 
+import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
@@ -34,6 +36,14 @@ function isRemoteBackend(url) {
   } catch {
     return false;
   }
+}
+
+/** Same algorithm as server `verifyMetaAppSecretSignature` — body bytes must match POST exactly. */
+function hubSignature256FromRawUtf8(rawUtf8, appSecret) {
+  const secret = String(appSecret || "").trim();
+  if (!secret) return null;
+  const buf = Buffer.from(rawUtf8, "utf8");
+  return "sha256=" + crypto.createHmac("sha256", secret).update(buf).digest("hex");
 }
 
 function buildMetaWebhookBody(fromDigits, text) {
@@ -221,9 +231,19 @@ async function main() {
     }
     const bodyObj = buildMetaWebhookBody(testTo, question);
     const raw = JSON.stringify(bodyObj);
+    const headers = { "Content-Type": "application/json" };
+    const appSecret = String(process.env.META_WABA_APP_SECRET || "").trim();
+    const sig = hubSignature256FromRawUtf8(raw, appSecret);
+    if (sig) {
+      headers["X-Hub-Signature-256"] = sig;
+    } else if (isRemoteBackend(base)) {
+      console.warn(
+        "[cli] META_WABA_APP_SECRET missing — remote POST will get 403 (Meta always sends X-Hub-Signature-256)."
+      );
+    }
     const res = await fetch(`${base}/api/meta/whatsapp/webhook`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: raw,
       signal: AbortSignal.timeout(120000)
     });

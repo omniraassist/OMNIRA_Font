@@ -23,6 +23,26 @@ export function verifyMetaAppSecretSignature(rawBodyBuffer, signatureHeader, app
   return got.length > 0 && timingSafeEqualHex(expected, got);
 }
 
+function inboundBodyFromMessage(m) {
+  if (!m || typeof m !== "object") return null;
+  if (m.type === "text" && m.text?.body) {
+    return String(m.text.body || "").trim().slice(0, 4000);
+  }
+  const ir = m.interactive;
+  if (m.type === "interactive" && ir && typeof ir === "object") {
+    if (ir.type === "button_reply" && ir.button_reply?.title) {
+      return String(ir.button_reply.title || "").trim().slice(0, 4000);
+    }
+    if (ir.type === "list_reply" && ir.list_reply?.title) {
+      return String(ir.list_reply.title || "").trim().slice(0, 4000);
+    }
+  }
+  if (m.type === "button" && m.button?.text) {
+    return String(m.button.text || "").trim().slice(0, 4000);
+  }
+  return null;
+}
+
 export function extractInboundText(body) {
   try {
     const entries = body?.entry;
@@ -33,12 +53,14 @@ export function extractInboundText(body) {
       for (const ch of changes) {
         const msgs = ch?.value?.messages;
         if (!Array.isArray(msgs)) continue;
+        const phoneNumberId = String(ch?.value?.metadata?.phone_number_id || "");
         for (const m of msgs) {
-          if (m?.type === "text" && m?.text?.body) {
+          const textBody = inboundBodyFromMessage(m);
+          if (textBody) {
             return {
               from: String(m.from || ""),
-              body: String(m.text.body || "").slice(0, 4000),
-              phoneNumberId: String(ch?.value?.metadata?.phone_number_id || "")
+              body: textBody,
+              phoneNumberId
             };
           }
         }
@@ -289,6 +311,12 @@ export async function handleMetaWhatsAppPost(req, res) {
     }
 
     const inbound = extractInboundText(req.body);
+    const expectedPnId = String(process.env.META_WABA_PHONE_NUMBER_ID || "").trim();
+    if (inbound?.from && expectedPnId && inbound.phoneNumberId && inbound.phoneNumberId !== expectedPnId) {
+      console.warn(
+        "[meta whatsapp] inbound phone_number_id does not match META_WABA_PHONE_NUMBER_ID — check Meta app / WABA vs env (still attempting reply)"
+      );
+    }
     if (inbound?.from) {
       console.info("[meta whatsapp] inbound text from", inbound.from, "len=", inbound.body?.length ?? 0);
       try {
@@ -301,7 +329,7 @@ export async function handleMetaWhatsAppPost(req, res) {
       }
     } else if (req.body?.object === "whatsapp_business_account") {
       console.warn(
-        "[meta whatsapp] WABA payload received but no user text extracted (send a normal text message, or subscribe to the right fields in Meta)"
+        "[meta whatsapp] WABA payload received but no user text/button extracted (send plain text, or subscribe to messages in Meta)"
       );
     }
 
