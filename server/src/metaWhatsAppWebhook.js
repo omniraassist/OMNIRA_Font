@@ -281,7 +281,8 @@ export function handleMetaWhatsAppGet(req, res) {
 
 /**
  * After HMAC verification: extract inbound user text and send OpenAI/Graph reply.
- * On Vercel this may run inside `waitUntil` after the HTTP 200 is returned to Meta.
+ * Runs synchronously before 200 OK so Meta + Vercel Express reliably complete the send.
+ * (waitUntil from @vercel/functions is unreliable in this Express default-export setup.)
  */
 async function processMetaWebhookInboundBody(body) {
   const inbound = extractInboundText(body);
@@ -297,14 +298,43 @@ async function processMetaWebhookInboundBody(body) {
       const out = await sendReplyForInbound(inbound);
       if (out && !out.ok) {
         console.warn("[meta whatsapp] reply pipeline incomplete", out.status, out.snippet?.slice(0, 200));
+      } else if (out?.ok) {
+        console.info("[meta whatsapp] outbound reply sent ok");
       }
     } catch (e) {
       console.error("[meta whatsapp] reply error", e?.message || e);
     }
   } else if (body?.object === "whatsapp_business_account") {
+    const hint = summarizeMetaWebhookPayload(body);
     console.warn(
-      "[meta whatsapp] WABA payload received but no user text/button extracted (send plain text, or subscribe to messages in Meta)"
+      "[meta whatsapp] WABA payload received but no user text/button extracted (send plain text, or subscribe to messages in Meta).",
+      hint
     );
+  }
+}
+
+function summarizeMetaWebhookPayload(body) {
+  try {
+    const entries = body?.entry;
+    if (!Array.isArray(entries)) return { shape: "no_entry_array" };
+    let changeFields = [];
+    let messageTypes = [];
+    for (const ent of entries) {
+      const changes = ent?.changes;
+      if (!Array.isArray(changes)) continue;
+      for (const ch of changes) {
+        if (ch?.field) changeFields.push(String(ch.field));
+        const msgs = ch?.value?.messages;
+        if (Array.isArray(msgs)) {
+          for (const m of msgs) {
+            if (m?.type) messageTypes.push(String(m.type));
+          }
+        }
+      }
+    }
+    return { changeFields: [...new Set(changeFields)], messageTypes: [...new Set(messageTypes)] };
+  } catch {
+    return { shape: "parse_error" };
   }
 }
 
@@ -323,6 +353,12 @@ export async function handleMetaWhatsAppPost(req, res) {
       return res.status(500).json({ ok: false, message: "Server misconfiguration: raw body missing for webhook." });
     }
 
+    console.info("[meta whatsapp] POST webhook", {
+      rawLen: raw.length,
+      hasSig256: Boolean(req.headers["x-hub-signature-256"]),
+      contentType: String(req.headers["content-type"] || "").slice(0, 80)
+    });
+
     if (skipSignature) {
       console.warn(
         "[meta whatsapp] META_WABA_WEBHOOK_SKIP_SIGNATURE=true — NOT verifying X-Hub-Signature-256 (set META_WABA_APP_SECRET and remove this flag when possible)"
@@ -337,16 +373,6 @@ export async function handleMetaWhatsAppPost(req, res) {
       }
     } else {
       console.warn("[meta whatsapp] META_WABA_WEBHOOK_INSECURE_LOCAL: signature not verified (dev only)");
-    }
-
-    if (process.env.VERCEL) {
-      try {
-        const { waitUntil } = await import("@vercel/functions");
-        waitUntil(processMetaWebhookInboundBody(req.body));
-        return res.status(200).json({ ok: true });
-      } catch (e) {
-        console.warn("[meta whatsapp] waitUntil unavailable — running reply inline", e?.message || e);
-      }
     }
 
     await processMetaWebhookInboundBody(req.body);
