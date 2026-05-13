@@ -111,7 +111,12 @@ h4 {
 .adm-sidebar.collapsed .adm-sidebar-user .meta,
 .adm-sidebar.collapsed .adm-sidebar-foot-actions a span,
 .adm-sidebar.collapsed .adm-sidebar-foot-actions button span { display: none; }
-.adm-sidebar.collapsed .adm-brand { justify-content: center; padding: 0 0 18px; }
+.adm-sidebar.collapsed .adm-brand {
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 12px 14px;
+  gap: 12px;
+}
 .adm-sidebar.collapsed .adm-nav-link {
   justify-content: center;
   padding: 10px;
@@ -157,25 +162,41 @@ h4 {
 .adm-sidebar.collapsed .adm-sidebar-foot-card { display: none; }
 .adm-sidebar.collapsed .adm-sidebar-toggle .chev { transform: rotate(180deg); }
 
-/* The toggle button itself */
+/* Toggle button — lives inside the brand row, on its right edge. Always
+   visible (no overflow clipping). */
 .adm-sidebar-toggle {
-  position: absolute;
-  right: -14px; top: 22px;
-  width: 28px; height: 28px;
-  border-radius: 999px;
-  border: 1px solid var(--border-em);
-  background: var(--surf2);
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
   color: var(--soft);
   cursor: pointer;
-  display: inline-flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.45);
-  transition: all .15s ease;
-  z-index: 105;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  margin-left: auto;
 }
-.adm-sidebar-toggle:hover { color: var(--em); border-color: var(--em); transform: scale(1.05); }
-.adm-sidebar-toggle .chev { transition: transform .25s cubic-bezier(0.4, 0, 0.2, 1); }
+.adm-sidebar-toggle:hover {
+  color: var(--em);
+  border-color: var(--border-em);
+  background: rgba(0, 229, 160, 0.06);
+}
+.adm-sidebar-toggle .chev {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.adm-sidebar.collapsed .adm-sidebar-toggle {
+  margin-left: 0;
+}
+.adm-sidebar.collapsed .adm-sidebar-toggle .chev {
+  transform: rotate(180deg);
+}
 @media (max-width: 960px) {
-  .adm-sidebar-toggle { display: none; }
+  .adm-sidebar-toggle {
+    display: none;
+  }
 }
 
 .adm-sidebar::before {
@@ -241,11 +262,19 @@ h4 {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 0 12px;
+  padding: 0 12px 8px;
   overflow-y: auto;
-  scrollbar-width: none;
+  overscroll-behavior: contain;
+  /* Thin, subtle scrollbar — visible enough that users know to scroll, not
+     ugly enough to dominate the rail. */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
 }
-.adm-nav::-webkit-scrollbar { display: none; }
+.adm-nav::-webkit-scrollbar { width: 4px; }
+.adm-nav::-webkit-scrollbar-track { background: transparent; }
+.adm-nav::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.06); border-radius: 999px; }
+.adm-nav:hover::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); }
+.adm-sidebar.collapsed .adm-nav::-webkit-scrollbar { width: 0; }
 
 .adm-nav-section-label {
   font-size: 10px;
