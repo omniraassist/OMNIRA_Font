@@ -179,15 +179,158 @@ async function loadPlatformBotConfig() {
   }
 }
 
-async function resolveOpenAiKey() {
-  const dbKey = String(await getPlatformSetting("OPENAI_API_KEY", "")).trim();
-  if (dbKey) return dbKey;
-  const names = ["OPENAI_API_KEY", "OPENAI_KEY", "OPEN_AI_API_KEY", "OPENAI_SECRET_KEY", "CHAT_OPENAI_API_KEY"];
-  for (const n of names) {
+/**
+ * Build the OpenAI key candidate chain in priority order:
+ *   1) process.env.OPENAI_API_KEY (Vercel primary)
+ *   2) platform_settings.OPENAI_API_KEY (admin override)
+ *   3) public.openai_api_keys rows where is_active=true, by sort_order, created_at
+ *
+ * The webhook tries each in order on auth / quota failure (see callOpenAiWithRetry).
+ * Returned objects include { source, id, key } so we can attribute success/fail
+ * back to a specific row for the admin's "last failed" tracking.
+ */
+async function listOpenAiKeys() {
+  const seen = new Set();
+  const out = [];
+
+  const envNames = ["OPENAI_API_KEY", "OPENAI_KEY", "OPEN_AI_API_KEY", "OPENAI_SECRET_KEY", "CHAT_OPENAI_API_KEY"];
+  for (const n of envNames) {
     const v = String(process.env[n] || "").trim();
-    if (v) return v;
+    if (v && !seen.has(v)) {
+      seen.add(v);
+      out.push({ source: "env", envName: n, id: null, label: `Vercel env: ${n}`, key: v });
+    }
   }
-  return "";
+
+  const dbPrimary = String(await getPlatformSetting("OPENAI_API_KEY", "")).trim();
+  if (dbPrimary && !seen.has(dbPrimary)) {
+    seen.add(dbPrimary);
+    out.push({ source: "platform_settings", envName: null, id: null, label: "Platform settings (DB)", key: dbPrimary });
+  }
+
+  if (isSupabaseConfigured()) {
+    try {
+      const { data } = await supabaseAdmin
+        .from("openai_api_keys")
+        .select("id, label, api_key, sort_order, is_active")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+      for (const row of data || []) {
+        const k = String(row.api_key || "").trim();
+        if (k && !seen.has(k)) {
+          seen.add(k);
+          out.push({
+            source: "fallback_table",
+            envName: null,
+            id: row.id,
+            label: row.label || "Fallback key",
+            key: k
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("[openai] fallback list load failed:", e?.message || e);
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Decide whether an OpenAI HTTP error is one we should rotate keys for. 401 =
+ * invalid key, 429 = rate / quota limit. Other errors (5xx, timeout) we let the
+ * caller handle without rotation, since they're transient and not key-specific.
+ */
+function isKeyRotatableOpenAiError(status, bodyText) {
+  if (status === 401) return true;
+  if (status === 429) return true;
+  if (status === 402) return true;
+  if (status === 403 && /quota|billing|insufficient/i.test(String(bodyText || ""))) return true;
+  return false;
+}
+
+async function recordOpenAiSuccess(candidate) {
+  if (!candidate?.id || !isSupabaseConfigured()) return;
+  try {
+    const { data: row } = await supabaseAdmin
+      .from("openai_api_keys")
+      .select("success_count")
+      .eq("id", candidate.id)
+      .maybeSingle();
+    await supabaseAdmin
+      .from("openai_api_keys")
+      .update({
+        last_used_at: new Date().toISOString(),
+        success_count: Number(row?.success_count || 0) + 1
+      })
+      .eq("id", candidate.id);
+  } catch (e) {
+    console.warn("[openai] success record failed:", e?.message || e);
+  }
+}
+
+async function recordOpenAiFailure(candidate, status, snippet) {
+  if (!candidate?.id || !isSupabaseConfigured()) return;
+  try {
+    const { data: row } = await supabaseAdmin
+      .from("openai_api_keys")
+      .select("fail_count")
+      .eq("id", candidate.id)
+      .maybeSingle();
+    await supabaseAdmin
+      .from("openai_api_keys")
+      .update({
+        last_failed_at: new Date().toISOString(),
+        last_fail_reason: `${status}: ${String(snippet || "").slice(0, 240)}`,
+        fail_count: Number(row?.fail_count || 0) + 1
+      })
+      .eq("id", candidate.id);
+  } catch (e) {
+    console.warn("[openai] failure record failed:", e?.message || e);
+  }
+}
+
+/**
+ * One-shot OpenAI POST that walks the key chain. `fetchOptionsBuilder(apiKey)`
+ * must return the full RequestInit for the fetch (so the body / model / system
+ * stays the same across retries). Returns the parsed JSON on first success or
+ * null after every key fails.
+ */
+async function callOpenAiWithRetry(url, fetchOptionsBuilder, label = "openai") {
+  const candidates = await listOpenAiKeys();
+  if (candidates.length === 0) {
+    console.warn(`[${label}] no OpenAI keys configured (env + platform_settings + openai_api_keys all empty)`);
+    return null;
+  }
+
+  for (let i = 0; i < candidates.length; i += 1) {
+    const cand = candidates[i];
+    let upstream;
+    try {
+      upstream = await fetch(url, fetchOptionsBuilder(cand.key));
+    } catch (e) {
+      console.warn(`[${label}] network error on key #${i + 1} (${cand.label}):`, e?.message || e);
+      await recordOpenAiFailure(cand, 0, e?.message || "network");
+      continue;
+    }
+    const rawText = await upstream.text();
+    if (upstream.ok) {
+      let data = {};
+      try { data = rawText ? JSON.parse(rawText) : {}; } catch { /* tolerate */ }
+      await recordOpenAiSuccess(cand);
+      return data;
+    }
+    const shouldRotate = isKeyRotatableOpenAiError(upstream.status, rawText);
+    console.warn(
+      `[${label}] key #${i + 1} (${cand.label}) failed: HTTP ${upstream.status}.` +
+        (shouldRotate ? " rotating to next key…" : " not rotating (non-auth/quota error).")
+    );
+    await recordOpenAiFailure(cand, upstream.status, rawText.slice(0, 200));
+    if (!shouldRotate) return null;
+  }
+  console.warn(`[${label}] all ${candidates.length} OpenAI keys failed (rotatable errors). Giving up.`);
+  return null;
 }
 
 /**
@@ -303,56 +446,47 @@ async function loadRecentConversation(phoneNumberId, waFrom, limit = 12) {
 }
 
 export async function openAiReplyToInbound(userMessage, history = []) {
-  const apiKey = await resolveOpenAiKey();
-  if (!apiKey || !String(userMessage || "").trim()) return null;
+  if (!String(userMessage || "").trim()) return null;
   const cfg = await loadPlatformBotConfig();
-  // ENV override exists for break-glass scenarios (set in Vercel without DB edit)
   const systemFromDb = String(process.env.META_WABA_OPENAI_SYSTEM || cfg.systemPrompt).slice(0, 16000);
   const knowledgeBlock = cfg.knowledgeBase
     ? `\n\n# Knowledge base (admin-curated). Use as the source of truth for facts. If a user question is not answered by this, say you'll check and offer omniraassist@gmail.com.\n${cfg.knowledgeBase}`
     : "";
   const system = `${systemFromDb}${knowledgeBlock}`.slice(0, 24000);
   const model = String(await getPlatformSetting("OPENAI_CHAT_MODEL", "gpt-4o-mini")).trim() || "gpt-4o-mini";
+  const trimmedHistory = Array.isArray(history)
+    ? history.slice(-10).filter((m) => m && typeof m.content === "string" && m.content.trim())
+    : [];
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), 45000);
   try {
-    const trimmedHistory = Array.isArray(history)
-      ? history.slice(-10).filter((m) => m && typeof m.content === "string" && m.content.trim())
-      : [];
-    const upstream = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: system },
-          ...trimmedHistory,
-          { role: "user", content: String(userMessage).trim().slice(0, 8000) }
-        ],
-        temperature: 0.55,
-        max_tokens: 700
+    const data = await callOpenAiWithRetry(
+      "https://api.openai.com/v1/chat/completions",
+      (apiKey) => ({
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: system },
+            ...trimmedHistory,
+            { role: "user", content: String(userMessage).trim().slice(0, 8000) }
+          ],
+          temperature: 0.55,
+          max_tokens: 700
+        }),
+        signal: controller.signal
       }),
-      signal: controller.signal
-    });
-    const rawText = await upstream.text();
-    let data = {};
-    try {
-      data = rawText ? JSON.parse(rawText) : {};
-    } catch {
-      return null;
-    }
-    if (!upstream.ok) {
-      console.warn("[meta whatsapp] OpenAI error", upstream.status, String(data?.error?.message || "").slice(0, 200));
-      return null;
-    }
+      "openai reply"
+    );
     const reply = data?.choices?.[0]?.message?.content;
     if (!reply || typeof reply !== "string") return null;
     return reply.trim().slice(0, 4090);
   } catch (e) {
-    console.warn("[meta whatsapp] OpenAI request failed", e?.name || e?.message || e);
+    console.warn("[meta whatsapp] OpenAI reply error", e?.name || e?.message || e);
     return null;
   } finally {
     clearTimeout(t);
@@ -365,8 +499,6 @@ export async function openAiReplyToInbound(userMessage, history = []) {
  * (~1¢/100 msgs on gpt-4o-mini) and runs asynchronously so it never blocks the reply.
  */
 async function extractLeadFromConversation(conversationMessages) {
-  const apiKey = await resolveOpenAiKey();
-  if (!apiKey) return null;
   const trimmed = Array.isArray(conversationMessages)
     ? conversationMessages.slice(-14).filter((m) => m?.content && m.content.trim())
     : [];
@@ -379,35 +511,29 @@ async function extractLeadFromConversation(conversationMessages) {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), 30000);
   try {
-    const upstream = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: cfg.leadExtractionPrompt },
-          ...trimmed
-        ],
-        temperature: 0,
-        max_tokens: 400,
-        response_format: { type: "json_object" }
+    const data = await callOpenAiWithRetry(
+      "https://api.openai.com/v1/chat/completions",
+      (apiKey) => ({
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: cfg.leadExtractionPrompt },
+            ...trimmed
+          ],
+          temperature: 0,
+          max_tokens: 400,
+          response_format: { type: "json_object" }
+        }),
+        signal: controller.signal
       }),
-      signal: controller.signal
-    });
-    const rawText = await upstream.text();
-    if (!upstream.ok) {
-      console.warn("[meta whatsapp] lead extraction error", upstream.status, rawText.slice(0, 200));
-      return null;
-    }
-    let data = {};
-    try {
-      data = rawText ? JSON.parse(rawText) : {};
-    } catch {
-      return null;
-    }
+      "openai extract"
+    );
+    if (!data) return null;
     const content = data?.choices?.[0]?.message?.content;
     if (!content || typeof content !== "string") return null;
     let parsed;

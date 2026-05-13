@@ -329,6 +329,32 @@ create unique index if not exists idx_customer_whatsapp_configs_phone_number_id
   on public.customer_whatsapp_configs(meta_phone_number_id)
   where meta_phone_number_id is not null;
 
+-- ---------------------------------------------------------------------------
+-- OpenAI fallback keys (admin-editable). If Vercel env OPENAI_API_KEY fails
+-- with 401 / 429 / insufficient_quota the webhook walks this list in order
+-- and uses the first key that succeeds. fail_count / last_failed_at give the
+-- admin visibility into which keys to rotate.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.openai_api_keys (
+  id uuid primary key default gen_random_uuid(),
+  label text,
+  api_key text not null,
+  sort_order integer not null default 0,
+  is_active boolean not null default true,
+  last_used_at timestamptz,
+  last_failed_at timestamptz,
+  last_fail_reason text,
+  fail_count integer not null default 0,
+  success_count integer not null default 0,
+  created_by text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_openai_api_keys_active_order
+  on public.openai_api_keys(is_active, sort_order, created_at);
+
 -- =============================================================================
 -- Stripe Dashboard → Webhooks → your endpoint (e.g. https://API/api/stripe/webhook)
 --   Required events:

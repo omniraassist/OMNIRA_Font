@@ -1639,6 +1639,120 @@ app.get("/api/admin/platform-settings", async (_req, res) => {
   }
 });
 
+/**
+ * OpenAI fallback chain — admin-managed. The webhook tries Vercel env first
+ * (process.env.OPENAI_API_KEY), then any platform_settings.OPENAI_API_KEY, then
+ * each row in this table sorted by sort_order. Rotation happens on
+ * 401 / 429 / 402 / 403-quota errors only; transient 5xx / timeout do NOT rotate.
+ * Each row tracks success_count / fail_count / last_failed_at so admins can see
+ * which keys are healthy.
+ */
+app.get("/api/admin/openai-keys", async (_req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("openai_api_keys")
+      .select(
+        "id, label, api_key, sort_order, is_active, last_used_at, last_failed_at, last_fail_reason, fail_count, success_count, created_by, created_at, updated_at"
+      )
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    const keys = (data || []).map((row) => ({
+      id: row.id,
+      label: row.label || null,
+      api_key_masked: maskSecret(row.api_key || ""),
+      api_key_set: Boolean(row.api_key),
+      sort_order: row.sort_order ?? 0,
+      is_active: !!row.is_active,
+      last_used_at: row.last_used_at,
+      last_failed_at: row.last_failed_at,
+      last_fail_reason: row.last_fail_reason || null,
+      fail_count: row.fail_count || 0,
+      success_count: row.success_count || 0,
+      created_by: row.created_by || null,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    }));
+    return res.status(200).json({ ok: true, keys });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `OpenAI keys load failed: ${error.message}` });
+  }
+});
+
+app.post("/api/admin/openai-keys", async (req, res) => {
+  try {
+    const apiKey = String(req.body?.api_key || "").trim();
+    if (!apiKey || apiKey.length < 16) {
+      return res.status(400).json({ ok: false, message: "api_key must be at least 16 characters." });
+    }
+    const label = String(req.body?.label || "").trim().slice(0, 200) || null;
+    const sort_order = Number(req.body?.sort_order);
+    const is_active = req.body?.is_active === false ? false : true;
+    const created_by = String(req.body?.created_by || "admin").slice(0, 200);
+
+    const { data, error } = await supabaseAdmin
+      .from("openai_api_keys")
+      .insert({
+        label,
+        api_key: apiKey,
+        sort_order: Number.isFinite(sort_order) ? sort_order : 0,
+        is_active,
+        created_by
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    return res.status(201).json({ ok: true, id: data.id });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `OpenAI key create failed: ${error.message}` });
+  }
+});
+
+app.patch("/api/admin/openai-keys/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const patch = { updated_at: new Date().toISOString() };
+    if (typeof req.body?.label === "string") patch.label = req.body.label.slice(0, 200) || null;
+    if (typeof req.body?.api_key === "string" && req.body.api_key.trim()) {
+      const k = req.body.api_key.trim();
+      if (k.length < 16) {
+        return res.status(400).json({ ok: false, message: "api_key must be at least 16 characters." });
+      }
+      patch.api_key = k;
+      // Reset failure counters when admin pastes a fresh key
+      patch.last_failed_at = null;
+      patch.last_fail_reason = null;
+    }
+    if (typeof req.body?.sort_order === "number") patch.sort_order = req.body.sort_order;
+    if (typeof req.body?.is_active === "boolean") patch.is_active = req.body.is_active;
+    if (Object.keys(patch).length === 1) {
+      return res.status(400).json({ ok: false, message: "No editable fields supplied." });
+    }
+    const { data, error } = await supabaseAdmin
+      .from("openai_api_keys")
+      .update(patch)
+      .eq("id", id)
+      .select("id")
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ ok: false, message: "Key not found" });
+    return res.status(200).json({ ok: true });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `OpenAI key update failed: ${error.message}` });
+  }
+});
+
+app.delete("/api/admin/openai-keys/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { error } = await supabaseAdmin.from("openai_api_keys").delete().eq("id", id);
+    if (error) throw error;
+    return res.status(200).json({ ok: true });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `OpenAI key delete failed: ${error.message}` });
+  }
+});
+
 app.patch("/api/admin/platform-settings/:key", async (req, res) => {
   try {
     const { key } = req.params;
