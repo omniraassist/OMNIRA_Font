@@ -1003,70 +1003,226 @@ app.get("/api/admin/overview", async (_req, res) => {
   }
 });
 
+/**
+ * Real analytics — everything below comes from Supabase, nothing is fabricated.
+ *
+ * Time windows:
+ *   - daily series: last 30 days (UTC) of wa_messages + wa_leads
+ *   - this week / last week: rolling 7-day windows for WoW deltas
+ *   - monthly revenue: last 6 calendar months from customer_payments
+ *   - status / intent / language: all-time wa_leads (so admins see the
+ *     real funnel breakdown, not just the last week's slice)
+ */
 app.get("/api/admin/analytics", async (_req, res) => {
   try {
     const now = new Date();
-    const startOfWeek = new Date(now);
-    startOfWeek.setUTCDate(now.getUTCDate() - 6);
-    startOfWeek.setUTCHours(0, 0, 0, 0);
-    const startIso = startOfWeek.toISOString();
+    const dayMs = 86_400_000;
+    const start30 = new Date(now.getTime() - 29 * dayMs);
+    start30.setUTCHours(0, 0, 0, 0);
+    const startThisWeek = new Date(now.getTime() - 6 * dayMs);
+    startThisWeek.setUTCHours(0, 0, 0, 0);
+    const startLastWeek = new Date(now.getTime() - 13 * dayMs);
+    startLastWeek.setUTCHours(0, 0, 0, 0);
+    const endLastWeek = new Date(now.getTime() - 7 * dayMs);
+    endLastWeek.setUTCHours(0, 0, 0, 0);
+    const start6Months = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1));
 
-    const [{ data: msgRows }, { data: leadRows }, { data: convertedLeads, count: convertedCount }] =
-      await Promise.all([
-        supabaseAdmin.from("wa_messages").select("created_at, direction").gte("created_at", startIso),
-        supabaseAdmin.from("wa_leads").select("created_at, status, intent, language").gte("created_at", startIso),
-        supabaseAdmin
-          .from("wa_leads")
-          .select("status", { count: "exact" })
-          .eq("status", "converted")
-      ]);
+    const [
+      msg30,
+      leads30,
+      allLeads,
+      payments6m,
+      activeSubs,
+      planRows,
+      openaiKeys
+    ] = await Promise.all([
+      supabaseAdmin.from("wa_messages").select("created_at, direction, language").gte("created_at", start30.toISOString()),
+      supabaseAdmin.from("wa_leads").select("created_at, status, intent, language").gte("created_at", start30.toISOString()),
+      supabaseAdmin.from("wa_leads").select("status, intent, language, message_count"),
+      supabaseAdmin.from("customer_payments").select("amount_cents, currency, created_at, plan_id").gte("created_at", start6Months.toISOString()),
+      supabaseAdmin
+        .from("customer_users")
+        .select("subscription_plan_id")
+        .gt("subscription_ends_at", now.toISOString()),
+      supabaseAdmin.from("pricing_plans").select("id, label, sort_order").order("sort_order"),
+      supabaseAdmin.from("openai_api_keys").select("is_active, fail_count, success_count, last_failed_at")
+    ]);
 
-    const byDay = new Map();
-    for (let i = 0; i < 7; i += 1) {
-      const d = new Date(startOfWeek);
-      d.setUTCDate(startOfWeek.getUTCDate() + i);
-      byDay.set(d.toISOString().slice(0, 10), {
-        label: d.toLocaleDateString("en-US", { weekday: "short" }),
-        messages: 0,
-        newLeads: 0
+    // -------- 30-day daily series (inbound / outbound / new leads) ----------
+    const dailyMap = new Map();
+    for (let i = 0; i < 30; i += 1) {
+      const d = new Date(start30.getTime() + i * dayMs);
+      dailyMap.set(d.toISOString().slice(0, 10), {
+        date: d.toISOString().slice(0, 10),
+        label: d.toLocaleDateString("en-US", { weekday: "short", day: "2-digit" }),
+        inbound: 0,
+        outbound: 0,
+        leads: 0
       });
     }
-    for (const row of msgRows || []) {
-      const key = asIsoDate(row.created_at).slice(0, 10);
-      const bucket = byDay.get(key);
-      if (bucket) bucket.messages += 1;
+    for (const m of msg30.data || []) {
+      const key = asIsoDate(m.created_at).slice(0, 10);
+      const b = dailyMap.get(key);
+      if (!b) continue;
+      if (m.direction === "outbound") b.outbound += 1;
+      else b.inbound += 1;
     }
-    for (const row of leadRows || []) {
-      const key = asIsoDate(row.created_at).slice(0, 10);
-      const bucket = byDay.get(key);
-      if (bucket) bucket.newLeads += 1;
+    for (const l of leads30.data || []) {
+      const key = asIsoDate(l.created_at).slice(0, 10);
+      const b = dailyMap.get(key);
+      if (b) b.leads += 1;
     }
+    const dailySeries = Array.from(dailyMap.values());
 
-    const series = Array.from(byDay.values());
-    const totalLeads = series.reduce((s, x) => s + x.newLeads, 0);
-    const qualifiedCount = (leadRows || []).filter((l) => ["qualified", "converted"].includes(l.status)).length;
-    const contactedCount = (leadRows || []).filter((l) => l.status !== "new").length;
+    // -------- Last 7-day series (back-compat for /api/admin/overview style) -
+    const series7 = dailySeries.slice(-7).map((d) => ({
+      label: d.label,
+      messages: d.inbound + d.outbound,
+      newLeads: d.leads
+    }));
 
+    // -------- WoW KPIs ------------------------------------------------------
+    const startThisWeekIso = startThisWeek.toISOString();
+    const endLastWeekIso = endLastWeek.toISOString();
+    const startLastWeekIso = startLastWeek.toISOString();
+
+    const leadsThisWeek = (leads30.data || []).filter((l) => l.created_at >= startThisWeekIso).length;
+    const leadsLastWeek = (leads30.data || []).filter(
+      (l) => l.created_at >= startLastWeekIso && l.created_at < endLastWeekIso
+    ).length;
+    const msgThisWeek = (msg30.data || []).filter((m) => m.created_at >= startThisWeekIso).length;
+    const msgLastWeek = (msg30.data || []).filter(
+      (m) => m.created_at >= startLastWeekIso && m.created_at < endLastWeekIso
+    ).length;
+
+    // -------- All-time status / intent / language ---------------------------
+    const statusOrder = ["new", "contacted", "qualified", "converted", "lost"];
+    const statusCounts = Object.fromEntries(statusOrder.map((s) => [s, 0]));
     const intentCounts = {};
-    for (const l of leadRows || []) {
+    const languageCounts = {};
+    let totalMessagesPerLead = 0;
+    let leadsWithMessages = 0;
+    for (const l of allLeads.data || []) {
+      if (l.status && statusCounts[l.status] !== undefined) statusCounts[l.status] += 1;
       if (l.intent) intentCounts[l.intent] = (intentCounts[l.intent] || 0) + 1;
+      if (l.language) languageCounts[l.language] = (languageCounts[l.language] || 0) + 1;
+      if (l.message_count) {
+        totalMessagesPerLead += Number(l.message_count);
+        leadsWithMessages += 1;
+      }
     }
-    const topIntents = Object.entries(intentCounts)
-      .map(([k, v]) => ({ intent: k, count: v }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
+    const totalLeadsAllTime = (allLeads.data || []).length;
+    const qualifiedAllTime = statusCounts.qualified + statusCounts.converted;
+    const convertedAllTime = statusCounts.converted;
+    const conversionRate = totalLeadsAllTime ? (convertedAllTime / totalLeadsAllTime) * 100 : 0;
+    const avgMsgPerLead = leadsWithMessages ? totalMessagesPerLead / leadsWithMessages : 0;
 
-    const total = Math.max(1, totalLeads);
+    const statusDistribution = statusOrder.map((s) => ({
+      status: s,
+      count: statusCounts[s],
+      pct: totalLeadsAllTime ? (statusCounts[s] / totalLeadsAllTime) * 100 : 0
+    }));
+
+    const topIntents = Object.entries(intentCounts)
+      .map(([intent, count]) => ({ intent, count, pct: totalLeadsAllTime ? (count / totalLeadsAllTime) * 100 : 0 }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+
+    const topLanguages = Object.entries(languageCounts)
+      .map(([language, count]) => ({ language, count, pct: totalLeadsAllTime ? (count / totalLeadsAllTime) * 100 : 0 }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+
+    // -------- Funnel (all-time) --------------------------------------------
+    const denom = Math.max(1, totalLeadsAllTime);
+    const funnel = [
+      { stage: "All leads", count: totalLeadsAllTime, pct: 100 },
+      { stage: "Contacted", count: totalLeadsAllTime - statusCounts.new, pct: ((totalLeadsAllTime - statusCounts.new) / denom) * 100 },
+      { stage: "Qualified", count: qualifiedAllTime, pct: (qualifiedAllTime / denom) * 100 },
+      { stage: "Converted", count: convertedAllTime, pct: (convertedAllTime / denom) * 100 }
+    ];
+
+    // -------- Monthly revenue (last 6 months) -------------------------------
+    const monthMap = new Map();
+    for (let i = 5; i >= 0; i -= 1) {
+      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+      monthMap.set(key, {
+        month: key,
+        label: d.toLocaleDateString("en-US", { month: "short" }),
+        amount_cents: 0,
+        amount_euro: 0,
+        payment_count: 0
+      });
+    }
+    for (const p of payments6m.data || []) {
+      const d = new Date(p.created_at);
+      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+      const b = monthMap.get(key);
+      if (!b) continue;
+      b.amount_cents += Number(p.amount_cents || 0);
+      b.payment_count += 1;
+    }
+    const monthlyRevenue = Array.from(monthMap.values()).map((m) => ({
+      ...m,
+      amount_euro: Number((m.amount_cents / 100).toFixed(2))
+    }));
+    const revenue6mCents = monthlyRevenue.reduce((s, m) => s + m.amount_cents, 0);
+
+    // -------- Plan distribution (currently active subscribers) --------------
+    const planLabelById = Object.fromEntries((planRows.data || []).map((p) => [p.id, p.label]));
+    const planCount = {};
+    for (const u of activeSubs.data || []) {
+      const k = u.subscription_plan_id || "—";
+      planCount[k] = (planCount[k] || 0) + 1;
+    }
+    const planDistribution = Object.entries(planCount)
+      .map(([id, count]) => ({ id, label: planLabelById[id] || id, count }))
+      .sort((a, b) => b.count - a.count);
+    const activeSubscribers = (activeSubs.data || []).length;
+
+    // -------- OpenAI key health summary -------------------------------------
+    const openaiActive = (openaiKeys.data || []).filter((k) => k.is_active).length;
+    const openaiFailures = (openaiKeys.data || []).reduce((s, k) => s + (Number(k.fail_count) || 0), 0);
+    const openaiSuccesses = (openaiKeys.data || []).reduce((s, k) => s + (Number(k.success_count) || 0), 0);
+
     return res.status(200).json({
       ok: true,
-      series,
-      funnel: [
-        { stage: "New leads (this week)", count: totalLeads, pct: 100 },
-        { stage: "Contacted (status != new)", count: contactedCount, pct: Math.round((contactedCount / total) * 100) },
-        { stage: "Qualified or converted", count: qualifiedCount, pct: Math.round((qualifiedCount / total) * 100) },
-        { stage: "Converted (all-time)", count: convertedCount || 0, pct: convertedCount && totalLeads ? Math.round((convertedCount / total) * 100) : 0 }
-      ],
-      topIntents
+      generated_at: new Date().toISOString(),
+      kpis: {
+        leadsThisWeek,
+        leadsLastWeek,
+        leadsDelta: leadsThisWeek - leadsLastWeek,
+        leadsDeltaPct: leadsLastWeek > 0
+          ? Math.round(((leadsThisWeek - leadsLastWeek) / leadsLastWeek) * 100)
+          : leadsThisWeek > 0 ? 100 : 0,
+        msgThisWeek,
+        msgLastWeek,
+        msgDelta: msgThisWeek - msgLastWeek,
+        msgDeltaPct: msgLastWeek > 0
+          ? Math.round(((msgThisWeek - msgLastWeek) / msgLastWeek) * 100)
+          : msgThisWeek > 0 ? 100 : 0,
+        totalLeads: totalLeadsAllTime,
+        qualifiedLeads: qualifiedAllTime,
+        convertedLeads: convertedAllTime,
+        conversionRate: Number(conversionRate.toFixed(2)),
+        avgMsgPerLead: Number(avgMsgPerLead.toFixed(1)),
+        activeSubscribers,
+        revenue6mEuro: Number((revenue6mCents / 100).toFixed(2))
+      },
+      series: series7,
+      dailySeries,
+      funnel,
+      statusDistribution,
+      topIntents,
+      topLanguages,
+      monthlyRevenue,
+      planDistribution,
+      openaiHealth: {
+        active_keys: openaiActive,
+        total_successes: openaiSuccesses,
+        total_failures: openaiFailures
+      }
     });
   } catch (error) {
     return res.status(500).json({ ok: false, message: `Admin analytics failed: ${error.message}` });
