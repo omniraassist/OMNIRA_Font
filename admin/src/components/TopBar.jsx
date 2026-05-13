@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { IconSearch } from './icons.jsx';
 import { useAdminAuth } from '../context/AdminAuthContext.jsx';
 import { apiCall } from '../api/client.js';
+import { GlobalSearch } from './GlobalSearch.jsx';
 
 const STYLES = `
   .adm-topbar-pro {
@@ -214,16 +214,7 @@ export function TopBar({ onMenuClick }) {
           <span />
         </span>
       </button>
-      <label className="adm-search">
-        <IconSearch style={{ color: 'var(--muted)', flexShrink: 0 }} />
-        <input
-          type="search"
-          className="adm-search-input"
-          placeholder="Search clients, phone numbers, WABA IDs…"
-          autoComplete="off"
-          enterKeyHint="search"
-        />
-      </label>
+      <GlobalSearch />
 
       <div className="adm-topbar-actions">
         <div ref={notifRef} style={{ position: 'relative' }}>
