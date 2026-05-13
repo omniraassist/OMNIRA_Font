@@ -6,7 +6,7 @@ import { testSupabaseConnection, isSupabaseConfigured } from "./config/supabase.
 import { supabaseAdmin } from "./config/supabase.js";
 import { signCustomerToken, requireCustomer } from "./customerJwt.js";
 import { getCheckoutPlans, getCheckoutPlan, computeNewSubscriptionEnd, invalidatePricingCache } from "./billing.js";
-import { invalidatePlatformSettingsCache, maskSecret } from "./platformSettings.js";
+import { getPlatformSetting, invalidatePlatformSettingsCache, maskSecret } from "./platformSettings.js";
 import { getStripe, applyPaidCheckoutSession, applyPaidPaymentIntent, OMNIRA_PAYMENT_INTENT_FLOW } from "./stripeSync.js";
 import {
   handleMetaWhatsAppGet,
@@ -379,9 +379,17 @@ app.post("/api/customer/stripe/payment-intent/sync", requireCustomer, async (req
 /** Dev / QA only: grant subscription without Stripe when OMNIRA_ALLOW_SUBSCRIPTION_SIMULATE=true */
 app.post("/api/customer/subscription/simulate", requireCustomer, async (req, res) => {
   try {
-    const allow = String(process.env.OMNIRA_ALLOW_SUBSCRIPTION_SIMULATE || "").trim() === "true";
+    // DB-first (platform_settings) → env fallback. Lets us toggle the dev-mode
+    // "Test · skip payment" button without a Vercel redeploy by just inserting
+    // the row in Supabase.
+    const allowRaw = await getPlatformSetting("OMNIRA_ALLOW_SUBSCRIPTION_SIMULATE", "");
+    const allow = String(allowRaw || "").trim().toLowerCase() === "true";
     if (!allow) {
-      return res.status(403).json({ ok: false, message: "Simulate disabled." });
+      return res.status(403).json({
+        ok: false,
+        message:
+          "Simulate disabled. Insert OMNIRA_ALLOW_SUBSCRIPTION_SIMULATE='true' into platform_settings (or set the env var) to enable."
+      });
     }
     const planId = String(req.body?.plan_id || "").trim();
     const plan = await getCheckoutPlan(planId);
