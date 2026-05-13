@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { LogoMark } from '../brand/LogoMark.jsx';
 import { PLAN_STORAGE_KEY } from '../../constants/plans.js';
 import { apiCall } from '../../api/client.js';
-import { usePanel } from '../../context/PanelContext.jsx';
+import { usePanel, TEST_PAID_KEY } from '../../context/PanelContext.jsx';
 import { EmbeddedStripePay } from './EmbeddedStripePay.jsx';
 
 export function PostLoginPaymentStep() {
@@ -105,6 +105,49 @@ export function PostLoginPaymentStep() {
       setErr(e.message || 'Simulación no disponible (OMNIRA_ALLOW_SUBSCRIPTION_SIMULATE=true en el servidor).');
     } finally {
       setBusy(false);
+    }
+  }
+
+  /**
+   * Pure client-side dev bypass — no backend call, no Stripe, no SQL. Sets a
+   * localStorage flag that PanelContext reads via applyTestPaidOverride() so
+   * the customer is treated as paid for the dashboard. Stripe code paths are
+   * untouched and continue to work for real customers.
+   */
+  function devSkipPayment() {
+    setErr('');
+    try {
+      const planId = plan?.id || 'annual';
+      const endsAt = new Date(Date.now() + 365 * 86400000).toISOString();
+      localStorage.setItem(
+        TEST_PAID_KEY,
+        JSON.stringify({
+          enabled: true,
+          plan_id: planId,
+          subscription_ends_at: endsAt,
+          enabled_at: new Date().toISOString(),
+        })
+      );
+      // Also patch the session user immediately so the next view (WhatsApp setup
+      // → Dashboard) renders as a paid customer without waiting for refresh.
+      try {
+        const sess = JSON.parse(localStorage.getItem('omnira_session') || '{}');
+        if (sess?.token && sess?.user) {
+          const u = {
+            ...sess.user,
+            subscription_plan_id: planId,
+            subscription_ends_at: endsAt,
+            subscriptionActive: true,
+            __test_paid: true,
+          };
+          localStorage.setItem('omnira_session', JSON.stringify({ ...sess, user: u }));
+        }
+      } catch {
+        /* ignore */
+      }
+      completePaymentStep();
+    } catch (e) {
+      setErr(e.message || 'Could not enable test mode');
     }
   }
 
@@ -224,8 +267,8 @@ export function PostLoginPaymentStep() {
                 </p>
                 <button
                   type="button"
-                  onClick={simulateLocal}
-                  disabled={busy || !plan?.id}
+                  onClick={devSkipPayment}
+                  disabled={busy}
                   style={{
                     width: '100%',
                     background: 'linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%)',
@@ -234,8 +277,8 @@ export function PostLoginPaymentStep() {
                     border: 0,
                     borderRadius: 10,
                     padding: '12px 18px',
-                    cursor: busy || !plan?.id ? 'not-allowed' : 'pointer',
-                    opacity: busy || !plan?.id ? 0.6 : 1,
+                    cursor: busy ? 'not-allowed' : 'pointer',
+                    opacity: busy ? 0.6 : 1,
                     fontSize: 14,
                     letterSpacing: '0.01em',
                     transition: 'filter .15s ease, transform .15s ease',
@@ -244,7 +287,7 @@ export function PostLoginPaymentStep() {
                   onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.08)'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.filter = 'none'; }}
                 >
-                  {busy ? 'Simulando…' : '⚡ Test · skip payment & go to dashboard'}
+                  ⚡ Test · skip payment & go to dashboard
                 </button>
               </section>
             ) : null}

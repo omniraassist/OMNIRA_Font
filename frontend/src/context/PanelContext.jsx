@@ -20,6 +20,42 @@ function writeSessionUser(user) {
   localStorage.setItem('omnira_session', JSON.stringify(next));
 }
 
+/**
+ * TEMP DEV BYPASS — when localStorage has a `omnira_test_paid` entry, treat the
+ * logged-in customer as if they had an active subscription so the dashboard
+ * is accessible without going through Stripe. The Stripe code paths are
+ * unchanged; this is a purely client-side override that lets the developer
+ * iterate on the customer dashboard. Remove the helper and its call sites in
+ * `openClientPanel` / `completeCustomerAuth` / `refreshCustomerUser` once
+ * payment testing is done.
+ */
+export const TEST_PAID_KEY = 'omnira_test_paid';
+function readTestPaid() {
+  try {
+    const raw = localStorage.getItem(TEST_PAID_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+function applyTestPaidOverride(user) {
+  if (!user) return user;
+  const test = readTestPaid();
+  if (!test?.enabled) return user;
+  const plan = test.plan_id || user.subscription_plan_id || 'annual';
+  const endsAt =
+    test.subscription_ends_at ||
+    user.subscription_ends_at ||
+    new Date(Date.now() + 365 * 86400000).toISOString();
+  return {
+    ...user,
+    subscription_plan_id: plan,
+    subscription_ends_at: endsAt,
+    subscriptionActive: true,
+    __test_paid: true,
+  };
+}
+
 export function PanelProvider({ children }) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState('login');
@@ -42,7 +78,8 @@ export function PanelProvider({ children }) {
     } catch {
       /* ignore */
     }
-    const u = res.user;
+    const u = applyTestPaidOverride(res.user);
+    if (u && u.__test_paid) writeSessionUser(u);
     setUser(u);
     if (!u?.subscriptionActive) {
       setView('planHome');
@@ -121,8 +158,9 @@ export function PanelProvider({ children }) {
       if (initial === 'stripe-canceled') {
         const sess = readSession();
         if (sess?.user && sess?.token) {
-          setUser(sess.user);
-          setView('paymentStep');
+          const u = applyTestPaidOverride(sess.user);
+          setUser(u);
+          setView(u.subscriptionActive ? 'dashboard' : 'paymentStep');
         } else {
           setView('login');
         }
@@ -136,10 +174,10 @@ export function PanelProvider({ children }) {
 
       const sess = readSession();
       if (sess?.user && sess?.token) {
-        setUser(sess.user);
+        setUser(applyTestPaidOverride(sess.user));
         try {
           const me = await apiCall('/api/customer/me');
-          const u = me.user;
+          const u = applyTestPaidOverride(me.user);
           writeSessionUser(u);
           setUser(u);
           if (!u.subscriptionActive) {
@@ -150,7 +188,8 @@ export function PanelProvider({ children }) {
           setView(done ? 'dashboard' : 'whatsAppSetup');
           return;
         } catch {
-          if (!sess.user?.subscriptionActive) {
+          const fallback = applyTestPaidOverride(sess.user);
+          if (!fallback?.subscriptionActive) {
             setView('planHome');
             return;
           }
@@ -173,6 +212,7 @@ export function PanelProvider({ children }) {
     try {
       localStorage.removeItem(PLAN_STORAGE_KEY);
       localStorage.removeItem(ONBOARDING_DONE_KEY);
+      localStorage.removeItem(TEST_PAID_KEY);
     } catch {
       /* ignore */
     }
@@ -186,9 +226,10 @@ export function PanelProvider({ children }) {
     try {
       const me = await apiCall('/api/customer/me');
       if (me?.user) {
-        writeSessionUser(me.user);
-        setUser(me.user);
-        return me.user;
+        const u = applyTestPaidOverride(me.user);
+        writeSessionUser(u);
+        setUser(u);
+        return u;
       }
     } catch {
       /* ignore */
