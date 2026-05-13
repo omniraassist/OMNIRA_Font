@@ -1034,11 +1034,13 @@ app.get("/api/customer/notifications", async (req, res) => {
 app.get("/api/admin/overview", async (_req, res) => {
   try {
     const now = new Date();
+    const dayMs = 86_400_000;
     const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-    const startOfWeek = new Date(now);
-    startOfWeek.setUTCDate(now.getUTCDate() - 6);
+    const startOfWeek = new Date(now.getTime() - 6 * dayMs);
     startOfWeek.setUTCHours(0, 0, 0, 0);
     const startWeekIso = startOfWeek.toISOString();
+    const startLastWeek = new Date(startOfWeek.getTime() - 7 * dayMs);
+    startLastWeek.setUTCHours(0, 0, 0, 0);
 
     const [customerCountRes, adminCountRes, paidCountRes, leadsCountRes] = await Promise.all([
       supabaseAdmin.from("customer_users").select("*", { count: "exact", head: true }),
@@ -1082,28 +1084,51 @@ app.get("/api/admin/overview", async (_req, res) => {
       .order("created_at", { ascending: false })
       .limit(6);
 
-    const { data: weekMessages } = await supabaseAdmin
+    // Last 14 days of inbound/outbound messages so the dashboard can both
+    // render the 7-day chart AND compute the WoW delta from the same data.
+    const { data: msg14 } = await supabaseAdmin
       .from("wa_messages")
-      .select("created_at")
-      .gte("created_at", startWeekIso);
+      .select("created_at, direction")
+      .gte("created_at", startLastWeek.toISOString());
 
     const byDay = new Map();
     for (let i = 0; i < 7; i += 1) {
-      const d = new Date(startOfWeek);
-      d.setUTCDate(startOfWeek.getUTCDate() + i);
+      const d = new Date(startOfWeek.getTime() + i * dayMs);
       const iso = d.toISOString().slice(0, 10);
       byDay.set(iso, {
         label: d.toLocaleDateString("en-US", { weekday: "short" }),
         date: iso,
-        messages: 0
+        messages: 0,
+        inbound: 0,
+        outbound: 0
       });
     }
-    for (const row of weekMessages || []) {
-      const key = asIsoDate(row.created_at).slice(0, 10);
-      const bucket = byDay.get(key);
-      if (bucket) bucket.messages += 1;
+    let messagesThisWeek = 0;
+    let messagesLastWeek = 0;
+    const startWeekTime = startOfWeek.getTime();
+    for (const m of msg14 || []) {
+      const t = new Date(m.created_at).getTime();
+      if (t >= startWeekTime) {
+        messagesThisWeek += 1;
+        const key = m.created_at.slice(0, 10);
+        const b = byDay.get(key);
+        if (b) {
+          b.messages += 1;
+          if (m.direction === "outbound") b.outbound += 1;
+          else b.inbound += 1;
+        }
+      } else {
+        messagesLastWeek += 1;
+      }
     }
     const messagesSeries = Array.from(byDay.values());
+    const messagesDelta = messagesThisWeek - messagesLastWeek;
+    const messagesDeltaPct =
+      messagesLastWeek > 0
+        ? Math.round((messagesDelta / messagesLastWeek) * 100)
+        : messagesThisWeek > 0
+          ? 100
+          : 0;
 
     return res.status(200).json({
       ok: true,
@@ -1118,6 +1143,12 @@ app.get("/api/admin/overview", async (_req, res) => {
         { id: "password_resets_month", label: "Resets this month", value: monthlyResets || 0, hint: "Current month" }
       ],
       messagesSeries,
+      activity: {
+        messagesThisWeek,
+        messagesLastWeek,
+        messagesDelta,
+        messagesDeltaPct
+      },
       recentClients: (recentClients || []).map((c) => ({
         id: c.id,
         businessName: `${c.first_name || ""} ${c.last_name || ""}`.trim() || c.email.split("@")[0],
