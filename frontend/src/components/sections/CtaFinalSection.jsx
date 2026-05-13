@@ -1,4 +1,9 @@
+import { usePricing } from '../../hooks/usePricing.js';
+
 export function CtaFinalSection() {
+  const { plansByCheapest } = usePricing();
+  const cheapest = plansByCheapest[0];
+  const cheapestPriceText = cheapest ? `desde ${cheapest.priceNum}€${cheapest.period}` : 'desde 49€/mes';
   return (
     <section id="cta-final">
       <div className="cta-orb-1" />
@@ -21,7 +26,7 @@ export function CtaFinalSection() {
           <div className="cta-btns reveal">
             <a href="https://buy.stripe.com/REPLACE" className="btn-primary btn-lg">
               <i className="fa-solid fa-rocket" />
-              Empezar — desde 49€/mes
+              Empezar — {cheapestPriceText}
             </a>
             <a
               href="https://wa.me/34682497790?text=Hola%2C%20me%20gustar%C3%ADa%20solicitar%20una%20demo%20de%20Omnira"

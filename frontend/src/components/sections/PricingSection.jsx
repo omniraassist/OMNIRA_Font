@@ -1,4 +1,8 @@
+import { usePricing } from '../../hooks/usePricing.js';
+
 export function PricingSection() {
+  const { plansByCheapest } = usePricing();
+
   return (
     <section id="precios" className="section">
       <div className="price-glow" />
@@ -16,172 +20,52 @@ export function PricingSection() {
         </div>
 
         <div className="plans-grid reveal">
-          <div className="plan-card">
-            <div className="plan-header">
-              <div className="plan-top-meta" aria-hidden="true" />
-              <div className="plan-name">1 mes</div>
-              <div className="plan-price-row">
-                <span className="plan-cur">€</span>
-                <span className="plan-num">49</span>
-                <span className="plan-period">/mes</span>
-              </div>
-              <div className="plan-total-row">Precio total: 49€ · Sin permanencia</div>
-            </div>
-            <div className="plan-body">
-              <div className="plan-divider" />
-              <div className="plan-feats">
-                {[
-                  'Bot con IA 24/7',
-                  'Reservas automáticas',
-                  'Conexión con calendario',
-                  'Recordatorios automáticos',
-                  'Activación inmediata',
-                  'Soporte incluido',
-                ].map((t) => (
-                  <div key={t} className="plan-feat">
-                    <div className="feat-check">
-                      <i className="fa-solid fa-check" />
-                    </div>
-                    <span>{t}</span>
+          {plansByCheapest.map((plan) => {
+            const months = Math.max(1, Math.round((plan.duration_days || 30) / 30));
+            const noteByLen = {
+              1: '🔒 Pago seguro · Cancela cuando quieras',
+              3: '🔒 Pago único trimestral',
+              6: '🔒 Pago único semestral',
+              12: '🔒 Pago único anual',
+            };
+            const cardClass = `plan-card${plan.featured ? ' featured' : ''}`;
+            return (
+              <div key={plan.id} className={cardClass}>
+                {plan.featured ? <div className="plan-ribbon">⚡ Mejor valor</div> : null}
+                <div className={`plan-header${plan.featured ? ' with-ribbon' : ''}`}>
+                  <div className="plan-top-meta" aria-hidden={!plan.savings}>
+                    {plan.savings ? (
+                      <span className={`plan-saving${plan.savingsHot ? ' hot' : ''}`}>{plan.savings}</span>
+                    ) : null}
                   </div>
-                ))}
-              </div>
-              <a href="https://buy.stripe.com/REPLACE_1M" className="plan-cta">
-                Empezar ahora →
-              </a>
-              <p className="plan-note">🔒 Pago seguro · Cancela cuando quieras</p>
-            </div>
-          </div>
-
-          <div className="plan-card">
-            <div className="plan-header">
-              <div className="plan-top-meta">
-                <span className="plan-saving">✦ Ahorras 18€</span>
-              </div>
-              <div className="plan-name">3 meses</div>
-              <div className="plan-price-row">
-                <span className="plan-cur">€</span>
-                <span className="plan-num">43</span>
-                <span className="plan-period">/mes</span>
-              </div>
-              <div className="plan-total-row">
-                Total: <strong>129€</strong> · Equivalente mensual
-              </div>
-            </div>
-            <div className="plan-body">
-              <div className="plan-divider" />
-              <div className="plan-feats">
-                {[
-                  'Todo del plan mensual',
-                  'Activación automática',
-                  'Reservas ilimitadas',
-                  'Conexión con calendario',
-                  'Recordatorios automáticos',
-                  'Soporte prioritario',
-                ].map((t) => (
-                  <div key={t} className="plan-feat">
-                    <div className="feat-check">
-                      <i className="fa-solid fa-check" />
-                    </div>
-                    <span>{t}</span>
+                  <div className="plan-name">{plan.name}</div>
+                  <div className="plan-price-row">
+                    <span className="plan-cur">€</span>
+                    <span className={`plan-num${plan.featured ? ' featured-num' : ''}`}>{plan.priceNum}</span>
+                    <span className="plan-period">{plan.period}</span>
                   </div>
-                ))}
-              </div>
-              <a href="https://buy.stripe.com/REPLACE_3M" className="plan-cta">
-                Empezar ahora →
-              </a>
-              <p className="plan-note">🔒 Pago único trimestral</p>
-            </div>
-          </div>
-
-          <div className="plan-card">
-            <div className="plan-header">
-              <div className="plan-top-meta">
-                <span className="plan-saving">✦ Ahorras 65€</span>
-              </div>
-              <div className="plan-name">6 meses</div>
-              <div className="plan-price-row">
-                <span className="plan-cur">€</span>
-                <span className="plan-num">38</span>
-                <span className="plan-period">/mes</span>
-              </div>
-              <div className="plan-total-row">
-                Total: <strong>229€</strong> · Equivalente mensual
-              </div>
-            </div>
-            <div className="plan-body">
-              <div className="plan-divider" />
-              <div className="plan-feats">
-                {[
-                  'Todo del plan mensual',
-                  'Activación automática',
-                  'Reservas ilimitadas',
-                  'Conexión con calendario',
-                  'Recordatorios automáticos',
-                  'Soporte prioritario VIP',
-                ].map((t) => (
-                  <div key={t} className="plan-feat">
-                    <div className="feat-check">
-                      <i className="fa-solid fa-check" />
-                    </div>
-                    <span>{t}</span>
+                  <div className="plan-total-row">{plan.totalRow}</div>
+                </div>
+                <div className="plan-body">
+                  <div className="plan-divider" />
+                  <div className="plan-feats">
+                    {plan.features.map((t) => (
+                      <div key={t} className="plan-feat">
+                        <div className={`feat-check${t.includes('Consultoría') ? ' gold-check' : ''}`}>
+                          <i className="fa-solid fa-check" />
+                        </div>
+                        <span className={t.includes('Consultoría') ? 'gold-feat' : undefined}>{t}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <a href="https://buy.stripe.com/REPLACE_6M" className="plan-cta">
-                Empezar ahora →
-              </a>
-              <p className="plan-note">🔒 Pago único semestral</p>
-            </div>
-          </div>
-
-          <div className="plan-card featured">
-            <div className="plan-ribbon">⚡ Mejor valor</div>
-            <div className="plan-header with-ribbon">
-              <div className="plan-top-meta">
-                <span className="plan-saving hot">🔥 Ahorras 189€</span>
-              </div>
-              <div className="plan-name">12 meses</div>
-              <div className="plan-price-row">
-                <span className="plan-cur">€</span>
-                <span className="plan-num featured-num">33</span>
-                <span className="plan-period">/mes</span>
-              </div>
-              <div className="plan-total-row">
-                Total: <strong>399€</strong> · Equivalente mensual
-              </div>
-            </div>
-            <div className="plan-body">
-              <div className="plan-divider" />
-              <div className="plan-feats">
-                {[
-                  'Todo del plan mensual',
-                  'Activación automática',
-                  'Reservas ilimitadas',
-                  'Conexión con calendario',
-                  'Recordatorios automáticos',
-                  'Soporte prioritario VIP',
-                ].map((t) => (
-                  <div key={t} className="plan-feat">
-                    <div className="feat-check">
-                      <i className="fa-solid fa-check" />
-                    </div>
-                    <span>{t}</span>
-                  </div>
-                ))}
-                <div className="plan-feat">
-                  <div className="feat-check gold-check">
-                    <i className="fa-solid fa-check" />
-                  </div>
-                  <span className="gold-feat">Consultoría mensual 1h</span>
+                  <a href="#cta-final" className={`plan-cta${plan.featured ? ' primary-cta' : ''}`}>
+                    Empezar ahora →
+                  </a>
+                  <p className="plan-note">{noteByLen[months] || '🔒 Pago seguro'}</p>
                 </div>
               </div>
-              <a href="https://buy.stripe.com/REPLACE_12M" className="plan-cta primary-cta">
-                Empezar ahora →
-              </a>
-              <p className="plan-note">🔒 Pago único anual</p>
-            </div>
-          </div>
+            );
+          })}
         </div>
 
         <div

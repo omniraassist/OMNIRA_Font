@@ -1,6 +1,6 @@
 import Stripe from "stripe";
 import { supabaseAdmin } from "./config/supabase.js";
-import { CHECKOUT_PLANS, computeNewSubscriptionEnd, isValidPlanId } from "./billing.js";
+import { getCheckoutPlan, computeNewSubscriptionEnd } from "./billing.js";
 
 export function getStripe() {
   const k = String(process.env.STRIPE_SECRET_KEY || "").trim();
@@ -17,10 +17,13 @@ export async function applyPaidCheckoutSession(session) {
   }
   const userId = String(session.metadata?.customer_user_id || "").trim();
   const planId = String(session.metadata?.plan_id || "").trim();
-  if (!userId || !isValidPlanId(planId)) {
+  if (!userId) {
     return { ok: false, reason: "bad_metadata" };
   }
-  const plan = CHECKOUT_PLANS[planId];
+  const plan = await getCheckoutPlan(planId);
+  if (!plan) {
+    return { ok: false, reason: "bad_metadata" };
+  }
   const sessionId = session.id;
 
   const { data: dup } = await supabaseAdmin
@@ -95,10 +98,13 @@ export async function applyPaidPaymentIntent(pi) {
   }
   const userId = String(pi.metadata?.customer_user_id || "").trim();
   const planId = String(pi.metadata?.plan_id || "").trim();
-  if (!userId || !isValidPlanId(planId)) {
+  if (!userId) {
     return { ok: false, reason: "bad_metadata" };
   }
-  const plan = CHECKOUT_PLANS[planId];
+  const plan = await getCheckoutPlan(planId);
+  if (!plan) {
+    return { ok: false, reason: "bad_metadata" };
+  }
   if (Number(pi.amount) !== plan.amountCents || String(pi.currency || "").toLowerCase() !== "eur") {
     return { ok: false, reason: "amount_mismatch" };
   }

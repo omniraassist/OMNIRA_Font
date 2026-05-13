@@ -1,13 +1,18 @@
-/** Subscription packages — post-login selection & landing alignment */
+/**
+ * Subscription packages. Features, copy, and featured flags are static (design-
+ * controlled). Prices come from /api/public/pricing at runtime — admins edit them
+ * in /pricing on the admin panel. The fallback amounts here match server billing
+ * fallbacks so checkout still works if the API briefly fails.
+ */
 
 export const OMNIRA_PLANS = [
   {
     id: 'monthly',
     name: '1 mes',
-    priceNum: '49',
     period: '/mes',
-    totalRow: 'Precio total: 49€ · Sin permanencia',
-    savings: null,
+    durationDays: 30,
+    fallbackAmountCents: 4900,
+    sort_order: 1,
     featured: false,
     features: [
       'Bot con IA 24/7',
@@ -17,14 +22,15 @@ export const OMNIRA_PLANS = [
       'Activación inmediata',
       'Soporte incluido',
     ],
+    totalSuffix: 'Sin permanencia',
   },
   {
     id: 'quarterly',
     name: '3 meses',
-    priceNum: '43',
     period: '/mes',
-    totalRow: 'Precio total: 129€ · Ahorras 18€',
-    savings: '✦ Ahorras 18€',
+    durationDays: 90,
+    fallbackAmountCents: 12900,
+    sort_order: 2,
     featured: false,
     features: [
       'Todo del plan mensual',
@@ -38,10 +44,10 @@ export const OMNIRA_PLANS = [
   {
     id: 'semiannual',
     name: '6 meses',
-    priceNum: '38',
     period: '/mes',
-    totalRow: 'Precio total: 229€ · Ahorras 65€',
-    savings: '✦ Ahorras 65€',
+    durationDays: 180,
+    fallbackAmountCents: 22900,
+    sort_order: 3,
     featured: false,
     features: [
       'Todo del plan mensual',
@@ -55,11 +61,10 @@ export const OMNIRA_PLANS = [
   {
     id: 'annual',
     name: '12 meses',
-    priceNum: '33',
     period: '/mes',
-    totalRow: 'Precio total: 399€ · Ahorras 189€',
-    savings: '🔥 Mejor valor — ahorras 189€',
-    savingsHot: true,
+    durationDays: 365,
+    fallbackAmountCents: 39900,
+    sort_order: 4,
     featured: true,
     features: [
       'Todo del plan mensual',
@@ -73,18 +78,67 @@ export const OMNIRA_PLANS = [
   },
 ];
 
-/** Total prepago en céntimos (alineado con server/billing.js) */
-export const PLAN_TOTAL_CENTS = {
-  monthly: 4900,
-  quarterly: 12900,
-  semiannual: 22900,
-  annual: 39900,
-};
-
-/** Barato → caro para el flujo de selección */
-export const OMNIRA_PLANS_CHECKOUT_ORDER = [...OMNIRA_PLANS].sort(
-  (a, b) => (PLAN_TOTAL_CENTS[a.id] || 0) - (PLAN_TOTAL_CENTS[b.id] || 0)
+/** EUR cents per pack — used by clients/widgets that can't hit /api/public/pricing yet. */
+export const PLAN_TOTAL_CENTS = Object.fromEntries(
+  OMNIRA_PLANS.map((p) => [p.id, p.fallbackAmountCents])
 );
+
+/**
+ * Merge a static OMNIRA_PLANS row with a live row from /api/public/pricing and
+ * compute display strings (`priceNum`, `totalRow`, `savings`) so consumers can
+ * keep the same shape they used before the dynamic-pricing migration. Savings
+ * are computed against the live monthly price so they update when the admin
+ * changes pricing.
+ */
+export function mergePlanDisplay(staticPlan, live) {
+  const amountCents = Number(live?.amount_cents ?? staticPlan.fallbackAmountCents);
+  const durationDays = Number(live?.duration_days ?? staticPlan.durationDays);
+  const months = Math.max(1, Math.round(durationDays / 30));
+  const perMonthCents = Math.round(amountCents / months);
+  const priceNum = String(Math.round(perMonthCents / 100));
+  const totalEuro = (amountCents / 100).toFixed(0);
+
+  // Savings: only meaningful for packs ≥ 3 months; compare to N × monthly_total.
+  let savings = null;
+  let savingsHot = false;
+  if (months > 1) {
+    const monthly = OMNIRA_PLANS.find((p) => p.id === 'monthly');
+    const monthlyAmount = Number(monthly?.fallbackAmountCents || 4900);
+    const monthlyLive = live?.id !== 'monthly' && live ? null : null; // never override monthly here
+    const baselineCents = (monthlyLive?.amount_cents ?? monthlyAmount) * months;
+    const savedCents = Math.max(0, baselineCents - amountCents);
+    if (savedCents > 0) {
+      const savedEuro = Math.round(savedCents / 100);
+      savings = staticPlan.id === 'annual' ? `🔥 Mejor valor — ahorras ${savedEuro}€` : `✦ Ahorras ${savedEuro}€`;
+      savingsHot = staticPlan.id === 'annual';
+    }
+  }
+
+  const totalRow =
+    months === 1
+      ? `Precio total: ${totalEuro}€ · ${staticPlan.totalSuffix || 'Sin permanencia'}`
+      : savings
+        ? `Precio total: ${totalEuro}€ · ${savings.replace(/^[^A-Za-z]+/, '')}`
+        : `Precio total: ${totalEuro}€`;
+
+  return {
+    ...staticPlan,
+    amount_cents: amountCents,
+    duration_days: durationDays,
+    period: live?.period_text || staticPlan.period || '/mes',
+    name: live?.label || staticPlan.name,
+    priceNum,
+    totalRow,
+    savings,
+    savingsHot,
+    sort_order: live?.sort_order ?? staticPlan.sort_order ?? 0,
+  };
+}
+
+/** Default order used by the static plan picker before /api/public/pricing resolves. */
+export const OMNIRA_PLANS_CHECKOUT_ORDER = [...OMNIRA_PLANS]
+  .map((p) => mergePlanDisplay(p, null))
+  .sort((a, b) => (a.amount_cents || 0) - (b.amount_cents || 0));
 
 /** Nivel para bloqueo de secciones del panel (1 = básico … 4 = anual) */
 export const PLAN_TIER = {

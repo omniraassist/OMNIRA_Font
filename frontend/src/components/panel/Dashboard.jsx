@@ -4,9 +4,10 @@ import mammoth from 'mammoth';
 import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { apiCall } from '../../api/client.js';
-import { canAccessDashboardPage, OMNIRA_PLANS } from '../../constants/plans.js';
+import { canAccessDashboardPage } from '../../constants/plans.js';
 import { LogoMark } from '../brand/LogoMark.jsx';
 import { usePanel } from '../../context/PanelContext.jsx';
+import { usePricing } from '../../hooks/usePricing.js';
 
 const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 GlobalWorkerOptions.workerSrc = pdfWorker;
@@ -86,6 +87,7 @@ function ResList({ list }) {
 
 export function Dashboard() {
   const { user, handleLogout } = usePanel();
+  const { plansByCheapest } = usePricing();
   const [page, setPage] = useState('dash');
   const [stats, setStats] = useState({ reservas: 0, mensajes: 0, respuesta: '2s' });
   const [recent, setRecent] = useState([]);
@@ -146,10 +148,30 @@ export function Dashboard() {
       /* ignore */
     }
     try {
-      const bt = await apiCall('/api/bot');
-      setBot(bt || {});
+      // Primary source: real per-customer bot config (system prompt + knowledge base
+      // + greeting) stored in Supabase. Falls back to the legacy /api/bot (localStorage
+      // stub) only when not signed in or the endpoint is unreachable.
+      const sess = JSON.parse(localStorage.getItem('omnira_session') || '{}');
+      if (sess.token) {
+        const real = await apiCall('/api/customer/bot-config');
+        const c = real?.config || {};
+        setBot({
+          greeting: c.greeting || '',
+          instructions: c.system_prompt || '',
+          knowledgeBaseText: c.knowledge_base || '',
+          knowledgeBaseSources: [],
+        });
+      } else {
+        const bt = await apiCall('/api/bot');
+        setBot(bt || {});
+      }
     } catch {
-      /* ignore */
+      try {
+        const bt = await apiCall('/api/bot');
+        setBot(bt || {});
+      } catch {
+        /* ignore */
+      }
     }
     try {
       if (user?.email) {
@@ -185,7 +207,7 @@ export function Dashboard() {
   };
 
   function planDisplayName(planId) {
-    return OMNIRA_PLANS.find((p) => p.id === planId)?.name || planId || 'Plan';
+    return plansByCheapest.find((p) => p.id === planId)?.name || planId || 'Plan';
   }
 
   function subscriptionDaysLeft(endsAt) {
@@ -312,9 +334,12 @@ export function Dashboard() {
   const saveBotCfg = async (e) => {
     e.preventDefault();
     try {
-      await apiCall('/api/bot', {
-        method: 'PUT',
-        body: JSON.stringify({ greeting: bot.greeting, instructions: bot.instructions || bot.instr || '' }),
+      await apiCall('/api/customer/bot-config', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          greeting: bot.greeting || '',
+          system_prompt: bot.instructions || bot.instr || '',
+        }),
       });
       showToast('Configuración guardada', 'success');
     } catch (ex) {
@@ -373,13 +398,12 @@ export function Dashboard() {
 
   async function saveKnowledgeBase() {
     try {
-      await apiCall('/api/bot', {
-        method: 'PUT',
+      await apiCall('/api/customer/bot-config', {
+        method: 'PATCH',
         body: JSON.stringify({
           greeting: bot.greeting || '',
-          instructions: bot.instructions || bot.instr || '',
-          knowledgeBaseText: bot.knowledgeBaseText || '',
-          knowledgeBaseSources: bot.knowledgeBaseSources || [],
+          system_prompt: bot.instructions || bot.instr || '',
+          knowledge_base: bot.knowledgeBaseText || '',
         }),
       });
       showToast('Knowledge Base guardada', 'success');
@@ -1070,41 +1094,31 @@ export function Dashboard() {
               <strong style={{ color: 'var(--text)' }}>24/7 sin esfuerzo</strong>.
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 22 }}>
-              <div className="p-card" style={{ textAlign: 'center', padding: 14 }}>
-                <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>1 mes</div>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 28, fontWeight: 800, color: '#fff' }}>49€</div>
-                <div style={{ fontSize: 10, color: 'var(--muted)' }}>/mes · total 49€</div>
-                <a href="https://wa.me/34682497790?text=Hola%2C%20quiero%20el%20pack%201%20mes%20%2849%E2%82%AC%29" target="_blank" rel="noopener noreferrer" className="btn-save-form" style={{ display: 'flex', justifyContent: 'center', marginTop: 12, textDecoration: 'none', fontSize: 13 }}>
-                  Contratar
-                </a>
-              </div>
-              <div className="p-card" style={{ textAlign: 'center', padding: 14 }}>
-                <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>3 meses</div>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 28, fontWeight: 800, color: '#fff' }}>43€</div>
-                <div style={{ fontSize: 10, color: 'var(--muted)' }}>/mes equiv. · total 129€</div>
-                <div style={{ fontSize: 10, color: 'var(--em)', marginTop: 2 }}>Ahorras 18€</div>
-                <a href="https://wa.me/34682497790?text=Hola%2C%20quiero%20el%20pack%203%20meses%20%28129%E2%82%AC%29" target="_blank" rel="noopener noreferrer" className="btn-save-form" style={{ display: 'flex', justifyContent: 'center', marginTop: 8, textDecoration: 'none', fontSize: 13 }}>
-                  Contratar
-                </a>
-              </div>
-              <div className="p-card" style={{ textAlign: 'center', padding: 14 }}>
-                <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>6 meses</div>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 28, fontWeight: 800, color: '#fff' }}>38€</div>
-                <div style={{ fontSize: 10, color: 'var(--muted)' }}>/mes equiv. · total 229€</div>
-                <div style={{ fontSize: 10, color: 'var(--em)', marginTop: 2 }}>Ahorras 65€</div>
-                <a href="https://wa.me/34682497790?text=Hola%2C%20quiero%20el%20pack%206%20meses%20%28229%E2%82%AC%29" target="_blank" rel="noopener noreferrer" className="btn-save-form" style={{ display: 'flex', justifyContent: 'center', marginTop: 8, textDecoration: 'none', fontSize: 13 }}>
-                  Contratar
-                </a>
-              </div>
-              <div className="p-card" style={{ textAlign: 'center', padding: 14, borderColor: 'var(--em)', background: 'rgba(0,229,160,0.04)' }}>
-                <div style={{ fontSize: 10, color: 'var(--em)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>⚡ 12 meses</div>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 28, fontWeight: 800, color: '#fff' }}>33€</div>
-                <div style={{ fontSize: 10, color: 'var(--muted)' }}>/mes equiv. · total 399€</div>
-                <div style={{ fontSize: 10, color: 'var(--em)', marginTop: 2 }}>Ahorras 189€</div>
-                <a href="https://wa.me/34682497790?text=Hola%2C%20quiero%20el%20pack%2012%20meses%20%28399%E2%82%AC%29" target="_blank" rel="noopener noreferrer" className="btn-save-form" style={{ display: 'flex', justifyContent: 'center', marginTop: 8, textDecoration: 'none', fontSize: 13 }}>
-                  Contratar
-                </a>
-              </div>
+              {plansByCheapest.map((plan) => {
+                const totalEuro = Math.round((plan.amount_cents || 0) / 100);
+                const months = Math.max(1, Math.round((plan.duration_days || 30) / 30));
+                const monthlyTextLabel = months === 1 ? `/mes · total ${totalEuro}€` : `/mes equiv. · total ${totalEuro}€`;
+                const cardStyle = plan.featured
+                  ? { textAlign: 'center', padding: 14, borderColor: 'var(--em)', background: 'rgba(0,229,160,0.04)' }
+                  : { textAlign: 'center', padding: 14 };
+                const labelStyle = plan.featured
+                  ? { fontSize: 10, color: 'var(--em)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }
+                  : { fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 };
+                const wa = `https://wa.me/34682497790?text=${encodeURIComponent(`Hola, quiero el pack ${plan.name} (${totalEuro}€)`)}`;
+                return (
+                  <div key={plan.id} className="p-card" style={cardStyle}>
+                    <div style={labelStyle}>{plan.featured ? '⚡ ' : ''}{plan.name}</div>
+                    <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 28, fontWeight: 800, color: '#fff' }}>{plan.priceNum}€</div>
+                    <div style={{ fontSize: 10, color: 'var(--muted)' }}>{monthlyTextLabel}</div>
+                    {plan.savings ? (
+                      <div style={{ fontSize: 10, color: 'var(--em)', marginTop: 2 }}>{plan.savings.replace(/^[^A-Za-z]+/, '')}</div>
+                    ) : null}
+                    <a href={wa} target="_blank" rel="noopener noreferrer" className="btn-save-form" style={{ display: 'flex', justifyContent: 'center', marginTop: 8, textDecoration: 'none', fontSize: 13 }}>
+                      Contratar
+                    </a>
+                  </div>
+                );
+              })}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
               {['Bot responde por WhatsApp 24/7', 'Reservas ilimitadas en el calendario', 'Recordatorios automáticos', '14 días de prueba gratis'].map((t) => (

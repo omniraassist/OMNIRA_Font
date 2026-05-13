@@ -49,3 +49,35 @@ export function IconSearch(props) {
     </svg>
   );
 }
+export function IconLeads(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" {...props}>
+      <path d="M3 11a9 9 0 0 1 18 0v9H6a3 3 0 0 1-3-3v-6z" strokeLinejoin="round" />
+      <path d="M9 14h6M9 17h4" strokeLinecap="round" />
+      <circle cx="12" cy="9" r="1.5" />
+    </svg>
+  );
+}
+export function IconChats(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" {...props}>
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+export function IconPricing(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" {...props}>
+      <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" strokeLinejoin="round" />
+      <circle cx="7" cy="7" r="1.5" />
+    </svg>
+  );
+}
+export function IconBrain(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" {...props}>
+      <path d="M9 4a3 3 0 0 0-3 3v0a3 3 0 0 0-2 5.5A3 3 0 0 0 6 17v0a3 3 0 0 0 3 3h0a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3z" strokeLinejoin="round" />
+      <path d="M15 4a3 3 0 0 1 3 3v0a3 3 0 0 1 2 5.5A3 3 0 0 1 18 17v0a3 3 0 0 1-3 3h0a3 3 0 0 1-3-3" strokeLinejoin="round" />
+    </svg>
+  );
+}

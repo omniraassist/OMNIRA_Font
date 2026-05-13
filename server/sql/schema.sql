@@ -153,6 +153,127 @@ create table if not exists public.whatsapp_message_templates (
 create index if not exists idx_whatsapp_message_templates_synced
   on public.whatsapp_message_templates(last_synced_at desc);
 
+-- ---------------------------------------------------------------------------
+-- WhatsApp conversation log + extracted leads (Phase 1 — single-tenant; the
+-- customer_user_id FK is nullable now so Phase 3 multi-tenant can backfill
+-- without migration).
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.wa_messages (
+  id uuid primary key default gen_random_uuid(),
+  customer_user_id uuid references public.customer_users(id) on delete set null,
+  phone_number_id text,
+  wa_from text not null,
+  wa_message_id text,
+  direction text not null check (direction in ('inbound','outbound')),
+  message_type text,
+  body text,
+  meta_payload jsonb,
+  language text,
+  created_at timestamptz not null default now()
+);
+
+create unique index if not exists idx_wa_messages_wa_message_id_unique
+  on public.wa_messages(wa_message_id)
+  where wa_message_id is not null;
+
+create index if not exists idx_wa_messages_wa_from
+  on public.wa_messages(wa_from);
+
+create index if not exists idx_wa_messages_created_at
+  on public.wa_messages(created_at desc);
+
+create index if not exists idx_wa_messages_phone_number_id
+  on public.wa_messages(phone_number_id);
+
+create table if not exists public.wa_leads (
+  id uuid primary key default gen_random_uuid(),
+  customer_user_id uuid references public.customer_users(id) on delete set null,
+  phone_number_id text,
+  wa_from text not null,
+  name text,
+  email text,
+  phone text,
+  intent text,
+  language text,
+  confidence numeric,
+  notes text,
+  status text not null default 'new' check (status in ('new','contacted','qualified','converted','lost')),
+  first_seen_at timestamptz not null default now(),
+  last_message_at timestamptz not null default now(),
+  message_count integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists idx_wa_leads_phone_number_wa_from_unique
+  on public.wa_leads(phone_number_id, wa_from);
+
+create index if not exists idx_wa_leads_created_at
+  on public.wa_leads(created_at desc);
+
+create index if not exists idx_wa_leads_status
+  on public.wa_leads(status);
+
+create index if not exists idx_wa_leads_email
+  on public.wa_leads(email);
+
+-- ---------------------------------------------------------------------------
+-- Pricing plans (admin-editable; Stripe Checkout reads amount_cents at runtime).
+-- One row per pack. id matches the customer-facing plan_id used by Stripe metadata.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.pricing_plans (
+  id text primary key,
+  label text not null,
+  period_text text,
+  amount_cents integer not null check (amount_cents > 0),
+  duration_days integer not null check (duration_days > 0),
+  currency text not null default 'eur',
+  sort_order integer not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+insert into public.pricing_plans (id, label, period_text, amount_cents, duration_days, sort_order)
+values
+  ('monthly',    '1 mes',    '/mes',  4900,  30, 1),
+  ('quarterly',  '3 meses',  '/mes', 12900,  90, 2),
+  ('semiannual', '6 meses',  '/mes', 22900, 180, 3),
+  ('annual',     '12 meses', '/mes', 39900, 365, 4)
+on conflict (id) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- Bot configuration (system prompt + knowledge base + greeting + lead extraction
+-- prompt). One platform row, one per paying customer. Admins edit the platform
+-- row from /bot-config; customers edit their own from the Knowledge Training
+-- panel. metaWhatsAppWebhook reads from this table — the prompt is no longer
+-- hardcoded in source.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.bot_configs (
+  id uuid primary key default gen_random_uuid(),
+  scope text not null check (scope in ('platform','customer')),
+  customer_user_id uuid references public.customer_users(id) on delete cascade,
+  system_prompt text,
+  knowledge_base text,
+  greeting text,
+  lead_extraction_prompt text,
+  is_active boolean not null default true,
+  updated_by text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint bot_configs_customer_required_when_customer
+    check ((scope = 'customer' and customer_user_id is not null) or (scope = 'platform' and customer_user_id is null))
+);
+
+create unique index if not exists idx_bot_configs_platform_unique
+  on public.bot_configs(scope) where scope = 'platform';
+
+create unique index if not exists idx_bot_configs_customer_unique
+  on public.bot_configs(customer_user_id) where scope = 'customer';
+
 -- =============================================================================
 -- Stripe Dashboard → Webhooks → your endpoint (e.g. https://API/api/stripe/webhook)
 --   Required events:

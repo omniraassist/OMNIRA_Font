@@ -5,9 +5,14 @@ import crypto from "crypto";
 import { testSupabaseConnection, isSupabaseConfigured } from "./config/supabase.js";
 import { supabaseAdmin } from "./config/supabase.js";
 import { signCustomerToken, requireCustomer } from "./customerJwt.js";
-import { CHECKOUT_PLANS, isValidPlanId, computeNewSubscriptionEnd } from "./billing.js";
+import { getCheckoutPlans, getCheckoutPlan, computeNewSubscriptionEnd, invalidatePricingCache } from "./billing.js";
 import { getStripe, applyPaidCheckoutSession, applyPaidPaymentIntent, OMNIRA_PAYMENT_INTENT_FLOW } from "./stripeSync.js";
-import { handleMetaWhatsAppGet, handleMetaWhatsAppPost, getMetaWhatsAppDeployDiagnostics } from "./metaWhatsAppWebhook.js";
+import {
+  handleMetaWhatsAppGet,
+  handleMetaWhatsAppPost,
+  getMetaWhatsAppDeployDiagnostics,
+  invalidateBotConfigCache
+} from "./metaWhatsAppWebhook.js";
 
 const app = express();
 const port = Number(process.env.PORT || 5000);
@@ -190,14 +195,14 @@ app.get("/api/customer/me", requireCustomer, async (req, res) => {
 app.post("/api/customer/stripe/checkout", requireCustomer, async (req, res) => {
   try {
     const planId = String(req.body?.plan_id || "").trim();
-    if (!isValidPlanId(planId)) {
+    const plan = await getCheckoutPlan(planId);
+    if (!plan) {
       return res.status(400).json({ ok: false, message: "Invalid plan_id." });
     }
     const stripe = getStripe();
     if (!stripe) {
       return res.status(503).json({ ok: false, message: "STRIPE_SECRET_KEY not configured on server." });
     }
-    const plan = CHECKOUT_PLANS[planId];
     const base = publicAppUrl();
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -206,7 +211,7 @@ app.post("/api/customer/stripe/checkout", requireCustomer, async (req, res) => {
       line_items: [
         {
           price_data: {
-            currency: "eur",
+            currency: plan.currency || "eur",
             unit_amount: plan.amountCents,
             product_data: {
               name: `Omnira — ${plan.label}`,
@@ -276,21 +281,45 @@ app.get("/api/public/stripe-publishable-key", (_req, res) => {
   return res.status(200).json({ ok: true, publishableKey: key });
 });
 
+/**
+ * Public pricing (active plans only) — landing page, customer panel, and any
+ * widget read this so they always show what the admin set in /api/admin/pricing.
+ */
+app.get("/api/public/pricing", async (_req, res) => {
+  try {
+    const map = await getCheckoutPlans();
+    const plans = Object.entries(map)
+      .map(([id, p]) => ({
+        id,
+        label: p.label,
+        period_text: p.periodText || "",
+        amount_cents: p.amountCents,
+        duration_days: p.durationDays,
+        currency: p.currency || "eur",
+        sort_order: p.sortOrder || 0
+      }))
+      .sort((a, b) => a.sort_order - b.sort_order);
+    return res.status(200).json({ ok: true, plans });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Pricing failed: ${error.message}` });
+  }
+});
+
 /** Create PaymentIntent for embedded card pay (same plans as Checkout redirect). */
 app.post("/api/customer/stripe/payment-intent", requireCustomer, async (req, res) => {
   try {
     const planId = String(req.body?.plan_id || "").trim();
-    if (!isValidPlanId(planId)) {
+    const plan = await getCheckoutPlan(planId);
+    if (!plan) {
       return res.status(400).json({ ok: false, message: "Invalid plan_id." });
     }
     const stripe = getStripe();
     if (!stripe) {
       return res.status(503).json({ ok: false, message: "STRIPE_SECRET_KEY not configured." });
     }
-    const plan = CHECKOUT_PLANS[planId];
     const pi = await stripe.paymentIntents.create({
       amount: plan.amountCents,
-      currency: "eur",
+      currency: plan.currency || "eur",
       automatic_payment_methods: { enabled: true },
       receipt_email: req.customerEmail || undefined,
       description: `Omnira — ${plan.label}`,
@@ -354,10 +383,10 @@ app.post("/api/customer/subscription/simulate", requireCustomer, async (req, res
       return res.status(403).json({ ok: false, message: "Simulate disabled." });
     }
     const planId = String(req.body?.plan_id || "").trim();
-    if (!isValidPlanId(planId)) {
+    const plan = await getCheckoutPlan(planId);
+    if (!plan) {
       return res.status(400).json({ ok: false, message: "Invalid plan_id." });
     }
-    const plan = CHECKOUT_PLANS[planId];
     const { data: row } = await supabaseAdmin
       .from("customer_users")
       .select("subscription_ends_at")
@@ -455,19 +484,29 @@ app.get("/api/admin/users", async (req, res) => {
 
     const { data, error } = await supabaseAdmin
       .from("customer_users")
-      .select("id, email, first_name, last_name, phone, is_active, created_at, updated_at")
+      .select(
+        "id, email, first_name, last_name, phone, is_active, subscription_plan_id, subscription_ends_at, created_at, updated_at"
+      )
       .order("created_at", { ascending: false });
     if (error) throw error;
 
-    let users = (data || []).map((u) => ({
-      id: u.id,
-      email: u.email,
-      first_name: u.first_name || "",
-      last_name: u.last_name || "",
-      phone: u.phone || "",
-      is_active: !!u.is_active,
-      created_at: u.created_at
-    }));
+    let users = (data || []).map((u) => {
+      const subscriptionActive = Boolean(
+        u.subscription_ends_at && new Date(u.subscription_ends_at) > new Date()
+      );
+      return {
+        id: u.id,
+        email: u.email,
+        first_name: u.first_name || "",
+        last_name: u.last_name || "",
+        phone: u.phone || "",
+        is_active: !!u.is_active,
+        plan: u.subscription_plan_id || null,
+        subscription_ends_at: u.subscription_ends_at,
+        subscription_active: subscriptionActive,
+        created_at: u.created_at
+      };
+    });
 
     if (search) {
       users = users.filter(
@@ -582,6 +621,172 @@ app.get("/api/admin/notifications", async (_req, res) => {
   }
 });
 
+/**
+ * Customer WhatsApp data (Phase 1 single-tenant: until per-customer Meta routing
+ * lands in Phase 3, only rows that already have customer_user_id = req.customerId
+ * are returned. New customers see empty lists with a guidance hint, which is the
+ * intended behavior — they haven't connected their own WhatsApp yet).
+ */
+app.get("/api/customer/wa-conversations", requireCustomer, async (req, res) => {
+  try {
+    const limit = Math.min(300, Math.max(1, Number(req.query.limit) || 100));
+    const { data: rows, error } = await supabaseAdmin
+      .from("wa_messages")
+      .select("phone_number_id, wa_from, direction, body, created_at")
+      .eq("customer_user_id", req.customerId)
+      .order("created_at", { ascending: false })
+      .limit(1500);
+    if (error) throw error;
+
+    const byKey = new Map();
+    for (const r of rows || []) {
+      const key = `${r.phone_number_id || ""}|${r.wa_from}`;
+      const cur = byKey.get(key);
+      if (!cur) {
+        byKey.set(key, {
+          phone_number_id: r.phone_number_id || null,
+          wa_from: r.wa_from,
+          last_direction: r.direction,
+          last_body: r.body || "",
+          last_at: r.created_at,
+          message_count: 1,
+          inbound_count: r.direction === "inbound" ? 1 : 0,
+          outbound_count: r.direction === "outbound" ? 1 : 0
+        });
+      } else {
+        cur.message_count += 1;
+        if (r.direction === "inbound") cur.inbound_count += 1;
+        else cur.outbound_count += 1;
+      }
+    }
+    const conversations = Array.from(byKey.values())
+      .sort((a, b) => String(b.last_at).localeCompare(String(a.last_at)))
+      .slice(0, limit);
+
+    if (conversations.length) {
+      const { data: leads } = await supabaseAdmin
+        .from("wa_leads")
+        .select("phone_number_id, wa_from, id, name, email, intent, status, confidence, language")
+        .eq("customer_user_id", req.customerId);
+      const leadIdx = new Map();
+      for (const l of leads || []) {
+        leadIdx.set(`${l.phone_number_id || ""}|${l.wa_from}`, l);
+      }
+      for (const c of conversations) {
+        c.lead = leadIdx.get(`${c.phone_number_id || ""}|${c.wa_from}`) || null;
+      }
+    }
+
+    return res.status(200).json({ ok: true, conversations });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Customer wa-conversations failed: ${error.message}` });
+  }
+});
+
+app.get("/api/customer/wa-messages", requireCustomer, async (req, res) => {
+  try {
+    const from = String(req.query.from || "").trim();
+    const limit = Math.min(500, Math.max(1, Number(req.query.limit) || 200));
+    let q = supabaseAdmin
+      .from("wa_messages")
+      .select("id, phone_number_id, wa_from, direction, message_type, body, language, created_at")
+      .eq("customer_user_id", req.customerId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (from) q = q.eq("wa_from", from);
+    const { data, error } = await q;
+    if (error) throw error;
+    return res.status(200).json({ ok: true, messages: data || [] });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Customer wa-messages failed: ${error.message}` });
+  }
+});
+
+app.get("/api/customer/leads", requireCustomer, async (req, res) => {
+  try {
+    const status = String(req.query.status || "").trim().toLowerCase();
+    const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 100));
+    let q = supabaseAdmin
+      .from("wa_leads")
+      .select(
+        "id, phone_number_id, wa_from, name, email, phone, intent, language, confidence, notes, status, message_count, first_seen_at, last_message_at, created_at"
+      )
+      .eq("customer_user_id", req.customerId)
+      .order("last_message_at", { ascending: false })
+      .limit(limit);
+    if (["new", "contacted", "qualified", "converted", "lost"].includes(status)) {
+      q = q.eq("status", status);
+    }
+    const { data, error } = await q;
+    if (error) throw error;
+    return res.status(200).json({ ok: true, leads: data || [] });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Customer leads failed: ${error.message}` });
+  }
+});
+
+/**
+ * Customer-side bot config: each paying customer can curate their own prompt +
+ * knowledge base. Phase-3 multi-tenant routing will use these rows; until then,
+ * the customer can prepare their content and admin can preview/approve.
+ */
+async function ensureCustomerBotConfig(customerId) {
+  const { data } = await supabaseAdmin
+    .from("bot_configs")
+    .select("id")
+    .eq("scope", "customer")
+    .eq("customer_user_id", customerId)
+    .maybeSingle();
+  if (data) return data;
+  const { data: created, error } = await supabaseAdmin
+    .from("bot_configs")
+    .insert({ scope: "customer", customer_user_id: customerId })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return created;
+}
+
+app.get("/api/customer/bot-config", requireCustomer, async (req, res) => {
+  try {
+    await ensureCustomerBotConfig(req.customerId);
+    const { data, error } = await supabaseAdmin
+      .from("bot_configs")
+      .select("id, system_prompt, knowledge_base, greeting, is_active, updated_at")
+      .eq("scope", "customer")
+      .eq("customer_user_id", req.customerId)
+      .maybeSingle();
+    if (error) throw error;
+    return res.status(200).json({ ok: true, config: data || null });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Customer bot config load failed: ${error.message}` });
+  }
+});
+
+app.patch("/api/customer/bot-config", requireCustomer, async (req, res) => {
+  try {
+    await ensureCustomerBotConfig(req.customerId);
+    const patch = { updated_at: new Date().toISOString() };
+    if (typeof req.body?.system_prompt === "string") patch.system_prompt = req.body.system_prompt.slice(0, 16000);
+    if (typeof req.body?.knowledge_base === "string") patch.knowledge_base = req.body.knowledge_base.slice(0, 32000);
+    if (typeof req.body?.greeting === "string") patch.greeting = req.body.greeting.slice(0, 2000);
+    if (Object.keys(patch).length === 1) {
+      return res.status(400).json({ ok: false, message: "No editable fields supplied." });
+    }
+    const { data, error } = await supabaseAdmin
+      .from("bot_configs")
+      .update(patch)
+      .eq("scope", "customer")
+      .eq("customer_user_id", req.customerId)
+      .select("id, system_prompt, knowledge_base, greeting, is_active, updated_at")
+      .maybeSingle();
+    if (error) throw error;
+    return res.status(200).json({ ok: true, config: data });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Customer bot config update failed: ${error.message}` });
+  }
+});
+
 app.get("/api/customer/notifications", async (req, res) => {
   try {
     const email = normalizeEmail(req.query.email || "");
@@ -604,59 +809,96 @@ app.get("/api/admin/overview", async (_req, res) => {
   try {
     const now = new Date();
     const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+    const startOfWeek = new Date(now);
+    startOfWeek.setUTCDate(now.getUTCDate() - 6);
+    startOfWeek.setUTCHours(0, 0, 0, 0);
+    const startWeekIso = startOfWeek.toISOString();
 
-    const [{ count: customerCount, error: customerCountError }, { count: adminCount, error: adminCountError }] =
-      await Promise.all([
-        supabaseAdmin.from("customer_users").select("*", { count: "exact", head: true }),
-        supabaseAdmin.from("admin_users").select("*", { count: "exact", head: true })
-      ]);
-    if (customerCountError) throw customerCountError;
-    if (adminCountError) throw adminCountError;
+    const [customerCountRes, adminCountRes, paidCountRes, leadsCountRes] = await Promise.all([
+      supabaseAdmin.from("customer_users").select("*", { count: "exact", head: true }),
+      supabaseAdmin.from("admin_users").select("*", { count: "exact", head: true }),
+      supabaseAdmin
+        .from("customer_users")
+        .select("*", { count: "exact", head: true })
+        .gt("subscription_ends_at", new Date().toISOString()),
+      supabaseAdmin.from("wa_leads").select("*", { count: "exact", head: true })
+    ]);
+    if (customerCountRes.error) throw customerCountRes.error;
+    if (adminCountRes.error) throw adminCountRes.error;
 
-    const { count: monthlyResets, error: monthlyResetsError } = await supabaseAdmin
+    const { count: monthlyResets } = await supabaseAdmin
       .from("customer_password_resets")
       .select("*", { count: "exact", head: true })
       .gte("created_at", startOfMonth);
-    if (monthlyResetsError) throw monthlyResetsError;
 
-    const { data: recentClients, error: recentError } = await supabaseAdmin
+    const { count: messagesMonth } = await supabaseAdmin
+      .from("wa_messages")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", startOfMonth);
+
+    const { count: paymentsMonth } = await supabaseAdmin
+      .from("customer_payments")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", startOfMonth);
+
+    const { data: paymentRowsMonth } = await supabaseAdmin
+      .from("customer_payments")
+      .select("amount_cents")
+      .gte("created_at", startOfMonth);
+    const revenueMonthCents = (paymentRowsMonth || []).reduce(
+      (s, r) => s + Number(r.amount_cents || 0),
+      0
+    );
+
+    const { data: recentClients } = await supabaseAdmin
       .from("customer_users")
-      .select("id, email, first_name, last_name, is_active, created_at")
+      .select("id, email, first_name, last_name, is_active, subscription_plan_id, subscription_ends_at, created_at")
       .order("created_at", { ascending: false })
-      .limit(4);
-    if (recentError) throw recentError;
+      .limit(6);
 
-    const weeklySeries = [];
-    for (let i = 6; i >= 0; i -= 1) {
-      const d = new Date();
-      d.setUTCDate(d.getUTCDate() - i);
+    const { data: weekMessages } = await supabaseAdmin
+      .from("wa_messages")
+      .select("created_at")
+      .gte("created_at", startWeekIso);
+
+    const byDay = new Map();
+    for (let i = 0; i < 7; i += 1) {
+      const d = new Date(startOfWeek);
+      d.setUTCDate(startOfWeek.getUTCDate() + i);
       const iso = d.toISOString().slice(0, 10);
-      weeklySeries.push({
+      byDay.set(iso, {
         label: d.toLocaleDateString("en-US", { weekday: "short" }),
         date: iso,
-        bookings: 0
+        messages: 0
       });
     }
+    for (const row of weekMessages || []) {
+      const key = asIsoDate(row.created_at).slice(0, 10);
+      const bucket = byDay.get(key);
+      if (bucket) bucket.messages += 1;
+    }
+    const messagesSeries = Array.from(byDay.values());
 
     return res.status(200).json({
       ok: true,
       kpis: [
-        { id: "customers", label: "Customers", value: customerCount || 0, hint: "Total registered customers" },
-        { id: "admins", label: "Admins", value: adminCount || 0, hint: "Total admin accounts" },
-        {
-          id: "password_resets_month",
-          label: "Resets this month",
-          value: monthlyResets || 0,
-          hint: "Customer reset requests in current month"
-        }
+        { id: "customers", label: "Customers", value: customerCountRes.count || 0, hint: "Total registered customers" },
+        { id: "paid", label: "Active subscribers", value: paidCountRes.count || 0, hint: "subscription_ends_at in future" },
+        { id: "leads", label: "WhatsApp leads", value: leadsCountRes.count || 0, hint: "From wa_leads (all-time)" },
+        { id: "messages_month", label: "Messages this month", value: messagesMonth || 0, hint: "Inbound+outbound from wa_messages" },
+        { id: "payments_month", label: "Payments this month", value: paymentsMonth || 0, hint: "customer_payments" },
+        { id: "revenue_month", label: "Revenue this month", value: (revenueMonthCents / 100).toFixed(2) + "€", hint: "Sum of customer_payments" },
+        { id: "admins", label: "Admins", value: adminCountRes.count || 0, hint: "Total admin accounts" },
+        { id: "password_resets_month", label: "Resets this month", value: monthlyResets || 0, hint: "Current month" }
       ],
-      bookingsSeries: weeklySeries,
+      messagesSeries,
       recentClients: (recentClients || []).map((c) => ({
         id: c.id,
         businessName: `${c.first_name || ""} ${c.last_name || ""}`.trim() || c.email.split("@")[0],
         email: c.email,
+        plan: c.subscription_plan_id || null,
+        subscriptionEndsAt: c.subscription_ends_at,
         agentStatus: c.is_active ? "live" : "paused",
-        messagesThisMonth: 0,
         createdAt: c.created_at
       }))
     });
@@ -673,11 +915,15 @@ app.get("/api/admin/analytics", async (_req, res) => {
     startOfWeek.setUTCHours(0, 0, 0, 0);
     const startIso = startOfWeek.toISOString();
 
-    const { data: customers, error: customersError } = await supabaseAdmin
-      .from("customer_users")
-      .select("created_at")
-      .gte("created_at", startIso);
-    if (customersError) throw customersError;
+    const [{ data: msgRows }, { data: leadRows }, { data: convertedLeads, count: convertedCount }] =
+      await Promise.all([
+        supabaseAdmin.from("wa_messages").select("created_at, direction").gte("created_at", startIso),
+        supabaseAdmin.from("wa_leads").select("created_at, status, intent, language").gte("created_at", startIso),
+        supabaseAdmin
+          .from("wa_leads")
+          .select("status", { count: "exact" })
+          .eq("status", "converted")
+      ]);
 
     const byDay = new Map();
     for (let i = 0; i < 7; i += 1) {
@@ -689,63 +935,132 @@ app.get("/api/admin/analytics", async (_req, res) => {
         newLeads: 0
       });
     }
-
-    for (const row of customers || []) {
+    for (const row of msgRows || []) {
       const key = asIsoDate(row.created_at).slice(0, 10);
-      if (byDay.has(key)) {
-        const item = byDay.get(key);
-        item.newLeads += 1;
-        item.messages += 1;
-      }
+      const bucket = byDay.get(key);
+      if (bucket) bucket.messages += 1;
+    }
+    for (const row of leadRows || []) {
+      const key = asIsoDate(row.created_at).slice(0, 10);
+      const bucket = byDay.get(key);
+      if (bucket) bucket.newLeads += 1;
     }
 
     const series = Array.from(byDay.values());
-    const totalLeads = series.reduce((sum, x) => sum + x.newLeads, 0);
+    const totalLeads = series.reduce((s, x) => s + x.newLeads, 0);
+    const qualifiedCount = (leadRows || []).filter((l) => ["qualified", "converted"].includes(l.status)).length;
+    const contactedCount = (leadRows || []).filter((l) => l.status !== "new").length;
 
+    const intentCounts = {};
+    for (const l of leadRows || []) {
+      if (l.intent) intentCounts[l.intent] = (intentCounts[l.intent] || 0) + 1;
+    }
+    const topIntents = Object.entries(intentCounts)
+      .map(([k, v]) => ({ intent: k, count: v }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    const total = Math.max(1, totalLeads);
     return res.status(200).json({
       ok: true,
       series,
       funnel: [
-        { stage: "Email entered", count: totalLeads, pct: 100 },
-        { stage: "Account created", count: totalLeads, pct: 100 },
-        { stage: "Reset requested", count: 0, pct: 0 },
-        { stage: "Reset confirmed", count: 0, pct: 0 }
-      ]
+        { stage: "New leads (this week)", count: totalLeads, pct: 100 },
+        { stage: "Contacted (status != new)", count: contactedCount, pct: Math.round((contactedCount / total) * 100) },
+        { stage: "Qualified or converted", count: qualifiedCount, pct: Math.round((qualifiedCount / total) * 100) },
+        { stage: "Converted (all-time)", count: convertedCount || 0, pct: convertedCount && totalLeads ? Math.round((convertedCount / total) * 100) : 0 }
+      ],
+      topIntents
     });
   } catch (error) {
     return res.status(500).json({ ok: false, message: `Admin analytics failed: ${error.message}` });
   }
 });
 
+/**
+ * Helpers (closure-scoped): plan label / monthly-equivalent EUR for a customer
+ * row, computed from the live pricing_plans cache. Returns null fields when
+ * pricing data is missing — admin UI shows "—" for those.
+ */
+function planSummaryFromMap(planMap, planId) {
+  if (!planId || !planMap[planId]) return { planLabel: null, monthlyEuro: null, totalEuro: null };
+  const p = planMap[planId];
+  const months = Math.max(1, Math.round((p.durationDays || 30) / 30));
+  return {
+    planLabel: p.label,
+    monthlyEuro: Number((p.amountCents / 100 / months).toFixed(2)),
+    totalEuro: Number((p.amountCents / 100).toFixed(2))
+  };
+}
+
 app.get("/api/admin/clients", async (_req, res) => {
   try {
-    const { data, error } = await supabaseAdmin
-      .from("customer_users")
-      .select("id, email, first_name, last_name, phone, is_active, created_at, updated_at")
-      .order("created_at", { ascending: false });
+    const now = new Date();
+    const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+
+    const [{ data, error }, planMap] = await Promise.all([
+      supabaseAdmin
+        .from("customer_users")
+        .select(
+          "id, email, first_name, last_name, phone, is_active, subscription_plan_id, subscription_ends_at, created_at, updated_at"
+        )
+        .order("created_at", { ascending: false }),
+      getCheckoutPlans()
+    ]);
     if (error) throw error;
+
+    const clientIds = (data || []).map((c) => c.id);
+    let paymentsByUser = new Map();
+    let messagesThisMonthByUser = new Map();
+    if (clientIds.length) {
+      const { data: pays } = await supabaseAdmin
+        .from("customer_payments")
+        .select("customer_user_id, amount_cents, created_at")
+        .in("customer_user_id", clientIds);
+      for (const p of pays || []) {
+        const arr = paymentsByUser.get(p.customer_user_id) || [];
+        arr.push(p);
+        paymentsByUser.set(p.customer_user_id, arr);
+      }
+
+      const { data: msgRowsMonth } = await supabaseAdmin
+        .from("wa_messages")
+        .select("customer_user_id, created_at")
+        .gte("created_at", startOfMonth);
+      for (const m of msgRowsMonth || []) {
+        if (!m.customer_user_id) continue;
+        messagesThisMonthByUser.set(
+          m.customer_user_id,
+          (messagesThisMonthByUser.get(m.customer_user_id) || 0) + 1
+        );
+      }
+    }
 
     return res.status(200).json({
       ok: true,
-      clients: (data || []).map((c) => ({
-        id: c.id,
-        businessName: `${c.first_name || ""} ${c.last_name || ""}`.trim() || c.email.split("@")[0],
-        ownerName: `${c.first_name || ""} ${c.last_name || ""}`.trim() || "Customer",
-        email: c.email,
-        phone: c.phone || "",
-        plan: "N/A",
-        mrr: 0,
-        status: c.is_active ? "active" : "paused",
-        renewsAt: c.updated_at ? c.updated_at.slice(0, 10) : c.created_at.slice(0, 10),
-        whatsappDisplay: c.phone || "—",
-        waBusinessId: "—",
-        sheetConnected: false,
-        emailsEnabled: false,
-        deployedSite: "—",
-        agentStatus: c.is_active ? "live" : "paused",
-        messagesThisMonth: 0,
-        bookingsThisMonth: 0
-      }))
+      clients: (data || []).map((c) => {
+        const planInfo = planSummaryFromMap(planMap, c.subscription_plan_id);
+        const ends = c.subscription_ends_at;
+        const subscriptionActive = Boolean(ends && new Date(ends) > new Date());
+        const userPayments = paymentsByUser.get(c.id) || [];
+        const lifetimeCents = userPayments.reduce((s, p) => s + Number(p.amount_cents || 0), 0);
+        return {
+          id: c.id,
+          businessName: `${c.first_name || ""} ${c.last_name || ""}`.trim() || c.email.split("@")[0],
+          ownerName: `${c.first_name || ""} ${c.last_name || ""}`.trim() || null,
+          email: c.email,
+          phone: c.phone || null,
+          plan: c.subscription_plan_id || null,
+          planLabel: planInfo.planLabel,
+          monthlyEuro: planInfo.monthlyEuro,
+          status: subscriptionActive ? "active" : c.is_active ? "free" : "blocked",
+          renewsAt: ends ? ends.slice(0, 10) : null,
+          paymentsCount: userPayments.length,
+          lifetimeEuro: Number((lifetimeCents / 100).toFixed(2)),
+          messagesThisMonth: messagesThisMonthByUser.get(c.id) || 0,
+          createdAt: c.created_at
+        };
+      })
     });
   } catch (error) {
     return res.status(500).json({ ok: false, message: `Admin clients failed: ${error.message}` });
@@ -755,32 +1070,77 @@ app.get("/api/admin/clients", async (_req, res) => {
 app.get("/api/admin/clients/:clientId", async (req, res) => {
   try {
     const { clientId } = req.params;
-    const { data, error } = await supabaseAdmin
-      .from("customer_users")
-      .select("id, email, first_name, last_name, phone, is_active, created_at, updated_at")
-      .eq("id", clientId)
-      .maybeSingle();
+    const now = new Date();
+    const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+
+    const [{ data, error }, planMap] = await Promise.all([
+      supabaseAdmin
+        .from("customer_users")
+        .select(
+          "id, email, first_name, last_name, phone, is_active, subscription_plan_id, subscription_ends_at, created_at, updated_at"
+        )
+        .eq("id", clientId)
+        .maybeSingle(),
+      getCheckoutPlans()
+    ]);
     if (error) throw error;
     if (!data) return res.status(404).json({ ok: false, message: "Client not found" });
+
+    const [{ data: payments }, { count: messagesThisMonth }, { count: messagesTotal }, { count: leadsTotal }] =
+      await Promise.all([
+        supabaseAdmin
+          .from("customer_payments")
+          .select("id, plan_id, amount_cents, currency, period_days, created_at, subscription_end_after")
+          .eq("customer_user_id", clientId)
+          .order("created_at", { ascending: false }),
+        supabaseAdmin
+          .from("wa_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("customer_user_id", clientId)
+          .gte("created_at", startOfMonth),
+        supabaseAdmin
+          .from("wa_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("customer_user_id", clientId),
+        supabaseAdmin
+          .from("wa_leads")
+          .select("*", { count: "exact", head: true })
+          .eq("customer_user_id", clientId)
+      ]);
+
+    const planInfo = planSummaryFromMap(planMap, data.subscription_plan_id);
+    const ends = data.subscription_ends_at;
+    const subscriptionActive = Boolean(ends && new Date(ends) > new Date());
+    const lifetimeCents = (payments || []).reduce((s, p) => s + Number(p.amount_cents || 0), 0);
 
     return res.status(200).json({
       ok: true,
       client: {
         id: data.id,
         businessName: `${data.first_name || ""} ${data.last_name || ""}`.trim() || data.email.split("@")[0],
-        ownerName: `${data.first_name || ""} ${data.last_name || ""}`.trim() || "Customer",
+        ownerName: `${data.first_name || ""} ${data.last_name || ""}`.trim() || null,
         email: data.email,
-        phone: data.phone || "",
-        plan: "N/A",
-        mrr: 0,
-        status: data.is_active ? "active" : "paused",
-        renewsAt: data.updated_at ? data.updated_at.slice(0, 10) : data.created_at.slice(0, 10),
-        whatsappDisplay: data.phone || "—",
-        waBusinessId: "—",
-        deployedSite: "—",
-        agentStatus: data.is_active ? "live" : "paused",
-        messagesThisMonth: 0,
-        bookingsThisMonth: 0
+        phone: data.phone || null,
+        plan: data.subscription_plan_id || null,
+        planLabel: planInfo.planLabel,
+        monthlyEuro: planInfo.monthlyEuro,
+        status: subscriptionActive ? "active" : data.is_active ? "free" : "blocked",
+        renewsAt: ends ? ends.slice(0, 10) : null,
+        paymentsCount: (payments || []).length,
+        lifetimeEuro: Number((lifetimeCents / 100).toFixed(2)),
+        messagesThisMonth: messagesThisMonth || 0,
+        messagesTotal: messagesTotal || 0,
+        leadsTotal: leadsTotal || 0,
+        createdAt: data.created_at,
+        payments: (payments || []).map((p) => ({
+          id: p.id,
+          plan_id: p.plan_id,
+          amount_euro: Number((Number(p.amount_cents || 0) / 100).toFixed(2)),
+          currency: p.currency,
+          period_days: p.period_days,
+          created_at: p.created_at,
+          subscription_end_after: p.subscription_end_after
+        }))
       }
     });
   } catch (error) {
@@ -788,30 +1148,331 @@ app.get("/api/admin/clients/:clientId", async (req, res) => {
   }
 });
 
+/**
+ * Bot brain: the WhatsApp agent's live system prompt + knowledge base +
+ * lead-extraction prompt. metaWhatsAppWebhook reads from this row at every
+ * inbound turn (with a 30 s cache that the PATCH below invalidates), so edits
+ * here go live within seconds — no redeploy required.
+ */
+async function ensurePlatformBotConfig() {
+  const { data } = await supabaseAdmin
+    .from("bot_configs")
+    .select("id")
+    .eq("scope", "platform")
+    .maybeSingle();
+  if (data) return data;
+  const { data: created, error } = await supabaseAdmin
+    .from("bot_configs")
+    .insert({ scope: "platform" })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return created;
+}
+
+app.get("/api/admin/bot-config", async (_req, res) => {
+  try {
+    await ensurePlatformBotConfig();
+    const { data, error } = await supabaseAdmin
+      .from("bot_configs")
+      .select("id, scope, system_prompt, knowledge_base, greeting, lead_extraction_prompt, is_active, updated_at, updated_by")
+      .eq("scope", "platform")
+      .maybeSingle();
+    if (error) throw error;
+    return res.status(200).json({ ok: true, config: data || null });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Bot config load failed: ${error.message}` });
+  }
+});
+
+app.patch("/api/admin/bot-config", async (req, res) => {
+  try {
+    await ensurePlatformBotConfig();
+    const patch = { updated_at: new Date().toISOString() };
+    if (typeof req.body?.system_prompt === "string") patch.system_prompt = req.body.system_prompt.slice(0, 16000);
+    if (typeof req.body?.knowledge_base === "string") patch.knowledge_base = req.body.knowledge_base.slice(0, 32000);
+    if (typeof req.body?.greeting === "string") patch.greeting = req.body.greeting.slice(0, 2000);
+    if (typeof req.body?.lead_extraction_prompt === "string")
+      patch.lead_extraction_prompt = req.body.lead_extraction_prompt.slice(0, 8000);
+    if (typeof req.body?.is_active === "boolean") patch.is_active = req.body.is_active;
+    if (typeof req.body?.updated_by === "string") patch.updated_by = req.body.updated_by.slice(0, 200);
+    if (Object.keys(patch).length === 1) {
+      return res.status(400).json({ ok: false, message: "No editable fields supplied." });
+    }
+    const { data, error } = await supabaseAdmin
+      .from("bot_configs")
+      .update(patch)
+      .eq("scope", "platform")
+      .select("*")
+      .maybeSingle();
+    if (error) throw error;
+    invalidateBotConfigCache();
+    return res.status(200).json({ ok: true, config: data });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Bot config update failed: ${error.message}` });
+  }
+});
+
+/**
+ * Pricing administration. PATCH only allows amount_cents + label + period_text +
+ * is_active changes — duration_days is intentionally locked (changing it mid-flight
+ * would corrupt computed subscription_end_after dates on existing payments).
+ */
+app.get("/api/admin/pricing", async (_req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("pricing_plans")
+      .select("id, label, period_text, amount_cents, duration_days, currency, sort_order, is_active, updated_at")
+      .order("sort_order", { ascending: true });
+    if (error) throw error;
+    return res.status(200).json({ ok: true, plans: data || [] });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Admin pricing failed: ${error.message}` });
+  }
+});
+
+app.patch("/api/admin/pricing/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const patch = {};
+    if (typeof req.body?.amount_cents !== "undefined") {
+      const n = Number(req.body.amount_cents);
+      if (!Number.isFinite(n) || n <= 0 || !Number.isInteger(n)) {
+        return res.status(400).json({ ok: false, message: "amount_cents must be a positive integer (in cents)." });
+      }
+      patch.amount_cents = n;
+    }
+    if (typeof req.body?.label === "string") patch.label = req.body.label.slice(0, 80);
+    if (typeof req.body?.period_text === "string") patch.period_text = req.body.period_text.slice(0, 32);
+    if (typeof req.body?.sort_order === "number") patch.sort_order = req.body.sort_order;
+    if (typeof req.body?.is_active === "boolean") patch.is_active = req.body.is_active;
+    if (Object.keys(patch).length === 0) {
+      return res.status(400).json({ ok: false, message: "No editable fields supplied." });
+    }
+    patch.updated_at = new Date().toISOString();
+    const { data, error } = await supabaseAdmin
+      .from("pricing_plans")
+      .update(patch)
+      .eq("id", id)
+      .select("*")
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ ok: false, message: "Plan not found." });
+    invalidatePricingCache();
+    return res.status(200).json({ ok: true, plan: data });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Pricing update failed: ${error.message}` });
+  }
+});
+
+/**
+ * WhatsApp leads (Phase 1 — single-tenant: all leads belong to the Omnira admin
+ * since every customer's WABA is not yet wired to its own row in `customer_users`).
+ * Filters: ?status=new|contacted|qualified|converted|lost, ?search=name/email/phone substring, ?limit=50.
+ */
+app.get("/api/admin/leads", async (req, res) => {
+  try {
+    const status = String(req.query.status || "").trim().toLowerCase();
+    const search = String(req.query.search || "").trim().toLowerCase();
+    const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 100));
+
+    let q = supabaseAdmin
+      .from("wa_leads")
+      .select(
+        "id, phone_number_id, wa_from, name, email, phone, intent, language, confidence, notes, status, message_count, first_seen_at, last_message_at, created_at"
+      )
+      .order("last_message_at", { ascending: false })
+      .limit(limit);
+
+    if (status && ["new", "contacted", "qualified", "converted", "lost"].includes(status)) {
+      q = q.eq("status", status);
+    }
+    const { data, error } = await q;
+    if (error) throw error;
+
+    let leads = data || [];
+    if (search) {
+      leads = leads.filter((l) =>
+        [l.name, l.email, l.phone, l.wa_from, l.notes]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(search))
+      );
+    }
+
+    return res.status(200).json({ ok: true, leads });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Admin leads failed: ${error.message}` });
+  }
+});
+
+app.get("/api/admin/leads/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data: lead, error } = await supabaseAdmin
+      .from("wa_leads")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!lead) return res.status(404).json({ ok: false, message: "Lead not found." });
+
+    const { data: msgs } = await supabaseAdmin
+      .from("wa_messages")
+      .select("id, direction, body, message_type, language, created_at")
+      .eq("wa_from", lead.wa_from)
+      .eq("phone_number_id", lead.phone_number_id || "")
+      .order("created_at", { ascending: false })
+      .limit(200);
+
+    return res.status(200).json({
+      ok: true,
+      lead,
+      messages: (msgs || []).slice().reverse()
+    });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Lead detail failed: ${error.message}` });
+  }
+});
+
+app.patch("/api/admin/leads/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const allowedStatus = ["new", "contacted", "qualified", "converted", "lost"];
+    const patch = {};
+    if (typeof req.body?.status === "string" && allowedStatus.includes(req.body.status)) {
+      patch.status = req.body.status;
+    }
+    if (typeof req.body?.notes === "string") {
+      patch.notes = req.body.notes.slice(0, 2000);
+    }
+    if (typeof req.body?.name === "string") patch.name = req.body.name.slice(0, 200) || null;
+    if (typeof req.body?.email === "string") patch.email = req.body.email.trim().toLowerCase().slice(0, 200) || null;
+    if (typeof req.body?.phone === "string") patch.phone = req.body.phone.slice(0, 40) || null;
+    if (Object.keys(patch).length === 0) {
+      return res.status(400).json({ ok: false, message: "No editable fields supplied." });
+    }
+    patch.updated_at = new Date().toISOString();
+    const { data, error } = await supabaseAdmin
+      .from("wa_leads")
+      .update(patch)
+      .eq("id", id)
+      .select("*")
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ ok: false, message: "Lead not found." });
+    return res.status(200).json({ ok: true, lead: data });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Lead update failed: ${error.message}` });
+  }
+});
+
+/**
+ * Conversation list for the admin "Chats" view — collapses wa_messages into one
+ * thread per (phone_number_id, wa_from), with the last body + counts + the lead
+ * row (if any). Done in two queries + JS aggregation so we don't need a SQL view.
+ */
+app.get("/api/admin/wa-conversations", async (req, res) => {
+  try {
+    const limit = Math.min(500, Math.max(1, Number(req.query.limit) || 200));
+    const { data: rows, error } = await supabaseAdmin
+      .from("wa_messages")
+      .select("phone_number_id, wa_from, direction, body, created_at")
+      .order("created_at", { ascending: false })
+      .limit(2000);
+    if (error) throw error;
+
+    const byKey = new Map();
+    for (const r of rows || []) {
+      const key = `${r.phone_number_id || ""}|${r.wa_from}`;
+      const cur = byKey.get(key);
+      if (!cur) {
+        byKey.set(key, {
+          phone_number_id: r.phone_number_id || null,
+          wa_from: r.wa_from,
+          last_direction: r.direction,
+          last_body: r.body || "",
+          last_at: r.created_at,
+          message_count: 1,
+          inbound_count: r.direction === "inbound" ? 1 : 0,
+          outbound_count: r.direction === "outbound" ? 1 : 0
+        });
+      } else {
+        cur.message_count += 1;
+        if (r.direction === "inbound") cur.inbound_count += 1;
+        else cur.outbound_count += 1;
+      }
+    }
+
+    const conversations = Array.from(byKey.values())
+      .sort((a, b) => String(b.last_at).localeCompare(String(a.last_at)))
+      .slice(0, limit);
+
+    if (conversations.length) {
+      const orFilters = conversations
+        .map((c) => `and(phone_number_id.eq.${c.phone_number_id || ""},wa_from.eq.${c.wa_from})`)
+        .join(",");
+      const { data: leads } = await supabaseAdmin
+        .from("wa_leads")
+        .select("phone_number_id, wa_from, id, name, email, intent, status, confidence, language")
+        .or(orFilters);
+      const leadIdx = new Map();
+      for (const l of leads || []) {
+        leadIdx.set(`${l.phone_number_id || ""}|${l.wa_from}`, l);
+      }
+      for (const c of conversations) {
+        c.lead = leadIdx.get(`${c.phone_number_id || ""}|${c.wa_from}`) || null;
+      }
+    }
+
+    return res.status(200).json({ ok: true, conversations });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `wa-conversations failed: ${error.message}` });
+  }
+});
+
+app.get("/api/admin/wa-messages", async (req, res) => {
+  try {
+    const from = String(req.query.from || "").trim();
+    const limit = Math.min(500, Math.max(1, Number(req.query.limit) || 100));
+    let q = supabaseAdmin
+      .from("wa_messages")
+      .select("id, phone_number_id, wa_from, direction, message_type, body, language, created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (from) q = q.eq("wa_from", from);
+    const { data, error } = await q;
+    if (error) throw error;
+    return res.status(200).json({ ok: true, messages: data || [] });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `wa-messages failed: ${error.message}` });
+  }
+});
+
+/**
+ * Admin users list (was "Sessions" — we don't track live sessions yet, so this
+ * exposes the actual admin_users table instead of fabricating session rows).
+ */
 app.get("/api/admin/sessions", async (_req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from("admin_users")
-      .select("id, email, full_name, updated_at, is_active")
+      .select("id, email, full_name, created_at, updated_at, is_active")
       .order("updated_at", { ascending: false });
     if (error) throw error;
 
     return res.status(200).json({
       ok: true,
-      sessions: (data || []).map((a) => ({
+      admins: (data || []).map((a) => ({
         id: a.id,
-        user: a.email,
-        client: "—",
-        role: "Superadmin",
-        ip: "—",
-        device: "—",
-        currentPage: "Admin panel",
-        lastSeen: a.updated_at ? asIsoDate(a.updated_at) : "—",
-        isActive: a.is_active
+        email: a.email,
+        fullName: a.full_name || null,
+        isActive: !!a.is_active,
+        createdAt: a.created_at,
+        updatedAt: a.updated_at
       }))
     });
   } catch (error) {
-    return res.status(500).json({ ok: false, message: `Admin sessions failed: ${error.message}` });
+    return res.status(500).json({ ok: false, message: `Admin users failed: ${error.message}` });
   }
 });
 

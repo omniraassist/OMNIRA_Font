@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { IconBot, IconChart, IconDashboard, IconPulse, IconUsers, IconWhatsApp } from './icons.jsx';
+import { IconBot, IconBrain, IconChart, IconChats, IconDashboard, IconLeads, IconPricing, IconPulse, IconUsers, IconWhatsApp } from './icons.jsx';
 
 const linkClass = ({ isActive }) => `adm-nav-link${isActive ? ' active' : ''}`;
 
@@ -36,12 +36,28 @@ export function Sidebar({ onNavigate, mobileOpen }) {
           <IconUsers />
           Paid subscribers
         </NavLink>
+        <NavLink to="/leads" className={linkClass} onClick={wrap}>
+          <IconLeads />
+          WhatsApp leads
+        </NavLink>
+        <NavLink to="/chats" className={linkClass} onClick={wrap}>
+          <IconChats />
+          WhatsApp chats
+        </NavLink>
         <NavLink to="/sessions" className={linkClass} onClick={wrap}>
           <IconPulse />
-          Live sessions
+          Admin users
         </NavLink>
 
         <div className="adm-nav-section-label">Platform</div>
+        <NavLink to="/pricing" className={linkClass} onClick={wrap}>
+          <IconPricing />
+          Pricing
+        </NavLink>
+        <NavLink to="/bot-config" className={linkClass} onClick={wrap}>
+          <IconBrain />
+          Bot brain
+        </NavLink>
         <NavLink to="/whatsapp" className={linkClass} onClick={wrap}>
           <IconWhatsApp />
           WhatsApp config

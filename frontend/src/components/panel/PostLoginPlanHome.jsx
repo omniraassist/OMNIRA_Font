@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { LogoMark } from '../brand/LogoMark.jsx';
-import { OMNIRA_PLANS, OMNIRA_PLANS_CHECKOUT_ORDER, PLAN_STORAGE_KEY } from '../../constants/plans.js';
+import { PLAN_STORAGE_KEY } from '../../constants/plans.js';
 import { usePanel } from '../../context/PanelContext.jsx';
+import { usePricing } from '../../hooks/usePricing.js';
 
 export function PostLoginPlanHome() {
   const { user, closeClientPanel, completePlanSelection } = usePanel();
+  const { plans, plansByCheapest } = usePricing();
   const [selectedId, setSelectedId] = useState(() => {
     try {
       const raw = localStorage.getItem(PLAN_STORAGE_KEY);
@@ -18,7 +20,7 @@ export function PostLoginPlanHome() {
     return null;
   });
 
-  const selected = useMemo(() => OMNIRA_PLANS.find((p) => p.id === selectedId) ?? null, [selectedId]);
+  const selected = useMemo(() => plans.find((p) => p.id === selectedId) ?? null, [plans, selectedId]);
 
   const biz = user?.businessName || user?.name;
   const greeting = biz ? `Configura tu agente para ${biz}` : 'Elige tu paquete para activar tu agente';
@@ -105,7 +107,7 @@ export function PostLoginPlanHome() {
 
           <div className="container panel-plan-cards-wrap">
             <div className="plans-grid panel-plan-cards-grid">
-              {OMNIRA_PLANS_CHECKOUT_ORDER.map((plan) => {
+              {plansByCheapest.map((plan) => {
                 const isSel = selectedId === plan.id;
                 const cardClass = [
                   'plan-card',

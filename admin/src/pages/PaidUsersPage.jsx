@@ -109,7 +109,9 @@ export function PaidUsersPage() {
               <th>Name</th>
               <th>Email</th>
               <th>Phone</th>
-              <th>Status</th>
+              <th>Plan</th>
+              <th>Subscription</th>
+              <th>Account</th>
               <th>Created</th>
               <th>Actions</th>
             </tr>
@@ -122,7 +124,21 @@ export function PaidUsersPage() {
                 </td>
                 <td className="adm-mono">{u.email}</td>
                 <td>{u.phone || '—'}</td>
-                <td><span className={`adm-badge ${u.is_active ? 'active' : 'paused'}`}>{u.is_active ? 'active' : 'blocked'}</span></td>
+                <td>{u.plan || '—'}</td>
+                <td>
+                  {u.subscription_active ? (
+                    <span className="adm-badge active">
+                      active{u.subscription_ends_at ? ` · ${u.subscription_ends_at.slice(0, 10)}` : ''}
+                    </span>
+                  ) : (
+                    <span className="adm-badge paused">none</span>
+                  )}
+                </td>
+                <td>
+                  <span className={`adm-badge ${u.is_active ? 'active' : 'paused'}`}>
+                    {u.is_active ? 'enabled' : 'blocked'}
+                  </span>
+                </td>
                 <td className="adm-mono">{new Date(u.created_at).toLocaleDateString()}</td>
                 <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <button type="button" className="adm-btn adm-btn-ghost" onClick={() => openEdit(u)}>Edit</button>
@@ -135,7 +151,7 @@ export function PaidUsersPage() {
             ))}
             {!users.length && (
               <tr>
-                <td colSpan={6} style={{ color: 'var(--muted)' }}>No users found.</td>
+                <td colSpan={8} style={{ color: 'var(--muted)' }}>No users found.</td>
               </tr>
             )}
           </tbody>

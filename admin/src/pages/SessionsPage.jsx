@@ -1,90 +1,96 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { apiCall } from '../api/client.js';
 
+function formatDate(iso) {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString();
+  } catch {
+    return '—';
+  }
+}
+
 export function SessionsPage() {
-  const [sessions, setSessions] = useState([]);
+  const [admins, setAdmins] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiCall('/api/admin/sessions');
+      setAdmins(res.admins || []);
+      setError('');
+    } catch (e) {
+      setAdmins([]);
+      setError(e?.message || 'Could not load admin users');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let alive = true;
-    apiCall('/api/admin/sessions')
-      .then((res) => {
-        if (!alive) return;
-        setSessions(res.sessions || []);
-      })
-      .catch(() => {
-        if (!alive) return;
-        setSessions([]);
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
+    load();
+  }, [load]);
 
   return (
     <>
       <header className="adm-page-head">
-        <h1>Live sessions</h1>
+        <h1>Admin users</h1>
         <p>
-          Users currently signed into Omnira dashboards (your superadmins, business owners, and staff). Use this to
-          debug onboarding, watch someone configure WhatsApp, or audit concurrent access before sensitive changes.
+          Accounts that can sign into this panel (from <code>admin_users</code>). Live session tracking is not
+          yet implemented — when it is, the timestamps below become "last active" and we will surface IP/device
+          here. Until then, this page shows real account data only.
         </p>
       </header>
 
       <div className="adm-toolbar">
-        <button type="button" className="adm-btn adm-btn-primary">
-          Refresh
+        <button type="button" className="adm-btn adm-btn-ghost" onClick={load} disabled={loading}>
+          {loading ? 'Loading…' : 'Refresh'}
         </button>
         <span className="adm-mono" style={{ color: 'var(--muted)' }}>
-          {sessions.length} active / recent sessions
+          {admins.length} admin{admins.length === 1 ? '' : 's'}
         </span>
       </div>
+
+      {error ? (
+        <div className="adm-card" style={{ marginBottom: 12, borderColor: 'rgba(239,68,68,0.4)' }}>
+          <strong style={{ color: '#fecaca' }}>Error:</strong>{' '}
+          <span style={{ color: 'var(--muted)' }}>{error}</span>
+        </div>
+      ) : null}
 
       <div className="adm-table-wrap">
         <table className="adm-table">
           <thead>
             <tr>
-              <th>User</th>
-              <th>Client scope</th>
-              <th>Role</th>
-              <th>Network</th>
-              <th>Device</th>
-              <th>Current area</th>
-              <th>Last seen</th>
+              <th>Email</th>
+              <th>Full name</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Updated</th>
             </tr>
           </thead>
           <tbody>
-            {sessions.map((s) => (
-              <tr key={s.id}>
+            {admins.map((a) => (
+              <tr key={a.id}>
+                <td><strong style={{ color: '#fff' }}>{a.email}</strong></td>
+                <td>{a.fullName || '—'}</td>
                 <td>
-                  <strong style={{ color: '#fff' }}>{s.user}</strong>
+                  <span className={`adm-badge ${a.isActive ? 'active' : 'paused'}`}>
+                    {a.isActive ? 'active' : 'disabled'}
+                  </span>
                 </td>
-                <td>{s.client}</td>
-                <td>
-                  <span className={`adm-badge ${s.role === 'Superadmin' ? 'trialing' : 'active'}`}>{s.role}</span>
-                </td>
-                <td className="adm-mono">{s.ip}</td>
-                <td style={{ fontSize: 13 }}>{s.device}</td>
-                <td style={{ fontSize: 13, color: 'var(--soft)' }}>{s.currentPage}</td>
-                <td style={{ color: s.lastSeen === 'Now' ? 'var(--em)' : 'var(--muted)', fontWeight: 600 }}>
-                  {s.lastSeen}
-                </td>
+                <td className="adm-mono">{formatDate(a.createdAt)}</td>
+                <td className="adm-mono">{formatDate(a.updatedAt)}</td>
               </tr>
             ))}
+            {!admins.length && !loading ? (
+              <tr><td colSpan={5} style={{ color: 'var(--muted)' }}>No admin users found.</td></tr>
+            ) : null}
           </tbody>
         </table>
       </div>
-
-      <section className="adm-card" style={{ marginTop: 24 }}>
-        <h2 className="adm-card-title">How this maps to your product</h2>
-        <p style={{ fontSize: 14, color: 'var(--soft)', lineHeight: 1.7 }}>
-          A <strong style={{ color: '#fff' }}>paid owner</strong> buys the agent, connects their WhatsApp Business
-          number, pastes services and tone into <strong style={{ color: '#fff' }}>bot context</strong>, and deploys
-          your white-label snippet so the green bubble appears bottom-right. End users message that number; the
-          agent replies, proposes times, and on confirm writes to <strong style={{ color: '#fff' }}>Google Sheets</strong>{' '}
-          and fires <strong style={{ color: '#fff' }}>two emails</strong> (confirmation to the guest + copy to the
-          owner). Sessions here are the humans configuring those pipelines — not the WhatsApp end-users.
-        </p>
-      </section>
     </>
   );
 }

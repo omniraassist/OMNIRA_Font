@@ -1,4 +1,5 @@
 ﻿import crypto from "crypto";
+import { supabaseAdmin, isSupabaseConfigured } from "./config/supabase.js";
 
 const _gv = String(process.env.META_WABA_GRAPH_VERSION || "v21.0").trim();
 const GRAPH_VERSION = _gv.startsWith("v") ? _gv : `v${_gv}`;
@@ -60,7 +61,9 @@ export function extractInboundText(body) {
             return {
               from: String(m.from || ""),
               body: textBody,
-              phoneNumberId
+              phoneNumberId,
+              messageId: String(m.id || ""),
+              messageType: String(m.type || "text")
             };
           }
         }
@@ -105,9 +108,72 @@ async function sendMarketingWhatsAppReply(toE164Digits, text) {
   return { ok: true, status: res.status, snippet: "" };
 }
 
-const DEFAULT_WA_AI_SYSTEM = `Eres el asistente comercial de Omnira (producto de automatización con IA para WhatsApp Business: reservas, recordatorios, calendario).
-Responde siempre en español, breve y cordial (máximo ~600 caracteres). Incluye cuando encaje: planes desde 49€/mes; packs 3 meses 129€, 6 meses 229€, 12 meses 399€.
-Invita a registrarse en la web para activar el agente en su propio número con WhatsApp Business verificado (Meta). No inventes integraciones que no existan.`;
+/**
+ * The agent's system prompt and lead-extraction prompt live in Supabase
+ * (public.bot_configs, scope='platform') so admins can edit them from /bot-config
+ * without redeploying. These are the bare-minimum fallbacks used only if the DB
+ * row is missing — in production the seed migration creates it on first apply.
+ */
+const FALLBACK_SYSTEM_PROMPT =
+  "You are Omnira's WhatsApp sales assistant. Reply in the user's language, concise and warm. Qualify softly: ask one natural question per turn to learn name, business, email, and intent. Plans from 49€/month; packs 3/6/12 months at 129€/229€/399€. Activation requires registration on the website + payment. Support: omniraassist@gmail.com. Never invent features.";
+
+const FALLBACK_LEAD_EXTRACTION_PROMPT =
+  'You are an information extractor for a WhatsApp sales conversation. Output ONE JSON object with keys: name, email, phone, business_name, intent ("pricing"|"booking"|"support"|"demo"|"integration"|"info"|"other"), language (ISO 639-1), confidence (0..1), notes (≤200 chars). Use null for missing fields. Output ONLY JSON.';
+
+const BOT_CONFIG_CACHE_TTL_MS = 30_000;
+let _botConfigCache = null;
+let _botConfigCacheAt = 0;
+
+export function invalidateBotConfigCache() {
+  _botConfigCache = null;
+  _botConfigCacheAt = 0;
+}
+
+/**
+ * Returns { systemPrompt, knowledgeBase, leadExtractionPrompt, greeting } for
+ * the platform agent. customer-scope rows ship to Phase 3 routing (where each
+ * customer_user_id maps to its own row); Phase 1 always uses platform.
+ */
+async function loadPlatformBotConfig() {
+  if (_botConfigCache && Date.now() - _botConfigCacheAt < BOT_CONFIG_CACHE_TTL_MS) {
+    return _botConfigCache;
+  }
+  if (!isSupabaseConfigured()) {
+    _botConfigCache = {
+      systemPrompt: FALLBACK_SYSTEM_PROMPT,
+      knowledgeBase: "",
+      leadExtractionPrompt: FALLBACK_LEAD_EXTRACTION_PROMPT,
+      greeting: ""
+    };
+    _botConfigCacheAt = Date.now();
+    return _botConfigCache;
+  }
+  try {
+    const { data } = await supabaseAdmin
+      .from("bot_configs")
+      .select("system_prompt, knowledge_base, lead_extraction_prompt, greeting, is_active")
+      .eq("scope", "platform")
+      .maybeSingle();
+    const row = data || {};
+    _botConfigCache = {
+      systemPrompt: String(row.system_prompt || FALLBACK_SYSTEM_PROMPT).slice(0, 16000),
+      knowledgeBase: String(row.knowledge_base || "").slice(0, 32000),
+      leadExtractionPrompt: String(row.lead_extraction_prompt || FALLBACK_LEAD_EXTRACTION_PROMPT).slice(0, 8000),
+      greeting: String(row.greeting || "").slice(0, 1000),
+      isActive: row.is_active !== false
+    };
+    _botConfigCacheAt = Date.now();
+    return _botConfigCache;
+  } catch (e) {
+    console.warn("[meta whatsapp] loadPlatformBotConfig fell back:", e?.message || e);
+    return {
+      systemPrompt: FALLBACK_SYSTEM_PROMPT,
+      knowledgeBase: "",
+      leadExtractionPrompt: FALLBACK_LEAD_EXTRACTION_PROMPT,
+      greeting: ""
+    };
+  }
+}
 
 function resolveOpenAiKey() {
   const names = ["OPENAI_API_KEY", "OPENAI_KEY", "OPEN_AI_API_KEY", "OPENAI_SECRET_KEY", "CHAT_OPENAI_API_KEY"];
@@ -189,14 +255,54 @@ export function getMetaWhatsAppDeployDiagnostics() {
   };
 }
 
-export async function openAiReplyToInbound(userMessage) {
+/**
+ * Load the recent (inbound+outbound) message history for a given WhatsApp conversation
+ * so the assistant has context for multi-turn lead-qualification. Returns []
+ * if Supabase is not configured (does not throw).
+ */
+async function loadRecentConversation(phoneNumberId, waFrom, limit = 12) {
+  if (!isSupabaseConfigured() || !waFrom) return [];
+  try {
+    const q = supabaseAdmin
+      .from("wa_messages")
+      .select("direction, body, created_at")
+      .eq("wa_from", waFrom)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (phoneNumberId) q.eq("phone_number_id", phoneNumberId);
+    const { data, error } = await q;
+    if (error || !Array.isArray(data)) return [];
+    return data
+      .slice()
+      .reverse()
+      .map((r) => ({
+        role: r.direction === "outbound" ? "assistant" : "user",
+        content: String(r.body || "").slice(0, 2000)
+      }))
+      .filter((m) => m.content.length > 0);
+  } catch (e) {
+    console.warn("[meta whatsapp] loadRecentConversation failed", e?.message || e);
+    return [];
+  }
+}
+
+export async function openAiReplyToInbound(userMessage, history = []) {
   const apiKey = resolveOpenAiKey();
   if (!apiKey || !String(userMessage || "").trim()) return null;
-  const system = String(process.env.META_WABA_OPENAI_SYSTEM || DEFAULT_WA_AI_SYSTEM).slice(0, 8000);
+  const cfg = await loadPlatformBotConfig();
+  // ENV override exists for break-glass scenarios (set in Vercel without DB edit)
+  const systemFromDb = String(process.env.META_WABA_OPENAI_SYSTEM || cfg.systemPrompt).slice(0, 16000);
+  const knowledgeBlock = cfg.knowledgeBase
+    ? `\n\n# Knowledge base (admin-curated). Use as the source of truth for facts. If a user question is not answered by this, say you'll check and offer omniraassist@gmail.com.\n${cfg.knowledgeBase}`
+    : "";
+  const system = `${systemFromDb}${knowledgeBlock}`.slice(0, 24000);
   const model = String(process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini").trim() || "gpt-4o-mini";
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), 45000);
   try {
+    const trimmedHistory = Array.isArray(history)
+      ? history.slice(-10).filter((m) => m && typeof m.content === "string" && m.content.trim())
+      : [];
     const upstream = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -207,6 +313,7 @@ export async function openAiReplyToInbound(userMessage) {
         model,
         messages: [
           { role: "system", content: system },
+          ...trimmedHistory,
           { role: "user", content: String(userMessage).trim().slice(0, 8000) }
         ],
         temperature: 0.55,
@@ -236,12 +343,159 @@ export async function openAiReplyToInbound(userMessage) {
   }
 }
 
+/**
+ * Second OpenAI pass: extract a structured lead JSON from the recent conversation
+ * (system prompt is `LEAD_EXTRACTION_SYSTEM`, response_format json_object). Cheap
+ * (~1¢/100 msgs on gpt-4o-mini) and runs asynchronously so it never blocks the reply.
+ */
+async function extractLeadFromConversation(conversationMessages) {
+  const apiKey = resolveOpenAiKey();
+  if (!apiKey) return null;
+  const trimmed = Array.isArray(conversationMessages)
+    ? conversationMessages.slice(-14).filter((m) => m?.content && m.content.trim())
+    : [];
+  if (trimmed.length === 0) return null;
+  const cfg = await loadPlatformBotConfig();
+  const model = String(process.env.OPENAI_EXTRACT_MODEL || process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini").trim();
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 30000);
+  try {
+    const upstream = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: cfg.leadExtractionPrompt },
+          ...trimmed
+        ],
+        temperature: 0,
+        max_tokens: 400,
+        response_format: { type: "json_object" }
+      }),
+      signal: controller.signal
+    });
+    const rawText = await upstream.text();
+    if (!upstream.ok) {
+      console.warn("[meta whatsapp] lead extraction error", upstream.status, rawText.slice(0, 200));
+      return null;
+    }
+    let data = {};
+    try {
+      data = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      return null;
+    }
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content || typeof content !== "string") return null;
+    let parsed;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      return null;
+    }
+    if (!parsed || typeof parsed !== "object") return null;
+    return {
+      name: typeof parsed.name === "string" ? parsed.name.slice(0, 200) : null,
+      email: typeof parsed.email === "string" ? parsed.email.toLowerCase().slice(0, 200) : null,
+      phone: typeof parsed.phone === "string" ? parsed.phone.slice(0, 40) : null,
+      business_name: typeof parsed.business_name === "string" ? parsed.business_name.slice(0, 200) : null,
+      intent: typeof parsed.intent === "string" ? parsed.intent.slice(0, 40) : "other",
+      language: typeof parsed.language === "string" ? parsed.language.slice(0, 8) : "es",
+      confidence: typeof parsed.confidence === "number" ? Math.max(0, Math.min(1, parsed.confidence)) : 0,
+      notes: typeof parsed.notes === "string" ? parsed.notes.slice(0, 400) : null
+    };
+  } catch (e) {
+    console.warn("[meta whatsapp] lead extraction failed", e?.name || e?.message || e);
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+async function logWaMessage(row) {
+  if (!isSupabaseConfigured()) return;
+  try {
+    await supabaseAdmin.from("wa_messages").insert({
+      phone_number_id: row.phone_number_id || null,
+      wa_from: row.wa_from,
+      wa_message_id: row.wa_message_id || null,
+      direction: row.direction,
+      message_type: row.message_type || null,
+      body: row.body || null,
+      meta_payload: row.meta_payload || null,
+      language: row.language || null
+    });
+  } catch (e) {
+    console.warn("[meta whatsapp] logWaMessage failed", e?.message || e);
+  }
+}
+
+/**
+ * Upsert a lead row keyed by (phone_number_id, wa_from). New non-null fields
+ * overwrite existing values; nulls don't clobber prior known data. Increments
+ * message_count and updates last_message_at + updated_at on every call.
+ */
+async function upsertWaLead({ phoneNumberId, waFrom, extracted, inboundBody }) {
+  if (!isSupabaseConfigured() || !waFrom) return;
+  try {
+    const { data: existing } = await supabaseAdmin
+      .from("wa_leads")
+      .select("id,name,email,phone,intent,language,confidence,notes,message_count,first_seen_at")
+      .eq("phone_number_id", phoneNumberId || "")
+      .eq("wa_from", waFrom)
+      .maybeSingle();
+
+    const now = new Date().toISOString();
+    const fields = extracted || {};
+    const merged = {
+      name: fields.name || existing?.name || null,
+      email: fields.email || existing?.email || null,
+      phone: fields.phone || existing?.phone || null,
+      intent: fields.intent || existing?.intent || "other",
+      language: fields.language || existing?.language || null,
+      confidence:
+        typeof fields.confidence === "number"
+          ? Math.max(fields.confidence, existing?.confidence || 0)
+          : existing?.confidence || 0,
+      notes: fields.notes || existing?.notes || (inboundBody ? inboundBody.slice(0, 200) : null)
+    };
+
+    if (existing) {
+      await supabaseAdmin
+        .from("wa_leads")
+        .update({
+          ...merged,
+          last_message_at: now,
+          message_count: (existing.message_count || 0) + 1,
+          updated_at: now
+        })
+        .eq("id", existing.id);
+    } else {
+      await supabaseAdmin.from("wa_leads").insert({
+        phone_number_id: phoneNumberId || null,
+        wa_from: waFrom,
+        ...merged,
+        first_seen_at: now,
+        last_message_at: now,
+        message_count: 1
+      });
+    }
+  } catch (e) {
+    console.warn("[meta whatsapp] upsertWaLead failed", e?.message || e);
+  }
+}
+
 async function sendReplyForInbound(inbound) {
   const staticReply = String(process.env.META_WABA_MARKETING_AUTO_REPLY || "").trim();
   if (staticReply) {
     return await sendMarketingWhatsAppReply(inbound.from, staticReply);
   }
-  const ai = await openAiReplyToInbound(inbound.body);
+  const history = await loadRecentConversation(inbound.phoneNumberId, inbound.from);
+  const ai = await openAiReplyToInbound(inbound.body, history);
   const fallback =
     String(process.env.META_WABA_OPENAI_FALLBACK_REPLY || "").trim() ||
     "¡Hola! Gracias por escribir a Omnira. Ahora mismo no puedo generar la respuesta automática; prueba en unos minutos o escribe a omniraassist@gmail.com. Planes desde 49€/mes y packs en omnira.";
@@ -249,11 +503,20 @@ async function sendReplyForInbound(inbound) {
   if (!ai) {
     console.warn("[meta whatsapp] OpenAI returned empty - sending fallback WhatsApp message");
   }
-  return await sendMarketingWhatsAppReply(inbound.from, textToSend);
+  const sendResult = await sendMarketingWhatsAppReply(inbound.from, textToSend);
+  // Build the conversation slice we'll feed to the lead extractor: prior history +
+  // the current turn (user message and the just-sent assistant reply).
+  const conversationForExtraction = [
+    ...history,
+    { role: "user", content: inbound.body },
+    { role: "assistant", content: textToSend }
+  ];
+  return { sendResult, replyText: textToSend, conversationForExtraction };
 }
 
 /**
  * CLI / integration tests: same path as the Meta webhook after parsing inbound text.
+ * Returns the underlying Graph `/messages` send result.
  * @param {{ from: string, body: string }} inbound
  */
 export async function runMarketingAgentReplyForTest(inbound) {
@@ -262,7 +525,8 @@ export async function runMarketingAgentReplyForTest(inbound) {
   if (!from || !body) {
     throw new Error("runMarketingAgentReplyForTest: requires { from, body } (E.164 digits and user text)");
   }
-  return await sendReplyForInbound({ from, body, phoneNumberId: "" });
+  const out = await sendReplyForInbound({ from, body, phoneNumberId: "" });
+  return out?.sendResult || { ok: false, status: 0, snippet: "no send result" };
 }
 
 export function handleMetaWhatsAppGet(req, res) {
@@ -309,12 +573,42 @@ async function processMetaWebhookInboundBody(body) {
   }
   if (inbound?.from) {
     console.info("[meta whatsapp] inbound text from", inbound.from, "len=", inbound.body?.length ?? 0);
+
+    await logWaMessage({
+      phone_number_id: inbound.phoneNumberId,
+      wa_from: inbound.from,
+      wa_message_id: inbound.messageId || null,
+      direction: "inbound",
+      message_type: inbound.messageType || "text",
+      body: inbound.body
+    });
+
     try {
       const out = await sendReplyForInbound(inbound);
-      if (out && !out.ok) {
-        console.warn("[meta whatsapp] reply pipeline incomplete", out.status, out.snippet?.slice(0, 200));
-      } else if (out?.ok) {
+      const sendResult = out?.sendResult;
+      if (sendResult && !sendResult.ok) {
+        console.warn("[meta whatsapp] reply pipeline incomplete", sendResult.status, sendResult.snippet?.slice(0, 200));
+      } else if (sendResult?.ok) {
         console.info("[meta whatsapp] outbound reply sent ok");
+        await logWaMessage({
+          phone_number_id: inbound.phoneNumberId,
+          wa_from: inbound.from,
+          direction: "outbound",
+          message_type: "text",
+          body: out?.replyText || ""
+        });
+      }
+
+      // Lead extraction runs after the reply so it never delays the user response.
+      // Errors are swallowed inside extractLeadFromConversation / upsertWaLead.
+      if (out?.conversationForExtraction?.length) {
+        const extracted = await extractLeadFromConversation(out.conversationForExtraction);
+        await upsertWaLead({
+          phoneNumberId: inbound.phoneNumberId,
+          waFrom: inbound.from,
+          extracted,
+          inboundBody: inbound.body
+        });
       }
     } catch (e) {
       console.error("[meta whatsapp] reply error", e?.message || e);

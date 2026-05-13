@@ -2,21 +2,32 @@ import { useEffect, useMemo, useState } from 'react';
 import { apiCall } from '../api/client.js';
 
 export function AnalyticsPage() {
-  const [analyticsSeries, setAnalyticsSeries] = useState([]);
-  const [funnelStages, setFunnelStages] = useState([]);
+  const [series, setSeries] = useState([]);
+  const [funnel, setFunnel] = useState([]);
+  const [topIntents, setTopIntents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     let alive = true;
+    setLoading(true);
     apiCall('/api/admin/analytics')
       .then((res) => {
         if (!alive) return;
-        setAnalyticsSeries(res.series || []);
-        setFunnelStages(res.funnel || []);
+        setSeries(res.series || []);
+        setFunnel(res.funnel || []);
+        setTopIntents(res.topIntents || []);
+        setError('');
       })
-      .catch(() => {
+      .catch((e) => {
         if (!alive) return;
-        setAnalyticsSeries([]);
-        setFunnelStages([]);
+        setSeries([]);
+        setFunnel([]);
+        setTopIntents([]);
+        setError(e?.message || 'Could not load analytics');
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
       });
     return () => {
       alive = false;
@@ -24,12 +35,12 @@ export function AnalyticsPage() {
   }, []);
 
   const maxMsg = useMemo(
-    () => Math.max(1, ...analyticsSeries.map((d) => Number(d.messages || 0))),
-    [analyticsSeries]
+    () => Math.max(1, ...series.map((d) => Number(d.messages || 0))),
+    [series]
   );
   const maxLeads = useMemo(
-    () => Math.max(1, ...analyticsSeries.map((d) => Number(d.newLeads || 0))),
-    [analyticsSeries]
+    () => Math.max(1, ...series.map((d) => Number(d.newLeads || 0))),
+    [series]
   );
 
   return (
@@ -37,16 +48,23 @@ export function AnalyticsPage() {
       <header className="adm-page-head">
         <h1>Analytics</h1>
         <p>
-          End-to-end behaviour of your white-label WhatsApp agents: how visitors open the widget, message volume,
-          qualification, proposed slots, and confirmed bookings. Use this view to coach owners and tune defaults.
+          Real WhatsApp activity from <code>wa_messages</code> and <code>wa_leads</code>. Funnel stages reflect the
+          live lead lifecycle (<em>new → contacted → qualified/converted</em>) — no projections, no mocks.
         </p>
       </header>
 
+      {error ? (
+        <div className="adm-card" style={{ marginBottom: 12, borderColor: 'rgba(239,68,68,0.4)' }}>
+          <strong style={{ color: '#fecaca' }}>Error:</strong>{' '}
+          <span style={{ color: 'var(--muted)' }}>{error}</span>
+        </div>
+      ) : null}
+
       <div className="adm-grid-2">
         <section className="adm-card">
-          <h2 className="adm-card-title">Messages per day (all tenants)</h2>
+          <h2 className="adm-card-title">Messages per day · last 7 days</h2>
           <div className="adm-chart-bars" style={{ height: 220 }}>
-            {analyticsSeries.map((d) => (
+            {series.map((d) => (
               <div key={d.label} className="adm-chart-bar-wrap">
                 <div
                   className="adm-chart-bar"
@@ -59,13 +77,16 @@ export function AnalyticsPage() {
                 <span className="adm-chart-label">{d.label}</span>
               </div>
             ))}
+            {!series.length && !loading ? (
+              <span style={{ color: 'var(--muted)' }}>No data yet.</span>
+            ) : null}
           </div>
         </section>
 
         <section className="adm-card">
-          <h2 className="adm-card-title">New leads (widget → first reply)</h2>
+          <h2 className="adm-card-title">New leads · last 7 days</h2>
           <div className="adm-chart-bars" style={{ height: 220 }}>
-            {analyticsSeries.map((d) => (
+            {series.map((d) => (
               <div key={d.label} className="adm-chart-bar-wrap">
                 <div
                   className="adm-chart-bar"
@@ -77,60 +98,58 @@ export function AnalyticsPage() {
                 <span className="adm-chart-label">{d.label}</span>
               </div>
             ))}
+            {!series.length && !loading ? (
+              <span style={{ color: 'var(--muted)' }}>No data yet.</span>
+            ) : null}
           </div>
         </section>
       </div>
 
       <section className="adm-card adm-card-em">
-        <h2 className="adm-card-title">Conversion funnel · aggregate</h2>
+        <h2 className="adm-card-title">Lead conversion funnel</h2>
         <p className="adm-field-hint" style={{ marginBottom: 20 }}>
-          Stages reflect the standard Omnira booking flow: widget → first inbound message → intent detected → slot
-          offered → row written to Google Sheet + confirmation WhatsApp + dual email (customer + business owner).
+          Counts come straight from <code>wa_leads.status</code>. Percentages are versus the current week's new
+          leads, not historical averages.
         </p>
-        {funnelStages.map((row) => (
+        {funnel.map((row) => (
           <div key={row.stage} className="adm-funnel-row">
             <div className="adm-funnel-label">{row.stage}</div>
             <div className="adm-funnel-track">
-              <div className="adm-funnel-fill" style={{ width: `${row.pct}%` }}>
-                <span>{row.count.toLocaleString()}</span>
+              <div className="adm-funnel-fill" style={{ width: `${Math.max(2, Math.min(100, row.pct))}%` }}>
+                <span>{Number(row.count).toLocaleString()}</span>
               </div>
             </div>
           </div>
         ))}
+        {!funnel.length && !loading ? (
+          <p style={{ color: 'var(--muted)' }}>No leads yet.</p>
+        ) : null}
       </section>
 
       <section className="adm-card" style={{ marginTop: 22 }}>
-        <h2 className="adm-card-title">Operational notes</h2>
-        <div className="adm-two-col-detail">
-          <div>
-            <p style={{ fontSize: 14, color: 'var(--soft)', lineHeight: 1.65, marginBottom: 14 }}>
-              When a paid owner finishes Meta Business verification and connects their display phone number, the
-              floating WhatsApp launcher on their deployed site routes to the same Cloud API sender. Session logs
-              under <strong style={{ color: '#fff' }}>Live sessions</strong> show who is editing context or billing
-              in real time.
-            </p>
-            <p style={{ fontSize: 14, color: 'var(--soft)', lineHeight: 1.65 }}>
-              Sheet append failures and email bounces should surface as alerts (wire your backend); this UI is
-              structured so each row in <strong style={{ color: '#fff' }}>Paid subscribers</strong> deep-links into
-              per-owner WhatsApp + bot context tabs.
-            </p>
+        <h2 className="adm-card-title">Top intents · last 7 days</h2>
+        {topIntents.length === 0 ? (
+          <p style={{ color: 'var(--muted)' }}>No intents extracted yet (the OpenAI extractor populates this column).</p>
+        ) : (
+          <div className="adm-table-wrap" style={{ marginTop: 4 }}>
+            <table className="adm-table">
+              <thead>
+                <tr>
+                  <th>Intent</th>
+                  <th>Leads</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topIntents.map((row) => (
+                  <tr key={row.intent}>
+                    <td className="adm-mono">{row.intent}</td>
+                    <td>{row.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <aside className="adm-card" style={{ padding: 18 }}>
-            <div className="adm-stat-label">Avg. time to first booking</div>
-            <div className="adm-stat-value" style={{ fontSize: 22 }}>
-              6m 12s
-            </div>
-            <div className="adm-stat-delta up" style={{ marginTop: 8 }}>
-              −14% vs prior week
-            </div>
-            <div className="adm-divider" />
-            <div className="adm-stat-label">Handoff to human</div>
-            <div className="adm-stat-value" style={{ fontSize: 22 }}>
-              4.1%
-            </div>
-            <p className="adm-field-hint">Of threads that reached “qualified intent”.</p>
-          </aside>
-        </div>
+        )}
       </section>
     </>
   );
