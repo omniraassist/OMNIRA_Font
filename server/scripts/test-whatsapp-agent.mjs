@@ -156,6 +156,88 @@ async function main() {
     );
   }
 
+  /**
+   * The single most common reason real WhatsApp messages don't reach the webhook even when
+   * GET /webhook verifies fine: the Meta App has NO active webhook subscription on the
+   * `whatsapp_business_account` object → `messages` field. Meta only POSTs inbound messages
+   * for fields the App is subscribed to. Verifying the callback URL alone is NOT enough.
+   *
+   * Uses an app access token (`{app_id}|{app_secret}`) — which we derive from the system user
+   * token's `debug_token` introspection + META_WABA_APP_SECRET — so this works even when the
+   * normal access token only has `whatsapp_business_messaging` scope.
+   */
+  const metaAppSubs = await runStep(
+    "Meta App webhook subscriptions (whatsapp_business_account/messages must be active)",
+    async () => {
+      const token = String(process.env.META_WABA_ACCESS_TOKEN || "").trim();
+      const appSecret = String(process.env.META_WABA_APP_SECRET || "").trim();
+      if (!token || !appSecret) {
+        return "FAIL: META_WABA_ACCESS_TOKEN or META_WABA_APP_SECRET missing in .env";
+      }
+      const dbg = await fetch(
+        `https://graph.facebook.com/${graphVersion}/debug_token?input_token=${encodeURIComponent(token)}&access_token=${encodeURIComponent(token)}`,
+        { signal: AbortSignal.timeout(15000) }
+      );
+      const dbgRaw = await dbg.text();
+      let dbgJson = {};
+      try {
+        dbgJson = dbgRaw ? JSON.parse(dbgRaw) : {};
+      } catch {
+        return { stage: "debug_token", http: dbg.status, body: dbgRaw.slice(0, 300), FAIL: true };
+      }
+      const appId = String(dbgJson?.data?.app_id || "").trim();
+      if (!appId) {
+        return { stage: "debug_token", body: dbgJson, FAIL: true };
+      }
+      const appToken = `${appId}|${appSecret}`;
+      const sub = await fetch(
+        `https://graph.facebook.com/${graphVersion}/${appId}/subscriptions?access_token=${encodeURIComponent(appToken)}`,
+        { signal: AbortSignal.timeout(15000) }
+      );
+      const subRaw = await sub.text();
+      let subJson = {};
+      try {
+        subJson = subRaw ? JSON.parse(subRaw) : {};
+      } catch {
+        return { stage: "subscriptions", http: sub.status, body: subRaw.slice(0, 300), FAIL: true };
+      }
+      const list = Array.isArray(subJson?.data) ? subJson.data : [];
+      const waSub = list.find((x) => String(x.object || "").toLowerCase() === "whatsapp_business_account");
+      const hasMessages =
+        waSub && Array.isArray(waSub.fields) && waSub.fields.some((f) => String(f?.name || "") === "messages");
+      const active = Boolean(waSub?.active);
+      if (!waSub || !active || !hasMessages) {
+        console.error(
+          "\nMeta App has NO active 'messages' webhook subscription. This is why your real WhatsApp messages get no reply, even though GET /webhook verifies and /health is green.\n" +
+            "FIX (one-shot, Graph API — uses META_WABA_APP_SECRET):\n" +
+            "  curl -X POST 'https://graph.facebook.com/" +
+            graphVersion +
+            "/" +
+            appId +
+            "/subscriptions' \\\n" +
+            "    -d 'object=whatsapp_business_account' \\\n" +
+            "    -d 'callback_url=" +
+            String(process.env.META_WABA_CALLBACK_URL || "https://YOUR-BACKEND.vercel.app/api/meta/whatsapp/webhook") +
+            "' \\\n" +
+            "    -d 'verify_token=$META_WABA_VERIFY_TOKEN' \\\n" +
+            "    -d 'fields=messages,message_template_status_update' \\\n" +
+            "    -d 'access_token=" +
+            appId +
+            "|$META_WABA_APP_SECRET'\n" +
+            "OR (UI): Meta App Dashboard → WhatsApp → Configuration → Webhook → 'Verify and save', then click 'Subscribe' next to the `messages` field.\n"
+        );
+        return { app_id: appId, subscriptions: list, FAIL: true };
+      }
+      return {
+        app_id: appId,
+        callback_url: waSub.callback_url,
+        active: waSub.active,
+        fields: waSub.fields.map((f) => f.name)
+      };
+    }
+  );
+  if (!metaAppSubs.ok || (metaAppSubs.result && metaAppSubs.result.FAIL)) exit = 1;
+
   const aiOnly = await runStep("OpenAI only (marketing system prompt)", async () => {
     const key = resolveOpenAiKey();
     if (!key) {
