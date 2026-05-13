@@ -31,7 +31,9 @@ const FOOT_STYLES = `
     background: linear-gradient(135deg, var(--em) 0%, #60a5fa 100%);
     color: #00120a;
     flex-shrink: 0;
+    overflow: hidden;
   }
+  .adm-sidebar-user .av img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .adm-sidebar-user .meta { min-width: 0; flex: 1; }
   .adm-sidebar-user .meta strong {
     display: block; color: var(--text); font-size: 13px;
@@ -142,7 +144,9 @@ export function Sidebar({ onNavigate, mobileOpen }) {
 
       <div className="adm-sidebar-foot">
         <div className="adm-sidebar-user">
-          <div className="av">{initials}</div>
+          <div className="av">
+            {user?.avatar ? <img src={user.avatar} alt={user?.name || 'admin'} /> : initials}
+          </div>
           <div className="meta">
             <strong>{user?.name || 'Omnira Admin'}</strong>
             <small>{user?.email || 'Superadmin'}</small>

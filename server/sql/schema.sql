@@ -22,10 +22,13 @@ create table if not exists public.admin_users (
   email text not null unique,
   password_hash text not null,
   full_name text,
+  avatar_data_url text,
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.admin_users add column if not exists avatar_data_url text;
 
 create table if not exists public.admin_password_resets (
   id uuid primary key default gen_random_uuid(),

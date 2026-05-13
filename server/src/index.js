@@ -667,7 +667,7 @@ app.get("/api/admin/admins/:id", async (req, res) => {
     const { id } = req.params;
     const { data, error } = await supabaseAdmin
       .from("admin_users")
-      .select("id, email, full_name, is_active, created_at, updated_at")
+      .select("id, email, full_name, avatar_data_url, is_active, created_at, updated_at")
       .eq("id", id)
       .maybeSingle();
     if (error) throw error;
@@ -678,12 +678,38 @@ app.get("/api/admin/admins/:id", async (req, res) => {
   }
 });
 
+/**
+ * Validate an `image/(png|jpeg|webp|gif)` data URL and enforce a 256 KB byte
+ * cap on the underlying image. The /profile page already resizes to 256×256
+ * JPEG-0.82 client-side (≈30–80 KB encoded) so this cap is a server-side
+ * safety net, not the primary constraint.
+ */
+function validateAvatarDataUrl(value) {
+  if (value == null || value === "") return { ok: true, normalized: null };
+  if (typeof value !== "string") return { ok: false, message: "avatar must be a string" };
+  const m = /^data:image\/(png|jpeg|jpg|webp|gif);base64,([A-Za-z0-9+/=]+)$/i.exec(value);
+  if (!m) return { ok: false, message: "avatar must be a base64 data URL (png/jpeg/webp/gif)" };
+  // Approximate decoded byte length: base64 has ~4/3 expansion.
+  const approxBytes = Math.floor((m[2].length * 3) / 4);
+  if (approxBytes > 256 * 1024) {
+    return { ok: false, message: "avatar too large (max 256 KB after base64)" };
+  }
+  return { ok: true, normalized: value };
+}
+
 app.patch("/api/admin/admins/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const newName = typeof req.body?.full_name === "string" ? req.body.full_name.trim().slice(0, 200) : null;
     const newPassword = typeof req.body?.new_password === "string" ? req.body.new_password : null;
     const currentPassword = typeof req.body?.current_password === "string" ? req.body.current_password : null;
+    const wantsAvatarChange = Object.prototype.hasOwnProperty.call(req.body || {}, "avatar_data_url");
+    let avatarToWrite = null;
+    if (wantsAvatarChange) {
+      const v = validateAvatarDataUrl(req.body.avatar_data_url);
+      if (!v.ok) return res.status(400).json({ ok: false, message: v.message });
+      avatarToWrite = v.normalized; // null = remove
+    }
 
     if (newPassword) {
       if (!isValidPassword(newPassword)) {
@@ -707,6 +733,7 @@ app.patch("/api/admin/admins/:id", async (req, res) => {
     const patch = { updated_at: new Date().toISOString() };
     if (newName != null) patch.full_name = newName || null;
     if (newPassword) patch.password_hash = hashPassword(newPassword);
+    if (wantsAvatarChange) patch.avatar_data_url = avatarToWrite;
     if (Object.keys(patch).length === 1) {
       return res.status(400).json({ ok: false, message: "Nothing to update." });
     }
@@ -715,7 +742,7 @@ app.patch("/api/admin/admins/:id", async (req, res) => {
       .from("admin_users")
       .update(patch)
       .eq("id", id)
-      .select("id, email, full_name, is_active, updated_at")
+      .select("id, email, full_name, avatar_data_url, is_active, updated_at")
       .maybeSingle();
     if (error) throw error;
     if (!data) return res.status(404).json({ ok: false, message: "Admin not found." });
@@ -2065,7 +2092,7 @@ app.post("/api/admin/login", async (req, res) => {
 
     const { data: admin, error } = await supabaseAdmin
       .from("admin_users")
-      .select("id, email, full_name, is_active, password_hash")
+      .select("id, email, full_name, avatar_data_url, is_active, password_hash")
       .eq("email", email)
       .maybeSingle();
 
@@ -2090,7 +2117,8 @@ app.post("/api/admin/login", async (req, res) => {
       user: {
         id: admin.id,
         email: admin.email,
-        full_name: admin.full_name
+        full_name: admin.full_name,
+        avatar_data_url: admin.avatar_data_url || null
       }
     });
   } catch (error) {

@@ -1,6 +1,38 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { apiCall } from '../api/client.js';
 import { useAdminAuth } from '../context/AdminAuthContext.jsx';
+
+/**
+ * Client-side image resize: draws the user's file onto a 256×256 canvas
+ * (cover-cropped) and exports JPEG at 0.82 quality. This keeps the encoded
+ * payload around 30–80 KB so the server-side 256 KB cap is comfortable.
+ */
+async function fileToAvatarDataUrl(file) {
+  if (!file || !file.type.startsWith('image/')) {
+    throw new Error('Please choose an image file (PNG, JPEG, WEBP, or GIF).');
+  }
+  if (file.size > 8 * 1024 * 1024) {
+    throw new Error('Image is too large (max 8 MB before resize).');
+  }
+  const bitmap = await createImageBitmap(file).catch(() => null);
+  if (!bitmap) throw new Error('Could not decode the image.');
+  const SIZE = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = SIZE;
+  canvas.height = SIZE;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas not supported in this browser.');
+  // Cover-fit: scale to fill, then center-crop.
+  const scale = Math.max(SIZE / bitmap.width, SIZE / bitmap.height);
+  const sw = SIZE / scale;
+  const sh = SIZE / scale;
+  const sx = (bitmap.width - sw) / 2;
+  const sy = (bitmap.height - sh) / 2;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, SIZE, SIZE);
+  bitmap.close?.();
+  return canvas.toDataURL('image/jpeg', 0.82);
+}
 
 const STYLES = `
   .p-grid { display: grid; grid-template-columns: minmax(280px, 320px) 1fr; gap: 18px; }
@@ -21,15 +53,46 @@ const STYLES = `
     pointer-events: none;
   }
   .p-av {
-    width: 84px; height: 84px;
+    width: 96px; height: 96px;
     border-radius: 999px;
     background: linear-gradient(135deg, var(--em) 0%, #60a5fa 100%);
     display: inline-flex; align-items: center; justify-content: center;
-    font-family: var(--font-display); font-weight: 700; font-size: 32px;
+    font-family: var(--font-display); font-weight: 700; font-size: 36px;
     color: #00120a;
     box-shadow: 0 10px 30px rgba(0,229,160,0.25);
     margin-bottom: 14px;
+    overflow: hidden;
   }
+  .p-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  .p-av-edit {
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 16px;
+  }
+  .p-av-edit .preview {
+    width: 88px; height: 88px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--em) 0%, #60a5fa 100%);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-weight: 700; font-size: 30px;
+    color: #00120a;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+    border: 2px solid var(--border-em);
+  }
+  .p-av-edit .preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .p-av-edit .preview.busy::after {
+    content: ''; position: absolute; inset: 0;
+    background: rgba(0,0,0,0.55) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='none' stroke='%2300e5a0' stroke-width='2'><circle cx='12' cy='12' r='10' stroke-opacity='0.25'/><path d='M22 12a10 10 0 0 0-10-10' stroke-linecap='round'/></svg>") center/30px no-repeat;
+    animation: spin 0.8s linear infinite;
+    border-radius: 999px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .p-av-edit .info { display: flex; flex-direction: column; gap: 6px; }
+  .p-av-edit .info p { margin: 0; font-size: 12px; color: var(--soft); line-height: 1.5; }
+  .p-av-edit .info .controls { display: flex; gap: 8px; flex-wrap: wrap; }
+  .p-av-edit input[type=file] { display: none; }
   .p-id h3 { margin: 0 0 4px; font-family: var(--font-display); font-size: 18px; color: var(--text); }
   .p-id .em { color: var(--soft); font-size: 13px; }
   .p-badge {
@@ -105,14 +168,17 @@ function formatDate(iso) {
 
 export function ProfilePage() {
   const { user, updateUser, logout } = useAdminAuth();
+  const fileRef = useRef(null);
   const [admin, setAdmin] = useState(null);
   const [loading, setLoading] = useState(true);
   const [savingName, setSavingName] = useState(false);
   const [savingPw, setSavingPw] = useState(false);
+  const [savingAvatar, setSavingAvatar] = useState(false);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
 
   const [name, setName] = useState('');
+  const [avatar, setAvatar] = useState('');
   const [curPw, setCurPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [newPw2, setNewPw2] = useState('');
@@ -128,6 +194,7 @@ export function ProfilePage() {
         if (!alive) return;
         setAdmin(res.admin);
         setName(res.admin?.full_name || '');
+        setAvatar(res.admin?.avatar_data_url || '');
       })
       .catch((e) => {
         if (!alive) return;
@@ -159,6 +226,53 @@ export function ProfilePage() {
       setError(ex?.message || 'Could not save name');
     } finally {
       setSavingName(false);
+    }
+  };
+
+  const onPickAvatar = () => fileRef.current?.click();
+
+  const onFileChosen = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(''); setInfo('');
+    setSavingAvatar(true);
+    try {
+      const dataUrl = await fileToAvatarDataUrl(file);
+      const res = await apiCall(`/api/admin/admins/${user.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ avatar_data_url: dataUrl }),
+      });
+      setAdmin(res.admin);
+      setAvatar(res.admin?.avatar_data_url || '');
+      updateUser({ avatar: res.admin?.avatar_data_url || null });
+      setInfo('Profile photo updated.');
+    } catch (ex) {
+      setError(ex?.message || 'Could not update photo');
+    } finally {
+      setSavingAvatar(false);
+      // Reset input so picking the same file again still triggers onChange.
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const removeAvatar = async () => {
+    if (!avatar) return;
+    if (!window.confirm('Remove your profile photo?')) return;
+    setError(''); setInfo('');
+    setSavingAvatar(true);
+    try {
+      const res = await apiCall(`/api/admin/admins/${user.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ avatar_data_url: '' }),
+      });
+      setAdmin(res.admin);
+      setAvatar('');
+      updateUser({ avatar: null });
+      setInfo('Profile photo removed.');
+    } catch (ex) {
+      setError(ex?.message || 'Could not remove photo');
+    } finally {
+      setSavingAvatar(false);
     }
   };
 
@@ -200,7 +314,9 @@ export function ProfilePage() {
 
       <div className="p-grid">
         <aside className="p-id">
-          <div className="p-av">{initials}</div>
+          <div className="p-av">
+            {avatar ? <img src={avatar} alt={admin?.full_name || 'admin avatar'} /> : initials}
+          </div>
           <h3>{admin?.full_name || name || 'Omnira Admin'}</h3>
           <div className="em">{admin?.email || user?.email || ''}</div>
           <div className="p-badge">
@@ -217,6 +333,41 @@ export function ProfilePage() {
         </aside>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <section className="p-card">
+            <h3>Profile photo</h3>
+            <p className="sub">
+              Auto-resized to 256×256 JPEG. Recommended: a square image of your face or logo, &lt; 8 MB.
+              Shown in the top bar, the sidebar footer, and everywhere your initials currently appear.
+            </p>
+            <div className="p-av-edit">
+              <div className={`preview${savingAvatar ? ' busy' : ''}`}>
+                {avatar ? <img src={avatar} alt="Current profile" /> : initials}
+              </div>
+              <div className="info">
+                <p>
+                  PNG / JPEG / WEBP / GIF supported. Image is processed entirely in your browser before being
+                  uploaded — Omnira never sees the original full-size file.
+                </p>
+                <div className="controls">
+                  <button type="button" className="p-btn" onClick={onPickAvatar} disabled={savingAvatar}>
+                    {savingAvatar ? 'Uploading…' : avatar ? 'Replace photo' : 'Upload photo'}
+                  </button>
+                  {avatar ? (
+                    <button type="button" className="p-btn danger" onClick={removeAvatar} disabled={savingAvatar}>
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={onFileChosen}
+                />
+              </div>
+            </div>
+          </section>
+
           <section className="p-card">
             <h3>Display name</h3>
             <p className="sub">Shown in the top bar dropdown and in audit fields on notifications you send.</p>

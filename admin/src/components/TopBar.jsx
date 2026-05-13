@@ -40,7 +40,9 @@ const STYLES = `
     background: linear-gradient(135deg, var(--em) 0%, #60a5fa 100%);
     color: #00120a;
     box-shadow: 0 4px 12px rgba(0,229,160,0.25);
+    overflow: hidden; flex-shrink: 0;
   }
+  .adm-tb-user-btn .av img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .adm-tb-user-btn .meta { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
   .adm-tb-user-btn .meta small { font-size: 10px; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; line-height: 1; }
   .adm-tb-user-btn .meta span { font-size: 13px; color: var(--text); font-weight: 600; line-height: 1.2; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -285,7 +287,9 @@ export function TopBar({ onMenuClick }) {
             aria-haspopup="menu"
             aria-expanded={userOpen}
           >
-            <span className="av">{initials}</span>
+            <span className="av">
+              {user?.avatar ? <img src={user.avatar} alt={user?.name || 'admin'} /> : initials}
+            </span>
             <span className="meta">
               <small>Signed in</small>
               <span>{user?.name ?? 'Admin'}</span>

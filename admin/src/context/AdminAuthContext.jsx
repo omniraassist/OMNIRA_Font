@@ -24,6 +24,7 @@ export function AdminAuthProvider({ children }) {
       id: res.user?.id,
       email: res.user?.email,
       name: res.user?.full_name || 'Omnira Admin',
+      avatar: res.user?.avatar_data_url || null,
       role: 'Superadmin',
       token: `admin_${res.user?.id || 'session'}`,
     };
