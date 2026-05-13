@@ -35,17 +35,30 @@ async function fileToAvatarDataUrl(file) {
 }
 
 const STYLES = `
-  .p-grid { display: grid; grid-template-columns: minmax(280px, 320px) 1fr; gap: 18px; }
+  .p-grid { display: grid; grid-template-columns: minmax(280px, 340px) 1fr; gap: 18px; align-items: start; }
   @media (max-width: 880px) { .p-grid { grid-template-columns: 1fr; } }
 
+  .p-id, .p-card { animation: p-rise .4s ease-out both; }
+  .p-id { animation-delay: .02s; }
+  .p-card:nth-of-type(1) { animation-delay: .08s; }
+  .p-card:nth-of-type(2) { animation-delay: .14s; }
+  .p-card:nth-of-type(3) { animation-delay: .20s; }
+  .p-card:nth-of-type(4) { animation-delay: .26s; }
+  @keyframes p-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
   .p-id {
-    background: linear-gradient(180deg, var(--surf2) 0%, var(--surf) 100%);
+    background:
+      radial-gradient(80% 60% at 50% 0%, rgba(0,229,160,0.12), transparent 65%),
+      linear-gradient(180deg, var(--surf2) 0%, var(--surf) 100%);
     border: 1px solid var(--border-em);
-    border-radius: var(--r-md);
-    padding: 22px;
+    border-radius: var(--r-lg);
+    padding: 26px 22px;
     text-align: center;
     position: relative; overflow: hidden;
+    position: sticky;
+    top: 16px;
   }
+  @media (max-width: 880px) { .p-id { position: static; } }
   .p-id::before {
     content: '';
     position: absolute; inset: 0;
@@ -66,20 +79,31 @@ const STYLES = `
   .p-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
   .p-av-edit {
-    display: flex; align-items: center; gap: 16px;
-    margin-bottom: 16px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 4px;
+    padding: 14px;
+    border: 1px dashed rgba(255,255,255,0.08);
+    border-radius: 14px;
+    background: rgba(255,255,255,0.02);
+    transition: border-color .2s ease, background .2s ease;
   }
+  .p-av-edit.drag { border-color: var(--em); background: rgba(0,229,160,0.05); }
+  @media (max-width: 480px) { .p-av-edit { grid-template-columns: 1fr; justify-items: center; text-align: center; } }
   .p-av-edit .preview {
-    width: 88px; height: 88px;
+    width: 96px; height: 96px;
     border-radius: 999px;
     background: linear-gradient(135deg, var(--em) 0%, #60a5fa 100%);
     display: inline-flex; align-items: center; justify-content: center;
-    font-family: var(--font-display); font-weight: 700; font-size: 30px;
+    font-family: var(--font-display); font-weight: 700; font-size: 32px;
     color: #00120a;
     overflow: hidden;
     flex-shrink: 0;
     position: relative;
-    border: 2px solid var(--border-em);
+    border: 3px solid var(--border-em);
+    box-shadow: 0 12px 32px rgba(0,229,160,0.25);
   }
   .p-av-edit .preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .p-av-edit .preview.busy::after {
@@ -89,7 +113,7 @@ const STYLES = `
     border-radius: 999px;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .p-av-edit .info { display: flex; flex-direction: column; gap: 6px; }
+  .p-av-edit .info { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
   .p-av-edit .info p { margin: 0; font-size: 12px; color: var(--soft); line-height: 1.5; }
   .p-av-edit .info .controls { display: flex; gap: 8px; flex-wrap: wrap; }
   .p-av-edit input[type=file] { display: none; }
@@ -174,6 +198,7 @@ export function ProfilePage() {
   const [savingName, setSavingName] = useState(false);
   const [savingPw, setSavingPw] = useState(false);
   const [savingAvatar, setSavingAvatar] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
 
@@ -231,8 +256,7 @@ export function ProfilePage() {
 
   const onPickAvatar = () => fileRef.current?.click();
 
-  const onFileChosen = async (e) => {
-    const file = e.target.files?.[0];
+  const handleAvatarFile = async (file) => {
     if (!file) return;
     setError(''); setInfo('');
     setSavingAvatar(true);
@@ -250,9 +274,19 @@ export function ProfilePage() {
       setError(ex?.message || 'Could not update photo');
     } finally {
       setSavingAvatar(false);
-      // Reset input so picking the same file again still triggers onChange.
       if (fileRef.current) fileRef.current.value = '';
     }
+  };
+
+  const onFileChosen = (e) => handleAvatarFile(e.target.files?.[0]);
+
+  const onDragOver = (e) => { e.preventDefault(); if (!dragOver) setDragOver(true); };
+  const onDragLeave = () => setDragOver(false);
+  const onDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (file) handleAvatarFile(file);
   };
 
   const removeAvatar = async () => {
@@ -339,14 +373,20 @@ export function ProfilePage() {
               Auto-resized to 256×256 JPEG. Recommended: a square image of your face or logo, &lt; 8 MB.
               Shown in the top bar, the sidebar footer, and everywhere your initials currently appear.
             </p>
-            <div className="p-av-edit">
+            <div
+              className={`p-av-edit${dragOver ? ' drag' : ''}`}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
+            >
               <div className={`preview${savingAvatar ? ' busy' : ''}`}>
                 {avatar ? <img src={avatar} alt="Current profile" /> : initials}
               </div>
               <div className="info">
                 <p>
-                  PNG / JPEG / WEBP / GIF supported. Image is processed entirely in your browser before being
-                  uploaded — Omnira never sees the original full-size file.
+                  {dragOver
+                    ? 'Drop the image here to upload'
+                    : 'Drag & drop, or click Upload. PNG / JPEG / WEBP / GIF — resized to 256×256 JPEG in your browser before uploading.'}
                 </p>
                 <div className="controls">
                   <button type="button" className="p-btn" onClick={onPickAvatar} disabled={savingAvatar}>

@@ -300,6 +300,7 @@ insert into public.platform_settings (key, is_secret, description) values
   ('META_WABA_BUSINESS_ACCOUNT_ID',   false, 'WABA ID from Meta Business Suite → WhatsApp Accounts.'),
   ('META_WABA_GRAPH_VERSION',         false, 'Graph API version, e.g. v21.0. Default v21.0 if not set.'),
   ('META_WABA_WEBHOOK_SKIP_SIGNATURE',false, 'true | false. Only set true if META_WABA_APP_SECRET cannot be provided.'),
+  ('META_WABA_WEBHOOK_INSECURE_LOCAL', false, 'Local-dev flag (NODE_ENV != production). true → skip HMAC verification in development. Ignored on Vercel production.'),
   ('META_WABA_MARKETING_AUTO_REPLY',  false, 'Optional fixed reply text. If set, OpenAI is not called.'),
   ('OPENAI_API_KEY',                  true,  'OpenAI API key used for the agent and lead extraction.'),
   ('OPENAI_CHAT_MODEL',               false, 'OpenAI model id, default gpt-4o-mini.')

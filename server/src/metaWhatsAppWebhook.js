@@ -798,7 +798,7 @@ export async function handleMetaWhatsAppPost(req, res) {
     const appSecret = String(await getPlatformSetting("META_WABA_APP_SECRET", "")).trim();
     const insecureLocal =
       process.env.NODE_ENV !== "production" &&
-      String(process.env.META_WABA_WEBHOOK_INSECURE_LOCAL || "").trim().toLowerCase() === "true" &&
+      String(await getPlatformSetting("META_WABA_WEBHOOK_INSECURE_LOCAL", "")).trim().toLowerCase() === "true" &&
       !appSecret;
     const skipSignature =
       String(await getPlatformSetting("META_WABA_WEBHOOK_SKIP_SIGNATURE", "")).trim().toLowerCase() === "true";
