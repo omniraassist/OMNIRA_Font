@@ -1,8 +1,11 @@
 ﻿import crypto from "crypto";
 import { supabaseAdmin, isSupabaseConfigured } from "./config/supabase.js";
+import { getPlatformSetting, snapshotPlatformSettings } from "./platformSettings.js";
 
-const _gv = String(process.env.META_WABA_GRAPH_VERSION || "v21.0").trim();
-const GRAPH_VERSION = _gv.startsWith("v") ? _gv : `v${_gv}`;
+async function graphVersion() {
+  const gv = String(await getPlatformSetting("META_WABA_GRAPH_VERSION", "v21.0")).trim();
+  return gv.startsWith("v") ? gv : `v${gv}`;
+}
 
 function timingSafeEqualHex(a, b) {
   try {
@@ -76,8 +79,8 @@ export function extractInboundText(body) {
 }
 
 async function sendMarketingWhatsAppReply(toE164Digits, text) {
-  const token = String(process.env.META_WABA_ACCESS_TOKEN || "").trim();
-  const phoneNumberId = String(process.env.META_WABA_PHONE_NUMBER_ID || "").trim();
+  const token = String(await getPlatformSetting("META_WABA_ACCESS_TOKEN", "")).trim();
+  const phoneNumberId = String(await getPlatformSetting("META_WABA_PHONE_NUMBER_ID", "")).trim();
   if (!token || !phoneNumberId || !toE164Digits || !text) {
     return {
       ok: false,
@@ -86,7 +89,8 @@ async function sendMarketingWhatsAppReply(toE164Digits, text) {
     };
   }
 
-  const url = `https://graph.facebook.com/${GRAPH_VERSION}/${phoneNumberId}/messages`;
+  const gv = await graphVersion();
+  const url = `https://graph.facebook.com/${gv}/${phoneNumberId}/messages`;
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -175,7 +179,9 @@ async function loadPlatformBotConfig() {
   }
 }
 
-function resolveOpenAiKey() {
+async function resolveOpenAiKey() {
+  const dbKey = String(await getPlatformSetting("OPENAI_API_KEY", "")).trim();
+  if (dbKey) return dbKey;
   const names = ["OPENAI_API_KEY", "OPENAI_KEY", "OPEN_AI_API_KEY", "OPENAI_SECRET_KEY", "CHAT_OPENAI_API_KEY"];
   for (const n of names) {
     const v = String(process.env[n] || "").trim();
@@ -185,23 +191,33 @@ function resolveOpenAiKey() {
 }
 
 /**
- * Non-secret flags for GET /health (Vercel vs local misconfiguration is the #1 reason webhooks “don’t reply”).
+ * Non-secret flags for GET /health (Vercel vs local misconfiguration is the #1 reason webhooks "don't reply").
+ * Now async because settings may live in the platform_settings DB row (admin-editable).
  */
-export function getMetaWhatsAppDeployDiagnostics() {
-  const verifyTok = Boolean(String(process.env.META_WABA_VERIFY_TOKEN || "").trim());
-  const appSecret = Boolean(String(process.env.META_WABA_APP_SECRET || "").trim());
-  const token = String(process.env.META_WABA_ACCESS_TOKEN || "").trim();
-  const phoneNumberId = String(process.env.META_WABA_PHONE_NUMBER_ID || "").trim();
+export async function getMetaWhatsAppDeployDiagnostics() {
+  const snap = await snapshotPlatformSettings([
+    "META_WABA_VERIFY_TOKEN",
+    "META_WABA_APP_SECRET",
+    "META_WABA_ACCESS_TOKEN",
+    "META_WABA_PHONE_NUMBER_ID",
+    "META_WABA_WEBHOOK_SKIP_SIGNATURE",
+    "META_WABA_MARKETING_AUTO_REPLY",
+    "OPENAI_API_KEY"
+  ]);
+  const verifyTok = Boolean(String(snap.META_WABA_VERIFY_TOKEN || "").trim());
+  const appSecret = Boolean(String(snap.META_WABA_APP_SECRET || "").trim());
+  const token = String(snap.META_WABA_ACCESS_TOKEN || "").trim();
+  const phoneNumberId = String(snap.META_WABA_PHONE_NUMBER_ID || "").trim();
   const graphSend = Boolean(token && phoneNumberId);
   const skipSignature =
-    String(process.env.META_WABA_WEBHOOK_SKIP_SIGNATURE || "").trim().toLowerCase() === "true";
+    String(snap.META_WABA_WEBHOOK_SKIP_SIGNATURE || "").trim().toLowerCase() === "true";
   const insecureLocal =
     process.env.NODE_ENV !== "production" &&
     String(process.env.META_WABA_WEBHOOK_INSECURE_LOCAL || "").trim().toLowerCase() === "true" &&
     !appSecret;
   const productionLike = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
-  const staticReply = Boolean(String(process.env.META_WABA_MARKETING_AUTO_REPLY || "").trim());
-  const openai = Boolean(resolveOpenAiKey());
+  const staticReply = Boolean(String(snap.META_WABA_MARKETING_AUTO_REPLY || "").trim());
+  const openai = Boolean(String(snap.OPENAI_API_KEY || "").trim());
 
   const signatureMode = skipSignature
     ? "skip"
@@ -287,7 +303,7 @@ async function loadRecentConversation(phoneNumberId, waFrom, limit = 12) {
 }
 
 export async function openAiReplyToInbound(userMessage, history = []) {
-  const apiKey = resolveOpenAiKey();
+  const apiKey = await resolveOpenAiKey();
   if (!apiKey || !String(userMessage || "").trim()) return null;
   const cfg = await loadPlatformBotConfig();
   // ENV override exists for break-glass scenarios (set in Vercel without DB edit)
@@ -296,7 +312,7 @@ export async function openAiReplyToInbound(userMessage, history = []) {
     ? `\n\n# Knowledge base (admin-curated). Use as the source of truth for facts. If a user question is not answered by this, say you'll check and offer omniraassist@gmail.com.\n${cfg.knowledgeBase}`
     : "";
   const system = `${systemFromDb}${knowledgeBlock}`.slice(0, 24000);
-  const model = String(process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini").trim() || "gpt-4o-mini";
+  const model = String(await getPlatformSetting("OPENAI_CHAT_MODEL", "gpt-4o-mini")).trim() || "gpt-4o-mini";
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), 45000);
   try {
@@ -349,14 +365,17 @@ export async function openAiReplyToInbound(userMessage, history = []) {
  * (~1¢/100 msgs on gpt-4o-mini) and runs asynchronously so it never blocks the reply.
  */
 async function extractLeadFromConversation(conversationMessages) {
-  const apiKey = resolveOpenAiKey();
+  const apiKey = await resolveOpenAiKey();
   if (!apiKey) return null;
   const trimmed = Array.isArray(conversationMessages)
     ? conversationMessages.slice(-14).filter((m) => m?.content && m.content.trim())
     : [];
   if (trimmed.length === 0) return null;
   const cfg = await loadPlatformBotConfig();
-  const model = String(process.env.OPENAI_EXTRACT_MODEL || process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini").trim();
+  const model = String(
+    process.env.OPENAI_EXTRACT_MODEL ||
+    (await getPlatformSetting("OPENAI_CHAT_MODEL", "gpt-4o-mini"))
+  ).trim();
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), 30000);
   try {
@@ -490,7 +509,7 @@ async function upsertWaLead({ phoneNumberId, waFrom, extracted, inboundBody }) {
 }
 
 async function sendReplyForInbound(inbound) {
-  const staticReply = String(process.env.META_WABA_MARKETING_AUTO_REPLY || "").trim();
+  const staticReply = String(await getPlatformSetting("META_WABA_MARKETING_AUTO_REPLY", "")).trim();
   if (staticReply) {
     return await sendMarketingWhatsAppReply(inbound.from, staticReply);
   }
@@ -529,12 +548,12 @@ export async function runMarketingAgentReplyForTest(inbound) {
   return out?.sendResult || { ok: false, status: 0, snippet: "no send result" };
 }
 
-export function handleMetaWhatsAppGet(req, res) {
+export async function handleMetaWhatsAppGet(req, res) {
   const mode = String(req.query["hub.mode"] ?? "").trim();
   const token = String(req.query["hub.verify_token"] ?? "").trim();
   const challengeRaw = req.query["hub.challenge"];
   const ch = challengeRaw != null && challengeRaw !== "" ? String(challengeRaw) : "";
-  const expected = String(process.env.META_WABA_VERIFY_TOKEN || "").trim();
+  const expected = String(await getPlatformSetting("META_WABA_VERIFY_TOKEN", "")).trim();
 
   if (mode === "subscribe" && expected && token === expected && ch) {
     res.status(200);
@@ -565,7 +584,7 @@ export function handleMetaWhatsAppGet(req, res) {
  */
 async function processMetaWebhookInboundBody(body) {
   const inbound = extractInboundText(body);
-  const expectedPnId = String(process.env.META_WABA_PHONE_NUMBER_ID || "").trim();
+  const expectedPnId = String(await getPlatformSetting("META_WABA_PHONE_NUMBER_ID", "")).trim();
   if (inbound?.from && expectedPnId && inbound.phoneNumberId && inbound.phoneNumberId !== expectedPnId) {
     console.warn(
       "[meta whatsapp] inbound phone_number_id does not match META_WABA_PHONE_NUMBER_ID - check Meta app / WABA vs env (still attempting reply)"
@@ -650,13 +669,13 @@ function summarizeMetaWebhookPayload(body) {
 export async function handleMetaWhatsAppPost(req, res) {
   try {
     const raw = req.rawBody;
-    const appSecret = String(process.env.META_WABA_APP_SECRET || "").trim();
+    const appSecret = String(await getPlatformSetting("META_WABA_APP_SECRET", "")).trim();
     const insecureLocal =
       process.env.NODE_ENV !== "production" &&
       String(process.env.META_WABA_WEBHOOK_INSECURE_LOCAL || "").trim().toLowerCase() === "true" &&
       !appSecret;
     const skipSignature =
-      String(process.env.META_WABA_WEBHOOK_SKIP_SIGNATURE || "").trim().toLowerCase() === "true";
+      String(await getPlatformSetting("META_WABA_WEBHOOK_SKIP_SIGNATURE", "")).trim().toLowerCase() === "true";
 
     if (!Buffer.isBuffer(raw)) {
       return res.status(500).json({ ok: false, message: "Server misconfiguration: raw body missing for webhook." });

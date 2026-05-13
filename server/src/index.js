@@ -6,6 +6,7 @@ import { testSupabaseConnection, isSupabaseConfigured } from "./config/supabase.
 import { supabaseAdmin } from "./config/supabase.js";
 import { signCustomerToken, requireCustomer } from "./customerJwt.js";
 import { getCheckoutPlans, getCheckoutPlan, computeNewSubscriptionEnd, invalidatePricingCache } from "./billing.js";
+import { invalidatePlatformSettingsCache, maskSecret } from "./platformSettings.js";
 import { getStripe, applyPaidCheckoutSession, applyPaidPaymentIntent, OMNIRA_PAYMENT_INTENT_FLOW } from "./stripeSync.js";
 import {
   handleMetaWhatsAppGet,
@@ -132,8 +133,8 @@ app.post("/api/meta/whatsapp/webhook", metaWhatsappRaw, metaWhatsappParseJson, h
 
 app.use(express.json());
 
-app.get("/", (_req, res) => {
-  const meta = getMetaWhatsAppDeployDiagnostics();
+app.get("/", async (_req, res) => {
+  const meta = await getMetaWhatsAppDeployDiagnostics();
   res.status(200).json({
     ok: true,
     service: "omnira-api",
@@ -722,6 +723,101 @@ app.get("/api/customer/leads", requireCustomer, async (req, res) => {
     return res.status(200).json({ ok: true, leads: data || [] });
   } catch (error) {
     return res.status(500).json({ ok: false, message: `Customer leads failed: ${error.message}` });
+  }
+});
+
+/**
+ * Customer-side WhatsApp credentials: each paying customer provides their own
+ * Meta Cloud API setup (access token, phone_number_id, app secret, verify token,
+ * WABA id). Phase-3 multi-tenant routing reads this row when the inbound webhook
+ * matches their phone_number_id and dispatches to their bot_configs.customer row.
+ *
+ * Secrets are masked on GET. PATCH lets the customer overwrite any field.
+ */
+async function ensureCustomerWhatsAppConfig(customerId) {
+  const { data } = await supabaseAdmin
+    .from("customer_whatsapp_configs")
+    .select("customer_user_id")
+    .eq("customer_user_id", customerId)
+    .maybeSingle();
+  if (data) return data;
+  const { error } = await supabaseAdmin
+    .from("customer_whatsapp_configs")
+    .insert({ customer_user_id: customerId });
+  if (error) throw error;
+  return { customer_user_id: customerId };
+}
+
+app.get("/api/customer/whatsapp-config", requireCustomer, async (req, res) => {
+  try {
+    await ensureCustomerWhatsAppConfig(req.customerId);
+    const { data, error } = await supabaseAdmin
+      .from("customer_whatsapp_configs")
+      .select(
+        "meta_access_token, meta_phone_number_id, meta_business_account_id, meta_app_secret, meta_verify_token, meta_graph_version, meta_display_phone_number, meta_verified_name, is_active, setup_completed_at, updated_at"
+      )
+      .eq("customer_user_id", req.customerId)
+      .maybeSingle();
+    if (error) throw error;
+    return res.status(200).json({
+      ok: true,
+      config: {
+        meta_phone_number_id: data?.meta_phone_number_id || "",
+        meta_business_account_id: data?.meta_business_account_id || "",
+        meta_verify_token: data?.meta_verify_token || "",
+        meta_graph_version: data?.meta_graph_version || "v21.0",
+        meta_display_phone_number: data?.meta_display_phone_number || "",
+        meta_verified_name: data?.meta_verified_name || "",
+        is_active: !!data?.is_active,
+        setup_completed_at: data?.setup_completed_at || null,
+        updated_at: data?.updated_at || null,
+        meta_access_token_masked: maskSecret(data?.meta_access_token || ""),
+        meta_app_secret_masked: maskSecret(data?.meta_app_secret || ""),
+        meta_access_token_set: Boolean(data?.meta_access_token),
+        meta_app_secret_set: Boolean(data?.meta_app_secret)
+      },
+      webhook_url: canonicalWebhookUrl()
+    });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Customer WhatsApp config load failed: ${error.message}` });
+  }
+});
+
+app.patch("/api/customer/whatsapp-config", requireCustomer, async (req, res) => {
+  try {
+    await ensureCustomerWhatsAppConfig(req.customerId);
+    const patch = { updated_at: new Date().toISOString() };
+    const STRING_FIELDS = [
+      "meta_access_token",
+      "meta_phone_number_id",
+      "meta_business_account_id",
+      "meta_app_secret",
+      "meta_verify_token",
+      "meta_graph_version",
+      "meta_display_phone_number",
+      "meta_verified_name"
+    ];
+    for (const k of STRING_FIELDS) {
+      if (typeof req.body?.[k] === "string") {
+        const trimmed = req.body[k].trim().slice(0, 2000);
+        patch[k] = trimmed || null;
+      }
+    }
+    if (typeof req.body?.is_active === "boolean") patch.is_active = req.body.is_active;
+    if (req.body?.mark_complete === true) {
+      patch.setup_completed_at = new Date().toISOString();
+    }
+    if (Object.keys(patch).length === 1) {
+      return res.status(400).json({ ok: false, message: "No editable fields supplied." });
+    }
+    const { error } = await supabaseAdmin
+      .from("customer_whatsapp_configs")
+      .update(patch)
+      .eq("customer_user_id", req.customerId);
+    if (error) throw error;
+    return res.status(200).json({ ok: true });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Customer WhatsApp config update failed: ${error.message}` });
   }
 });
 
@@ -1476,43 +1572,112 @@ app.get("/api/admin/sessions", async (_req, res) => {
   }
 });
 
+/**
+ * Admin → platform-settings (real, editable). Returns one row per known key with
+ * the current effective value (DB → env fallback) and a `source` flag so the UI
+ * shows where it comes from. Secrets are masked unless ?reveal=1 (and admin auth
+ * is wired) — for now, secrets always come back masked.
+ *
+ * Also returns the canonical webhook URL the admin must paste into Meta App
+ * Dashboard → WhatsApp → Configuration → Callback URL.
+ */
+function canonicalWebhookUrl() {
+  const explicit = String(process.env.PUBLIC_API_URL || "").trim().replace(/\/$/, "");
+  if (explicit) return `${explicit}/api/meta/whatsapp/webhook`;
+  const vercelUrl = String(process.env.VERCEL_URL || "").trim();
+  if (vercelUrl) {
+    const base = vercelUrl.startsWith("http") ? vercelUrl : `https://${vercelUrl}`;
+    return `${base.replace(/\/$/, "")}/api/meta/whatsapp/webhook`;
+  }
+  return "/api/meta/whatsapp/webhook";
+}
+
 app.get("/api/admin/platform-settings", async (_req, res) => {
   try {
+    const { data: rows, error } = await supabaseAdmin
+      .from("platform_settings")
+      .select("key, value, is_secret, description, updated_at, updated_by")
+      .order("key", { ascending: true });
+    if (error) throw error;
+
+    const settings = (rows || []).map((row) => {
+      const dbValue = row.value || "";
+      const envValue = String(process.env[row.key] || "").trim();
+      const effective = dbValue || envValue;
+      const source = dbValue ? "db" : envValue ? "env" : "unset";
+      return {
+        key: row.key,
+        description: row.description || "",
+        is_secret: !!row.is_secret,
+        has_value: Boolean(effective),
+        source,
+        value_masked: row.is_secret ? maskSecret(effective) : effective,
+        updated_at: row.updated_at,
+        updated_by: row.updated_by
+      };
+    });
+
     let messageTemplates = [];
     try {
-      const { data, error } = await supabaseAdmin
+      const { data: tpls } = await supabaseAdmin
         .from("whatsapp_message_templates")
         .select("id, template_name, category, status, last_synced_at")
         .order("last_synced_at", { ascending: false });
-      if (!error) {
-        messageTemplates = (data || []).map((t) => ({
-          id: t.id,
-          template_name: t.template_name,
-          category: t.category,
-          status: t.status,
-          last_synced_at: t.last_synced_at
-        }));
-      }
+      messageTemplates = tpls || [];
     } catch {
-      messageTemplates = [];
+      /* table may not exist yet */
     }
 
     return res.status(200).json({
       ok: true,
-      platformWhatsApp: {
-        metaAppId: process.env.SUPABASE_PROJECT_ID || "—",
-        metaAppSecret: "Configured in environment",
-        systemUserToken: "Configured in environment",
-        webhookUrl: `${process.env.SUPABASE_URL || ""}/functions/v1/webhook`,
-        verifyToken: "Configured in environment",
-        defaultPhoneNumberId: "—",
-        graphVersion: "v1"
-      },
-      emailTemplates: [],
+      settings,
+      webhook_url: canonicalWebhookUrl(),
       messageTemplates
     });
   } catch (error) {
     return res.status(500).json({ ok: false, message: `Admin settings failed: ${error.message}` });
+  }
+});
+
+app.patch("/api/admin/platform-settings/:key", async (req, res) => {
+  try {
+    const { key } = req.params;
+    const raw = req.body?.value;
+    if (raw == null) {
+      return res.status(400).json({ ok: false, message: "Missing value" });
+    }
+    const value = String(raw);
+    if (value.length > 16000) {
+      return res.status(400).json({ ok: false, message: "Value too long (max 16 KB)" });
+    }
+    const updated_by = String(req.body?.updated_by || "admin").slice(0, 200);
+    // Upsert: only allow keys that are pre-seeded (so admins can't add arbitrary rows).
+    const { data: existing } = await supabaseAdmin
+      .from("platform_settings")
+      .select("key")
+      .eq("key", key)
+      .maybeSingle();
+    if (!existing) {
+      return res.status(404).json({ ok: false, message: `Unknown setting: ${key}` });
+    }
+    const { data, error } = await supabaseAdmin
+      .from("platform_settings")
+      .update({ value: value || null, updated_by, updated_at: new Date().toISOString() })
+      .eq("key", key)
+      .select("key, value, is_secret, updated_at, updated_by")
+      .maybeSingle();
+    if (error) throw error;
+    invalidatePlatformSettingsCache();
+    return res.status(200).json({
+      ok: true,
+      key: data.key,
+      value_masked: data.is_secret ? maskSecret(data.value || "") : data.value || "",
+      has_value: Boolean(data.value),
+      updated_at: data.updated_at,
+      updated_by: data.updated_by
+    });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Setting update failed: ${error.message}` });
   }
 });
 
@@ -1853,7 +2018,7 @@ app.get("/health", async (_req, res) => {
         "Missing SUPABASE_URL or service key (SUPABASE_SERVICE_ROLE_KEY / SUPABASE_SECRET_KEY). Set them in Vercel Environment Variables.";
     }
 
-    const metaWa = getMetaWhatsAppDeployDiagnostics();
+    const metaWa = await getMetaWhatsAppDeployDiagnostics();
 
     return res.status(200).json({
       ok: true,

@@ -1,206 +1,251 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiCall } from '../api/client.js';
 
+// Friendly metadata for each platform key (label + visible row context).
+const KEY_META = {
+  META_WABA_VERIFY_TOKEN: {
+    label: 'Meta webhook verify token',
+    placeholder: 'A random string you also paste into Meta App → WhatsApp → Configuration',
+  },
+  META_WABA_ACCESS_TOKEN: {
+    label: 'Meta access token (long-lived system user)',
+    placeholder: 'EAAB… (Meta Business Suite → System Users → token with whatsapp_business_messaging)',
+  },
+  META_WABA_APP_SECRET: {
+    label: 'Meta App secret',
+    placeholder: 'From App Dashboard → Settings → Basic → App secret',
+  },
+  META_WABA_PHONE_NUMBER_ID: {
+    label: 'Phone number ID',
+    placeholder: 'Numeric ID of your WhatsApp Business number',
+  },
+  META_WABA_BUSINESS_ACCOUNT_ID: {
+    label: 'WABA business account ID',
+    placeholder: 'Meta Business Suite → WhatsApp Accounts → ID',
+  },
+  META_WABA_GRAPH_VERSION: {
+    label: 'Graph API version',
+    placeholder: 'v21.0',
+  },
+  META_WABA_WEBHOOK_SKIP_SIGNATURE: {
+    label: 'Skip HMAC signature check',
+    placeholder: 'false (set to true ONLY if you cannot provide META_WABA_APP_SECRET)',
+  },
+  META_WABA_MARKETING_AUTO_REPLY: {
+    label: 'Fixed auto-reply (optional)',
+    placeholder: 'Leave empty to let OpenAI generate replies',
+  },
+  OPENAI_API_KEY: { label: 'OpenAI API key', placeholder: 'sk-…' },
+  OPENAI_CHAT_MODEL: { label: 'OpenAI model', placeholder: 'gpt-4o-mini' },
+};
+
+const KEY_ORDER = [
+  'META_WABA_VERIFY_TOKEN',
+  'META_WABA_ACCESS_TOKEN',
+  'META_WABA_APP_SECRET',
+  'META_WABA_PHONE_NUMBER_ID',
+  'META_WABA_BUSINESS_ACCOUNT_ID',
+  'META_WABA_GRAPH_VERSION',
+  'META_WABA_WEBHOOK_SKIP_SIGNATURE',
+  'META_WABA_MARKETING_AUTO_REPLY',
+  'OPENAI_API_KEY',
+  'OPENAI_CHAT_MODEL',
+];
+
 export function WhatsAppSettingsPage() {
-  const [platformWhatsApp, setPlatformWhatsApp] = useState({
-    metaAppId: '—',
-    metaAppSecret: '—',
-    systemUserToken: '—',
-    webhookUrl: '—',
-    verifyToken: '—',
-    graphVersion: '—',
-    defaultPhoneNumberId: '—',
-  });
-  const [emailTemplates, setEmailTemplates] = useState([]);
-  const [messageTemplates, setMessageTemplates] = useState([]);
+  const [settings, setSettings] = useState([]);
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [drafts, setDrafts] = useState({});
+  const [savingKey, setSavingKey] = useState('');
+  const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await apiCall('/api/admin/platform-settings');
+      const list = res.settings || [];
+      setSettings(list);
+      setWebhookUrl(res.webhook_url || '');
+      const next = {};
+      for (const s of list) next[s.key] = '';
+      setDrafts(next);
+    } catch (e) {
+      setSettings([]);
+      setError(e?.message || 'Could not load platform settings');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let alive = true;
-    apiCall('/api/admin/platform-settings')
-      .then((res) => {
-        if (!alive) return;
-        setPlatformWhatsApp(res.platformWhatsApp || {});
-        setEmailTemplates(res.emailTemplates || []);
-        setMessageTemplates(res.messageTemplates || []);
-      })
-      .catch(() => {
-        if (!alive) return;
-        setEmailTemplates([]);
-        setMessageTemplates([]);
+    load();
+  }, [load]);
+
+  const ordered = useMemo(() => {
+    const map = new Map(settings.map((s) => [s.key, s]));
+    return KEY_ORDER.filter((k) => map.has(k)).map((k) => map.get(k));
+  }, [settings]);
+
+  const copyWebhook = async () => {
+    try {
+      await navigator.clipboard.writeText(webhookUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const save = async (key) => {
+    const value = drafts[key] || '';
+    if (!value) {
+      setError(`Enter a value for ${key} before saving.`);
+      return;
+    }
+    setSavingKey(key);
+    setError('');
+    setInfo('');
+    try {
+      const sess = JSON.parse(sessionStorage.getItem('omnira_admin_session') || '{}');
+      const res = await apiCall(`/api/admin/platform-settings/${encodeURIComponent(key)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ value, updated_by: sess.user?.email || 'admin' }),
       });
-    return () => {
-      alive = false;
-    };
-  }, []);
+      setSettings((all) =>
+        all.map((s) =>
+          s.key === key
+            ? {
+                ...s,
+                has_value: res.has_value,
+                value_masked: res.value_masked,
+                source: 'db',
+                updated_at: res.updated_at,
+                updated_by: res.updated_by,
+              }
+            : s
+        )
+      );
+      setDrafts((d) => ({ ...d, [key]: '' }));
+      setInfo(`${key} saved. The webhook + agent pick up the new value within ~30 s (cache TTL).`);
+    } catch (e) {
+      setError(e?.message || 'Save failed');
+    } finally {
+      setSavingKey('');
+    }
+  };
+
+  const sourceBadge = (source) => {
+    if (source === 'db') return <span className="adm-badge active">DB (editable)</span>;
+    if (source === 'env') return <span className="adm-badge live">Vercel env (fallback)</span>;
+    return <span className="adm-badge paused">unset</span>;
+  };
 
   return (
     <>
       <header className="adm-page-head">
         <h1>WhatsApp · platform configuration</h1>
         <p>
-          Global Meta Cloud API settings shared across tenants unless you override per client. Webhook URL must stay
-          stable; rotate tokens from Meta Business Suite. Per-owner numbers and verified names live under each
-          subscriber profile.
+          Every Meta + OpenAI runtime key. The agent reads each one with priority{' '}
+          <code>DB → Vercel env → built-in default</code>, so you can paste a new value here and it goes live within
+          ~30 seconds without a redeploy. Secrets are stored in <code>public.platform_settings</code> and shown
+          masked.
         </p>
       </header>
 
-      <div className="adm-two-col-detail">
-        <section className="adm-card adm-card-em">
-          <h2 className="adm-card-title">Cloud API & webhook</h2>
-          <div className="adm-form-grid">
-            <div className="adm-field">
-              <label>Meta App ID</label>
-              <input readOnly value={platformWhatsApp.metaAppId} />
-            </div>
-            <div className="adm-field">
-              <label>App secret</label>
-              <input readOnly value={platformWhatsApp.metaAppSecret} />
-            </div>
-            <div className="adm-field" style={{ gridColumn: '1 / -1' }}>
-              <label>System user token (long-lived)</label>
-              <input readOnly value={platformWhatsApp.systemUserToken} />
-              <p className="adm-field-hint">Store server-side only. Shown blurred in production UIs.</p>
-            </div>
-            <div className="adm-field" style={{ gridColumn: '1 / -1' }}>
-              <label>Webhook callback URL</label>
-              <input readOnly value={platformWhatsApp.webhookUrl} />
-            </div>
-            <div className="adm-field">
-              <label>Verify token</label>
-              <input readOnly value={platformWhatsApp.verifyToken} />
-            </div>
-            <div className="adm-field">
-              <label>Graph API version</label>
-              <input readOnly value={platformWhatsApp.graphVersion} />
-            </div>
-            <div className="adm-field" style={{ gridColumn: '1 / -1' }}>
-              <label>Default phone number ID (fallback)</label>
-              <input readOnly value={platformWhatsApp.defaultPhoneNumberId} />
-            </div>
-          </div>
-          <div style={{ marginTop: 22, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button type="button" className="adm-btn adm-btn-primary">
-              Save changes
-            </button>
-            <button type="button" className="adm-btn adm-btn-ghost">
-              Test webhook
-            </button>
-            <button type="button" className="adm-btn adm-btn-ghost">
-              Rotate verify token
-            </button>
-          </div>
-        </section>
+      <section className="adm-card adm-card-em" style={{ marginBottom: 16 }}>
+        <h2 className="adm-card-title">Webhook callback URL — paste this in Meta</h2>
+        <p className="adm-field-hint" style={{ marginBottom: 10 }}>
+          Meta App Dashboard → <strong>WhatsApp</strong> → Configuration → <strong>Edit</strong> on Webhook →
+          Callback URL. Verify token must match <code>META_WABA_VERIFY_TOKEN</code> below. After saving, scroll down
+          and click <strong>Subscribe</strong> on the <code>messages</code> field.
+        </p>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input readOnly value={webhookUrl} className="adm-mono" style={{ flex: 1 }} />
+          <button type="button" className="adm-btn adm-btn-primary" onClick={copyWebhook} disabled={!webhookUrl}>
+            {copied ? 'Copied!' : 'Copy URL'}
+          </button>
+        </div>
+      </section>
 
-        <aside className="adm-card">
-          <h2 className="adm-card-title">Health</h2>
-          <ul className="adm-pill-list">
-            <li className="adm-pill">
-              <div>
-                <strong>Delivery latency p95</strong>
-                <span style={{ color: 'var(--muted)', fontSize: 12 }}>Inbound → worker</span>
-              </div>
-              <span style={{ color: 'var(--em)', fontWeight: 800 }}>420ms</span>
-            </li>
-            <li className="adm-pill">
-              <div>
-                <strong>Webhook errors (24h)</strong>
-              </div>
-              <span style={{ color: 'var(--muted)', fontWeight: 700 }}>0</span>
-            </li>
-            <li className="adm-pill">
-              <div>
-                <strong>Coexistence mode</strong>
-                <span style={{ color: 'var(--muted)', fontSize: 12 }}>Optional Business app</span>
-              </div>
-              <span className="adm-badge live">On</span>
-            </li>
-          </ul>
-        </aside>
+      <div className="adm-toolbar">
+        <button type="button" className="adm-btn adm-btn-ghost" onClick={load} disabled={loading}>
+          {loading ? 'Loading…' : 'Refresh'}
+        </button>
+        <span className="adm-mono" style={{ color: 'var(--muted)' }}>{ordered.length} keys</span>
       </div>
 
-      <section className="adm-card" style={{ marginTop: 22 }}>
-        <h2 className="adm-card-title">Message templates (platform)</h2>
-        <p className="adm-field-hint" style={{ marginBottom: 16 }}>
-          Marketing / utility templates submitted under your Tech Provider. Client-specific locales can be forked per
-          WABA once Meta approves naming.
-        </p>
-        <div className="adm-table-wrap">
-          <table className="adm-table">
-            <thead>
-              <tr>
-                <th>Template name</th>
-                <th>Category</th>
-                <th>Status</th>
-                <th>Last synced</th>
-              </tr>
-            </thead>
-            <tbody>
-              {messageTemplates.map((t) => (
-                <tr key={t.id}>
-                  <td>{t.template_name}</td>
-                  <td>{t.category}</td>
-                  <td>
-                    <span className={`adm-badge ${String(t.status || '').toLowerCase() === 'approved' ? 'live' : 'paused'}`}>
-                      {t.status}
-                    </span>
-                  </td>
-                  <td className="adm-mono">{t.last_synced_at ? new Date(t.last_synced_at).toLocaleDateString() : '—'}</td>
-                </tr>
-              ))}
-              {messageTemplates.length === 0 && (
-                <tr>
-                  <td colSpan={4} style={{ color: 'var(--muted)' }}>
-                    No WhatsApp templates found in database.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      {error ? (
+        <div className="adm-card" style={{ marginBottom: 12, borderColor: 'rgba(239,68,68,0.4)' }}>
+          <strong style={{ color: '#fecaca' }}>Error:</strong>{' '}
+          <span style={{ color: 'var(--muted)' }}>{error}</span>
         </div>
-      </section>
+      ) : null}
+      {info ? (
+        <div className="adm-card" style={{ marginBottom: 12, borderColor: 'rgba(34,197,94,0.4)' }}>
+          <strong style={{ color: '#bbf7d0' }}>OK:</strong>{' '}
+          <span style={{ color: 'var(--muted)' }}>{info}</span>
+        </div>
+      ) : null}
 
-      <section className="adm-card" style={{ marginTop: 22 }}>
-        <h2 className="adm-card-title">Transactional email routing</h2>
-        <p className="adm-field-hint" style={{ marginBottom: 16 }}>
-          When a booking is confirmed over WhatsApp, Omnira can send HTML emails via your ESP. Below are the default
-          bindings; per-client overrides sit in the subscriber&apos;s Integrations tab.
-        </p>
-        <div className="adm-table-wrap">
-          <table className="adm-table">
-            <thead>
-              <tr>
-                <th>Template</th>
-                <th>Trigger</th>
-                <th>Last edited</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {emailTemplates.map((t) => (
-                <tr key={t.id}>
-                  <td>
-                    <strong style={{ color: '#fff' }}>{t.name}</strong>
-                  </td>
-                  <td style={{ fontSize: 13, color: 'var(--soft)' }}>{t.trigger}</td>
-                  <td className="adm-mono">{t.lastEdited}</td>
-                  <td>
-                    <button type="button" className="adm-btn adm-btn-ghost" style={{ padding: '6px 12px' }}>
-                      Edit
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {emailTemplates.length === 0 && (
-                <tr>
-                  <td colSpan={4} style={{ color: 'var(--muted)' }}>
-                    No templates configured yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {ordered.map((s) => {
+        const meta = KEY_META[s.key] || { label: s.key, placeholder: '' };
+        const isSaving = savingKey === s.key;
+        return (
+          <section className="adm-card" key={s.key} style={{ marginBottom: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <h2 className="adm-card-title" style={{ marginBottom: 4 }}>
+                  {meta.label}
+                </h2>
+                <div className="adm-mono" style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>
+                  {s.key}
+                </div>
+                {s.description ? (
+                  <p className="adm-field-hint" style={{ marginBottom: 8 }}>{s.description}</p>
+                ) : null}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                {sourceBadge(s.source)}
+                {s.has_value ? (
+                  <span className="adm-mono" style={{ fontSize: 11, color: 'var(--muted)' }}>
+                    Current: {s.value_masked || '(empty)'}
+                  </span>
+                ) : (
+                  <span className="adm-mono" style={{ fontSize: 11, color: '#fca5a5' }}>NOT SET</span>
+                )}
+                {s.updated_at ? (
+                  <span className="adm-mono" style={{ fontSize: 10, color: 'var(--muted)' }}>
+                    {new Date(s.updated_at).toLocaleString()}
+                    {s.updated_by ? ` · ${s.updated_by}` : ''}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+              <input
+                type={s.is_secret ? 'password' : 'text'}
+                placeholder={meta.placeholder}
+                value={drafts[s.key] || ''}
+                onChange={(e) => setDrafts((d) => ({ ...d, [s.key]: e.target.value }))}
+                style={{ flex: 1 }}
+                className={s.is_secret ? undefined : 'adm-mono'}
+              />
+              <button
+                type="button"
+                className="adm-btn adm-btn-primary"
+                onClick={() => save(s.key)}
+                disabled={isSaving || !drafts[s.key]}
+              >
+                {isSaving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </section>
+        );
+      })}
     </>
   );
 }
