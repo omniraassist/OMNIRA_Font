@@ -177,6 +177,78 @@ export function PostLoginPaymentStep() {
 
             {err ? <div className="auth-error show" style={{ marginBottom: 14 }}>{err}</div> : null}
 
+            {/* ──────────────────────────────────────────────────────────────
+                TEMP TEST BUTTON — bypasses the payment screen so the customer
+                dashboard can be developed without a real Stripe transaction.
+                Calls /api/customer/subscription/simulate which grants the
+                subscription in the DB (requires OMNIRA_ALLOW_SUBSCRIPTION_SIMULATE
+                =true on the server). Real Stripe flows below are UNCHANGED.
+                REMOVE this <section> when payment work resumes.
+                ────────────────────────────────────────────────────────────── */}
+            {!embed ? (
+              <section
+                style={{
+                  padding: '14px 16px',
+                  borderRadius: 12,
+                  border: '1px dashed rgba(251,191,36,0.40)',
+                  background: 'rgba(251,191,36,0.06)',
+                  marginBottom: 16,
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: '#fbbf24',
+                    marginBottom: 8,
+                  }}
+                >
+                  <span style={{ fontSize: 14 }}>🧪</span> Dev mode · temporary
+                </div>
+                <p
+                  style={{
+                    margin: '0 0 12px',
+                    color: 'rgba(255,255,255,0.78)',
+                    fontSize: 13,
+                    lineHeight: 1.55,
+                  }}
+                >
+                  Skip the payment step so you can iterate on the customer dashboard. This grants the selected
+                  plan ({plan?.name || 'first available'}) for its duration without charging Stripe. Remove
+                  this button before going live.
+                </p>
+                <button
+                  type="button"
+                  onClick={simulateLocal}
+                  disabled={busy || !plan?.id}
+                  style={{
+                    width: '100%',
+                    background: 'linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%)',
+                    color: '#1a1100',
+                    fontWeight: 700,
+                    border: 0,
+                    borderRadius: 10,
+                    padding: '12px 18px',
+                    cursor: busy || !plan?.id ? 'not-allowed' : 'pointer',
+                    opacity: busy || !plan?.id ? 0.6 : 1,
+                    fontSize: 14,
+                    letterSpacing: '0.01em',
+                    transition: 'filter .15s ease, transform .15s ease',
+                    fontFamily: 'inherit',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.08)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.filter = 'none'; }}
+                >
+                  {busy ? 'Simulando…' : '⚡ Test · skip payment & go to dashboard'}
+                </button>
+              </section>
+            ) : null}
+
             {!embed ? (
               <>
                 <button
