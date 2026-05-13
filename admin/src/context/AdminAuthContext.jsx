@@ -37,7 +37,23 @@ export function AdminAuthProvider({ children }) {
     setUser(null);
   }, []);
 
-  const value = useMemo(() => ({ user, login, logout, isAuthenticated: !!user }), [user, login, logout]);
+  const updateUser = useCallback((partial) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...partial };
+      try {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
+
+  const value = useMemo(
+    () => ({ user, login, logout, updateUser, isAuthenticated: !!user }),
+    [user, login, logout, updateUser]
+  );
 
   return <AdminAuthContext.Provider value={value}>{children}</AdminAuthContext.Provider>;
 }

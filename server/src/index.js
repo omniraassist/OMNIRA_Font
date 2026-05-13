@@ -622,6 +622,109 @@ app.get("/api/admin/notifications", async (_req, res) => {
   }
 });
 
+app.patch("/api/admin/notifications/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const patch = {};
+    if (typeof req.body?.is_active === "boolean") patch.is_active = req.body.is_active;
+    if (typeof req.body?.title === "string") patch.title = req.body.title.slice(0, 200);
+    if (typeof req.body?.message === "string") patch.message = req.body.message.slice(0, 4000);
+    if (Object.keys(patch).length === 0) {
+      return res.status(400).json({ ok: false, message: "No editable fields supplied." });
+    }
+    const { data, error } = await supabaseAdmin
+      .from("user_notifications")
+      .update(patch)
+      .eq("id", id)
+      .select("id, title, message, target_email, created_by, created_at, is_active")
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ ok: false, message: "Notification not found." });
+    return res.status(200).json({ ok: true, notification: data });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Update notification failed: ${error.message}` });
+  }
+});
+
+app.delete("/api/admin/notifications/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { error } = await supabaseAdmin.from("user_notifications").delete().eq("id", id);
+    if (error) throw error;
+    return res.status(200).json({ ok: true });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Delete notification failed: ${error.message}` });
+  }
+});
+
+/**
+ * Admin self-profile (used by the /profile page). PATCH lets the admin update
+ * their full_name and/or change their password. Password change requires
+ * current_password to be verified.
+ */
+app.get("/api/admin/admins/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabaseAdmin
+      .from("admin_users")
+      .select("id, email, full_name, is_active, created_at, updated_at")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ ok: false, message: "Admin not found." });
+    return res.status(200).json({ ok: true, admin: data });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Get admin failed: ${error.message}` });
+  }
+});
+
+app.patch("/api/admin/admins/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const newName = typeof req.body?.full_name === "string" ? req.body.full_name.trim().slice(0, 200) : null;
+    const newPassword = typeof req.body?.new_password === "string" ? req.body.new_password : null;
+    const currentPassword = typeof req.body?.current_password === "string" ? req.body.current_password : null;
+
+    if (newPassword) {
+      if (!isValidPassword(newPassword)) {
+        return res.status(400).json({ ok: false, message: "New password must be at least 8 characters." });
+      }
+      if (!currentPassword) {
+        return res.status(400).json({ ok: false, message: "current_password is required to change password." });
+      }
+      const { data: row, error: rerr } = await supabaseAdmin
+        .from("admin_users")
+        .select("id, password_hash")
+        .eq("id", id)
+        .maybeSingle();
+      if (rerr) throw rerr;
+      if (!row) return res.status(404).json({ ok: false, message: "Admin not found." });
+      if (!verifyPassword(currentPassword, row.password_hash)) {
+        return res.status(401).json({ ok: false, message: "Current password is incorrect." });
+      }
+    }
+
+    const patch = { updated_at: new Date().toISOString() };
+    if (newName != null) patch.full_name = newName || null;
+    if (newPassword) patch.password_hash = hashPassword(newPassword);
+    if (Object.keys(patch).length === 1) {
+      return res.status(400).json({ ok: false, message: "Nothing to update." });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("admin_users")
+      .update(patch)
+      .eq("id", id)
+      .select("id, email, full_name, is_active, updated_at")
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ ok: false, message: "Admin not found." });
+    return res.status(200).json({ ok: true, admin: data });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Update admin failed: ${error.message}` });
+  }
+});
+
 /**
  * Customer WhatsApp data (Phase 1 single-tenant: until per-customer Meta routing
  * lands in Phase 3, only rows that already have customer_user_id = req.customerId

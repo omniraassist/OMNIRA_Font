@@ -12,6 +12,8 @@ import { LeadsPage } from './pages/LeadsPage.jsx';
 import { ChatsPage } from './pages/ChatsPage.jsx';
 import { PricingPage } from './pages/PricingPage.jsx';
 import { BotConfigPage } from './pages/BotConfigPage.jsx';
+import { ProfilePage } from './pages/ProfilePage.jsx';
+import { NotificationsPage } from './pages/NotificationsPage.jsx';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAdminAuth();
@@ -39,6 +41,8 @@ export default function App() {
         <Route path="chats" element={<ChatsPage />} />
         <Route path="pricing" element={<PricingPage />} />
         <Route path="bot-config" element={<BotConfigPage />} />
+        <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="profile" element={<ProfilePage />} />
         <Route path="sessions" element={<SessionsPage />} />
         <Route path="whatsapp" element={<WhatsAppSettingsPage />} />
       </Route>
