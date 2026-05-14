@@ -1021,6 +1021,269 @@ app.patch("/api/customer/bot-config", requireCustomer, async (req, res) => {
   }
 });
 
+/**
+ * Aggregated dashboard data for the customer's "Resumen" screen. Real numbers
+ * only — pulled from wa_messages, wa_leads, customer_events and
+ * customer_payments. Anything we don't have yet returns 0/empty, never a
+ * fabricated value.
+ */
+app.get("/api/customer/dashboard", requireCustomer, async (req, res) => {
+  try {
+    const now = new Date();
+    const dayMs = 86_400_000;
+    const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+    const startOfWeek = new Date(now.getTime() - 6 * dayMs);
+    startOfWeek.setUTCHours(0, 0, 0, 0);
+
+    const [
+      msgMonth,
+      msgTotal,
+      leadsTotal,
+      leadsMonth,
+      bookingsMonth,
+      bookingsTotal,
+      upcomingRes,
+      latestPayment,
+      activityRows
+    ] = await Promise.all([
+      supabaseAdmin
+        .from("wa_messages")
+        .select("*", { count: "exact", head: true })
+        .eq("customer_user_id", req.customerId)
+        .gte("created_at", startOfMonth),
+      supabaseAdmin
+        .from("wa_messages")
+        .select("*", { count: "exact", head: true })
+        .eq("customer_user_id", req.customerId),
+      supabaseAdmin
+        .from("wa_leads")
+        .select("*", { count: "exact", head: true })
+        .eq("customer_user_id", req.customerId),
+      supabaseAdmin
+        .from("wa_leads")
+        .select("*", { count: "exact", head: true })
+        .eq("customer_user_id", req.customerId)
+        .gte("created_at", startOfMonth),
+      supabaseAdmin
+        .from("customer_events")
+        .select("*", { count: "exact", head: true })
+        .eq("customer_user_id", req.customerId)
+        .gte("datetime", startOfMonth),
+      supabaseAdmin
+        .from("customer_events")
+        .select("*", { count: "exact", head: true })
+        .eq("customer_user_id", req.customerId),
+      supabaseAdmin
+        .from("customer_events")
+        .select("id, name, datetime, service, status")
+        .eq("customer_user_id", req.customerId)
+        .gte("datetime", now.toISOString())
+        .order("datetime", { ascending: true })
+        .limit(5),
+      supabaseAdmin
+        .from("customer_payments")
+        .select("amount_cents, currency, plan_id, created_at, subscription_end_after")
+        .eq("customer_user_id", req.customerId)
+        .order("created_at", { ascending: false })
+        .limit(1),
+      supabaseAdmin
+        .from("wa_messages")
+        .select("created_at")
+        .eq("customer_user_id", req.customerId)
+        .gte("created_at", startOfWeek.toISOString())
+    ]);
+
+    // 7-day messages series
+    const series = [];
+    const byDay = new Map();
+    for (let i = 0; i < 7; i += 1) {
+      const d = new Date(startOfWeek.getTime() + i * dayMs);
+      const iso = d.toISOString().slice(0, 10);
+      byDay.set(iso, {
+        date: iso,
+        label: d.toLocaleDateString("en-US", { weekday: "short" }),
+        messages: 0
+      });
+    }
+    for (const r of activityRows.data || []) {
+      const key = String(r.created_at || "").slice(0, 10);
+      const b = byDay.get(key);
+      if (b) b.messages += 1;
+    }
+    for (const v of byDay.values()) series.push(v);
+
+    const lastPay = (latestPayment.data || [])[0] || null;
+
+    return res.status(200).json({
+      ok: true,
+      stats: {
+        messagesMonth: msgMonth.count || 0,
+        messagesTotal: msgTotal.count || 0,
+        leadsTotal: leadsTotal.count || 0,
+        leadsMonth: leadsMonth.count || 0,
+        bookingsMonth: bookingsMonth.count || 0,
+        bookingsTotal: bookingsTotal.count || 0
+      },
+      messagesSeries: series,
+      upcomingBookings: (upcomingRes.data || []).map((e) => ({
+        id: e.id,
+        name: e.name,
+        datetime: e.datetime,
+        service: e.service,
+        status: e.status
+      })),
+      latestPayment: lastPay
+        ? {
+            amount_euro: Number((Number(lastPay.amount_cents || 0) / 100).toFixed(2)),
+            currency: lastPay.currency || "eur",
+            plan_id: lastPay.plan_id,
+            created_at: lastPay.created_at,
+            subscription_end_after: lastPay.subscription_end_after
+          }
+        : null
+    });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Customer dashboard failed: ${error.message}` });
+  }
+});
+
+/**
+ * Customer bookings/calendar. Replaces the prior localStorage stub at /api/events.
+ */
+app.get("/api/customer/events", requireCustomer, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("customer_events")
+      .select("id, name, datetime, service, phone, notes, source, status, created_at, updated_at")
+      .eq("customer_user_id", req.customerId)
+      .order("datetime", { ascending: true });
+    if (error) throw error;
+    return res.status(200).json(data || []);
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Events load failed: ${error.message}` });
+  }
+});
+
+app.post("/api/customer/events", requireCustomer, async (req, res) => {
+  try {
+    const body = req.body || {};
+    if (!body.datetime) {
+      return res.status(400).json({ ok: false, message: "datetime is required" });
+    }
+    const { data, error } = await supabaseAdmin
+      .from("customer_events")
+      .insert({
+        customer_user_id: req.customerId,
+        name: typeof body.name === "string" ? body.name.slice(0, 200) : null,
+        datetime: body.datetime,
+        service: typeof body.service === "string" ? body.service.slice(0, 200) : null,
+        phone: typeof body.phone === "string" ? body.phone.slice(0, 40) : null,
+        notes: typeof body.notes === "string" ? body.notes.slice(0, 2000) : null,
+        source: body.source === "bot" ? "bot" : "manual",
+        status: ["pending", "confirmed", "cancelled"].includes(body.status) ? body.status : "confirmed"
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return res.status(201).json(data);
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Create event failed: ${error.message}` });
+  }
+});
+
+app.put("/api/customer/events/:id", requireCustomer, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const body = req.body || {};
+    const patch = { updated_at: new Date().toISOString() };
+    if (typeof body.name === "string") patch.name = body.name.slice(0, 200) || null;
+    if (body.datetime) patch.datetime = body.datetime;
+    if (typeof body.service === "string") patch.service = body.service.slice(0, 200) || null;
+    if (typeof body.phone === "string") patch.phone = body.phone.slice(0, 40) || null;
+    if (typeof body.notes === "string") patch.notes = body.notes.slice(0, 2000) || null;
+    if (["manual", "bot"].includes(body.source)) patch.source = body.source;
+    if (["pending", "confirmed", "cancelled"].includes(body.status)) patch.status = body.status;
+    const { data, error } = await supabaseAdmin
+      .from("customer_events")
+      .update(patch)
+      .eq("id", id)
+      .eq("customer_user_id", req.customerId)
+      .select()
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ ok: false, message: "Event not found" });
+    return res.status(200).json(data);
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Update event failed: ${error.message}` });
+  }
+});
+
+app.delete("/api/customer/events/:id", requireCustomer, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { error } = await supabaseAdmin
+      .from("customer_events")
+      .delete()
+      .eq("id", id)
+      .eq("customer_user_id", req.customerId);
+    if (error) throw error;
+    return res.status(200).json({ ok: true });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Delete event failed: ${error.message}` });
+  }
+});
+
+/**
+ * Customer business info (used by the "Mi Negocio" screen). One row per
+ * customer; created lazily on first read.
+ */
+async function ensureCustomerBusiness(customerId) {
+  const { data } = await supabaseAdmin
+    .from("customer_business_info")
+    .select("customer_user_id")
+    .eq("customer_user_id", customerId)
+    .maybeSingle();
+  if (data) return data;
+  await supabaseAdmin.from("customer_business_info").insert({ customer_user_id: customerId });
+  return { customer_user_id: customerId };
+}
+
+app.get("/api/customer/business", requireCustomer, async (req, res) => {
+  try {
+    await ensureCustomerBusiness(req.customerId);
+    const { data, error } = await supabaseAdmin
+      .from("customer_business_info")
+      .select("name, type, phone, email, address, hours, services, updated_at")
+      .eq("customer_user_id", req.customerId)
+      .maybeSingle();
+    if (error) throw error;
+    return res.status(200).json(data || {});
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Business load failed: ${error.message}` });
+  }
+});
+
+app.put("/api/customer/business", requireCustomer, async (req, res) => {
+  try {
+    await ensureCustomerBusiness(req.customerId);
+    const body = req.body || {};
+    const patch = { updated_at: new Date().toISOString() };
+    for (const k of ["name", "type", "phone", "email", "address", "hours", "services"]) {
+      if (typeof body[k] === "string") patch[k] = body[k].slice(0, 4000) || null;
+    }
+    const { data, error } = await supabaseAdmin
+      .from("customer_business_info")
+      .update(patch)
+      .eq("customer_user_id", req.customerId)
+      .select("name, type, phone, email, address, hours, services, updated_at")
+      .maybeSingle();
+    if (error) throw error;
+    return res.status(200).json({ ok: true, business: data || {} });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Business update failed: ${error.message}` });
+  }
+});
+
 app.get("/api/customer/notifications", async (req, res) => {
   try {
     const email = normalizeEmail(req.query.email || "");

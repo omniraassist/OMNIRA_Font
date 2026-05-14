@@ -89,8 +89,18 @@ export function Dashboard() {
   const { user, handleLogout } = usePanel();
   const { plansByCheapest } = usePricing();
   const [page, setPage] = useState('dash');
-  const [stats, setStats] = useState({ reservas: 0, mensajes: 0, respuesta: '2s' });
-  const [recent, setRecent] = useState([]);
+  const [stats, setStats] = useState({
+    messagesMonth: 0,
+    messagesTotal: 0,
+    leadsTotal: 0,
+    leadsMonth: 0,
+    bookingsMonth: 0,
+    bookingsTotal: 0,
+  });
+  const [messagesSeries, setMessagesSeries] = useState([]);
+  const [upcomingBookings, setUpcomingBookings] = useState([]);
+  const [latestPayment, setLatestPayment] = useState(null);
+  const [recentConversations, setRecentConversations] = useState([]);
   const [allEvents, setAllEvents] = useState([]);
   const [calDate, setCalDate] = useState(() => {
     const d = new Date();
@@ -128,56 +138,56 @@ export function Dashboard() {
   const isPro = user?.plan === 'pro';
 
   const loadData = useCallback(async () => {
+    // Aggregated dashboard stats — real wa_messages + wa_leads + customer_events + customer_payments
     try {
-      const data = await apiCall('/api/dashboard');
-      setStats(data.stats || { reservas: 0, mensajes: 0, respuesta: '2s' });
-      setRecent(data.recentReservations || []);
+      const data = await apiCall('/api/customer/dashboard');
+      if (data?.stats) setStats(data.stats);
+      setMessagesSeries(Array.isArray(data?.messagesSeries) ? data.messagesSeries : []);
+      setUpcomingBookings(Array.isArray(data?.upcomingBookings) ? data.upcomingBookings : []);
+      setLatestPayment(data?.latestPayment || null);
     } catch {
       /* ignore */
     }
+    // Bookings (calendar / booking pages) — real customer_events
     try {
-      const evs = await apiCall('/api/events').catch(() => []);
+      const evs = await apiCall('/api/customer/events').catch(() => []);
       setAllEvents(Array.isArray(evs) ? evs : []);
     } catch {
       /* ignore */
     }
+    // Business info — real customer_business_info
     try {
-      const b = await apiCall('/api/business');
+      const b = await apiCall('/api/customer/business');
       setBiz(b || {});
     } catch {
       /* ignore */
     }
+    // Bot config + knowledge base — real bot_configs (customer scope)
     try {
-      // Primary source: real per-customer bot config (system prompt + knowledge base
-      // + greeting) stored in Supabase. Falls back to the legacy /api/bot (localStorage
-      // stub) only when not signed in or the endpoint is unreachable.
-      const sess = JSON.parse(localStorage.getItem('omnira_session') || '{}');
-      if (sess.token) {
-        const real = await apiCall('/api/customer/bot-config');
-        const c = real?.config || {};
-        setBot({
-          greeting: c.greeting || '',
-          instructions: c.system_prompt || '',
-          knowledgeBaseText: c.knowledge_base || '',
-          knowledgeBaseSources: [],
-        });
-      } else {
-        const bt = await apiCall('/api/bot');
-        setBot(bt || {});
-      }
+      const real = await apiCall('/api/customer/bot-config');
+      const c = real?.config || {};
+      setBot({
+        greeting: c.greeting || '',
+        instructions: c.system_prompt || '',
+        knowledgeBaseText: c.knowledge_base || '',
+        knowledgeBaseSources: [],
+      });
     } catch {
-      try {
-        const bt = await apiCall('/api/bot');
-        setBot(bt || {});
-      } catch {
-        /* ignore */
-      }
+      /* ignore */
     }
+    // Notifications for this email
     try {
       if (user?.email) {
         const n = await apiCall(`/api/customer/notifications?email=${encodeURIComponent(user.email)}`);
         setNotifications(Array.isArray(n.notifications) ? n.notifications : []);
       }
+    } catch {
+      /* ignore */
+    }
+    // Recent WhatsApp conversations for the "Conversaciones" page
+    try {
+      const c = await apiCall('/api/customer/wa-conversations?limit=20');
+      setRecentConversations(Array.isArray(c?.conversations) ? c.conversations : []);
     } catch {
       /* ignore */
     }
@@ -196,7 +206,7 @@ export function Dashboard() {
   useEffect(() => {
     if (page !== 'calendar') return;
     (async () => {
-      const ev = await apiCall('/api/events').catch(() => []);
+      const ev = await apiCall('/api/customer/events').catch(() => []);
       setEvents(Array.isArray(ev) ? ev : []);
     })();
   }, [page, calDate]);
@@ -286,10 +296,10 @@ export function Dashboard() {
     };
     if (evForm.id) payload.id = evForm.id;
     try {
-      if (evForm.id) await apiCall('/api/events/' + evForm.id, { method: 'PUT', body: JSON.stringify(payload) });
-      else await apiCall('/api/events', { method: 'POST', body: JSON.stringify(payload) });
+      if (evForm.id) await apiCall('/api/customer/events/' + evForm.id, { method: 'PUT', body: JSON.stringify(payload) });
+      else await apiCall('/api/customer/events', { method: 'POST', body: JSON.stringify(payload) });
       setEventOpen(false);
-      const ev = await apiCall('/api/events').catch(() => []);
+      const ev = await apiCall('/api/customer/events').catch(() => []);
       setEvents(Array.isArray(ev) ? ev : []);
       loadData();
       showToast(evForm.id ? 'Reserva actualizada' : 'Reserva creada', 'success');
@@ -301,9 +311,9 @@ export function Dashboard() {
   const deleteEvent = async () => {
     if (!evForm.id || !confirm('¿Eliminar esta reserva?')) return;
     try {
-      await apiCall('/api/events/' + evForm.id, { method: 'DELETE' });
+      await apiCall('/api/customer/events/' + evForm.id, { method: 'DELETE' });
       setEventOpen(false);
-      const ev = await apiCall('/api/events').catch(() => []);
+      const ev = await apiCall('/api/customer/events').catch(() => []);
       setEvents(Array.isArray(ev) ? ev : []);
       loadData();
       showToast('Reserva eliminada', 'success');
@@ -324,7 +334,7 @@ export function Dashboard() {
       services: biz.services,
     };
     try {
-      await apiCall('/api/business', { method: 'PUT', body: JSON.stringify(data) });
+      await apiCall('/api/customer/business', { method: 'PUT', body: JSON.stringify(data) });
       showToast('Datos guardados', 'success');
     } catch (ex) {
       showToast('Error: ' + ex.message, 'error');
@@ -466,9 +476,6 @@ export function Dashboard() {
     }
     return grid;
   };
-
-  const nextBilling = new Date();
-  nextBilling.setMonth(nextBilling.getMonth() + 1);
 
   return (
     <>
@@ -642,49 +649,31 @@ export function Dashboard() {
             <div className="p-stats-grid">
               <div className="p-stat-card">
                 <div className="p-stat-top">
-                  <div className="p-stat-icon">
-                    <i className="fa-solid fa-calendar" />
-                  </div>
-                  <span className="p-stat-trend">+12%</span>
+                  <div className="p-stat-icon"><i className="fa-solid fa-calendar" /></div>
                 </div>
-                <div className="p-stat-val" id="statRes">
-                  {stats.reservas}
-                </div>
+                <div className="p-stat-val">{stats.bookingsMonth}</div>
                 <div className="p-stat-lbl">Reservas este mes</div>
               </div>
               <div className="p-stat-card">
                 <div className="p-stat-top">
-                  <div className="p-stat-icon">
-                    <i className="fa-brands fa-whatsapp" />
-                  </div>
-                  <span className="p-stat-trend">+24%</span>
+                  <div className="p-stat-icon"><i className="fa-brands fa-whatsapp" /></div>
                 </div>
-                <div className="p-stat-val" id="statMsg">
-                  {stats.mensajes}
-                </div>
-                <div className="p-stat-lbl">Mensajes recibidos</div>
+                <div className="p-stat-val">{stats.messagesMonth}</div>
+                <div className="p-stat-lbl">Mensajes este mes</div>
               </div>
               <div className="p-stat-card">
                 <div className="p-stat-top">
-                  <div className="p-stat-icon">
-                    <i className="fa-solid fa-clock" />
-                  </div>
-                  <span className="p-stat-trend">1.4s</span>
+                  <div className="p-stat-icon"><i className="fa-solid fa-user-plus" /></div>
                 </div>
-                <div className="p-stat-val" id="statResp">
-                  {stats.respuesta}
-                </div>
-                <div className="p-stat-lbl">Tiempo respuesta</div>
+                <div className="p-stat-val">{stats.leadsMonth}</div>
+                <div className="p-stat-lbl">Leads este mes</div>
               </div>
               <div className="p-stat-card">
                 <div className="p-stat-top">
-                  <div className="p-stat-icon">
-                    <i className="fa-solid fa-star" />
-                  </div>
-                  <span className="p-stat-trend">★★★★★</span>
+                  <div className="p-stat-icon"><i className="fa-solid fa-comments" /></div>
                 </div>
-                <div className="p-stat-val">4.9</div>
-                <div className="p-stat-lbl">Valoración media</div>
+                <div className="p-stat-val">{stats.leadsTotal}</div>
+                <div className="p-stat-lbl">Leads totales</div>
               </div>
             </div>
             <div className="p-content-grid">
@@ -696,12 +685,12 @@ export function Dashboard() {
                   </button>
                 </div>
                 <div id="dashResList">
-                  {recent?.length ? (
-                    <ResList list={recent} />
+                  {upcomingBookings?.length ? (
+                    <ResList list={upcomingBookings} />
                   ) : (
                     <div className="p-empty">
                       <i className="fa-solid fa-calendar-xmark" />
-                      <p>No hay reservas todavía</p>
+                      <p>No hay reservas próximas</p>
                     </div>
                   )}
                 </div>
@@ -714,10 +703,27 @@ export function Dashboard() {
                   </button>
                 </div>
                 <div id="dashConvList">
-                  <div className="p-empty">
-                    <i className="fa-brands fa-whatsapp" />
-                    <p>Sin mensajes recientes</p>
-                  </div>
+                  {recentConversations.length ? (
+                    recentConversations.slice(0, 5).map((c) => (
+                      <div key={`${c.phone_number_id || ''}|${c.wa_from}`} className="p-res-item">
+                        <div className="p-res-av">{(c.lead?.name || `+${c.wa_from}`)[0]?.toUpperCase()}</div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div className="p-res-name">{c.lead?.name || `+${c.wa_from}`}</div>
+                          <div className="p-res-detail" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {c.last_body || '—'}
+                          </div>
+                        </div>
+                        <span className="p-status" style={{ fontFamily: 'monospace', fontSize: 10 }}>
+                          {c.message_count} msg
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-empty">
+                      <i className="fa-brands fa-whatsapp" />
+                      <p>Sin mensajes recientes</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -804,40 +810,96 @@ export function Dashboard() {
 
           <div id="page-convs" className={`p-page${page === 'convs' ? ' active' : ''}`}>
             <h1 className="p-page-title">Conversaciones</h1>
-            <p className="p-page-sub">Todos los mensajes que recibe tu WhatsApp.</p>
+            <p className="p-page-sub">
+              Todos los hilos en tu número de WhatsApp Business. Cada fila proviene de{' '}
+              <code style={{ background: 'rgba(255,255,255,0.04)', padding: '1px 5px', borderRadius: 4 }}>wa_messages</code> en Supabase.
+            </p>
             <div className="p-card">
               <div className="p-card-header">
-                <span className="p-card-title">Mensajes recientes</span>
+                <span className="p-card-title">{recentConversations.length} conversaciones</span>
+                <span style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'monospace' }}>
+                  {stats.messagesTotal} mensajes totales
+                </span>
               </div>
-              <div className="p-empty">
-                <i className="fa-brands fa-whatsapp" />
-                <p>Las conversaciones aparecerán cuando tu bot reciba mensajes</p>
-              </div>
+              {recentConversations.length === 0 ? (
+                <div className="p-empty">
+                  <i className="fa-brands fa-whatsapp" />
+                  <p>Las conversaciones aparecerán cuando tu bot reciba mensajes</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {recentConversations.map((c) => {
+                    const name = c.lead?.name || `+${c.wa_from}`;
+                    const initials = name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+                    return (
+                      <div key={`${c.phone_number_id || ''}|${c.wa_from}`} className="p-res-item" style={{ alignItems: 'flex-start' }}>
+                        <div className="p-res-av">{initials}</div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div className="p-res-name">{name}</div>
+                          <div className="p-res-detail" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {c.last_body || '—'}
+                          </div>
+                          <div style={{ display: 'flex', gap: 10, marginTop: 4, fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
+                            <span>+{c.wa_from}</span>
+                            <span>·</span>
+                            <span>{c.message_count} msg</span>
+                            {c.lead?.intent ? <><span>·</span><span>{c.lead.intent}</span></> : null}
+                          </div>
+                        </div>
+                        <span className="p-status">{c.lead?.status || 'inbound'}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
           <div id="page-stats" className={`p-page${page === 'stats' ? ' active' : ''}`}>
             <h1 className="p-page-title">Estadísticas</h1>
-            <p className="p-page-sub">Mide el impacto del bot en tu negocio.</p>
-            <div className="p-content-grid">
-              <div className="p-card">
-                <div className="p-card-header">
-                  <span className="p-card-title">Evolución de reservas</span>
-                </div>
-                <div className="p-empty">
-                  <i className="fa-solid fa-chart-line" />
-                  <p>Los gráficos aparecerán cuando tengas suficientes datos</p>
-                </div>
+            <p className="p-page-sub">
+              Datos en vivo de tu cuenta: <strong>{stats.messagesTotal}</strong> mensajes,{' '}
+              <strong>{stats.leadsTotal}</strong> leads y <strong>{stats.bookingsTotal}</strong> reservas registrados.
+            </p>
+            <div className="p-stats-grid" style={{ marginBottom: 20 }}>
+              <div className="p-stat-card"><div className="p-stat-val">{stats.messagesMonth}</div><div className="p-stat-lbl">Mensajes este mes</div></div>
+              <div className="p-stat-card"><div className="p-stat-val">{stats.leadsMonth}</div><div className="p-stat-lbl">Leads este mes</div></div>
+              <div className="p-stat-card"><div className="p-stat-val">{stats.bookingsMonth}</div><div className="p-stat-lbl">Reservas este mes</div></div>
+              <div className="p-stat-card"><div className="p-stat-val">{stats.messagesTotal}</div><div className="p-stat-lbl">Mensajes totales</div></div>
+            </div>
+            <div className="p-card">
+              <div className="p-card-header">
+                <span className="p-card-title">Mensajes · últimos 7 días</span>
               </div>
-              <div className="p-card">
-                <div className="p-card-header">
-                  <span className="p-card-title">Servicios populares</span>
-                </div>
-                <div className="p-empty">
-                  <i className="fa-solid fa-chart-pie" />
-                  <p>Sin datos todavía</p>
-                </div>
-              </div>
+              {messagesSeries.length === 0 ? (
+                <div className="p-empty"><i className="fa-solid fa-chart-line" /><p>Aún sin actividad esta semana</p></div>
+              ) : (
+                (() => {
+                  const max = Math.max(1, ...messagesSeries.map((d) => Number(d.messages || 0)));
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 200, padding: '14px 4px 0' }}>
+                      {messagesSeries.map((d) => {
+                        const pct = (Number(d.messages || 0) / max) * 100;
+                        return (
+                          <div key={d.date} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                            <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--em)' }}>{d.messages}</div>
+                            <div
+                              style={{
+                                width: '100%', maxWidth: 48,
+                                height: `${Math.max(2, pct)}%`,
+                                background: 'linear-gradient(180deg, var(--em) 0%, rgba(0,229,160,0.25) 100%)',
+                                borderRadius: '8px 8px 2px 2px',
+                                transition: 'height .5s ease',
+                              }}
+                            />
+                            <div style={{ fontSize: 11, color: 'var(--muted)' }}>{d.label}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()
+              )}
             </div>
           </div>
 
@@ -924,36 +986,62 @@ export function Dashboard() {
 
           <div id="page-factura" className={`p-page${page === 'factura' ? ' active' : ''}`}>
             <h1 className="p-page-title">Facturación</h1>
-            <p className="p-page-sub">Gestiona tu plan y método de pago.</p>
+            <p className="p-page-sub">
+              Tu plan actual, fecha de renovación y último pago. Todo viene de Stripe vía Supabase{' '}
+              (<code style={{ background: 'rgba(255,255,255,0.04)', padding: '1px 5px', borderRadius: 4 }}>customer_payments</code>).
+            </p>
             <div className="p-content-grid">
               <div className="p-card">
                 <div className="p-card-header">
                   <span className="p-card-title">Tu plan actual</span>
                 </div>
-                <div style={{ padding: '20px 0' }}>
-                  <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 42, fontWeight: 800, color: 'var(--em)' }}>
-                    49€<span style={{ fontSize: 14, color: 'var(--muted)', fontWeight: 400 }}>/mes</span>
-                  </div>
-                  <div style={{ fontSize: 13, color: 'var(--soft)', marginTop: 8 }}>Plan Mensual · Sin permanencia</div>
-                  <div style={{ marginTop: 24 }}>
-                    <button type="button" className="btn-save-form" onClick={() => setUpgradeOpen(true)}>
-                      Cambiar plan →
-                    </button>
-                  </div>
-                </div>
+                {(() => {
+                  const planMatch = plansByCheapest.find((p) => p.id === user?.subscription_plan_id);
+                  return (
+                    <div style={{ padding: '20px 0' }}>
+                      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 42, fontWeight: 800, color: 'var(--em)' }}>
+                        {planMatch ? `${planMatch.priceNum}€` : '—'}
+                        <span style={{ fontSize: 14, color: 'var(--muted)', fontWeight: 400 }}>
+                          {planMatch?.period || '/mes'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 13, color: 'var(--soft)', marginTop: 8 }}>
+                        {planMatch?.name || (user?.subscription_plan_id || 'Sin plan activo')}
+                      </div>
+                      <div style={{ marginTop: 24 }}>
+                        <button type="button" className="btn-save-form" onClick={() => setUpgradeOpen(true)}>
+                          Cambiar plan →
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
               <div className="p-card">
                 <div className="p-card-header">
-                  <span className="p-card-title">Próximo cobro</span>
+                  <span className="p-card-title">Próxima renovación</span>
                 </div>
                 <div style={{ padding: '20px 0' }}>
-                  <div style={{ fontSize: 13, color: 'var(--soft)', marginBottom: 6 }}>Próxima fecha</div>
-                  <div style={{ fontSize: 20, color: 'var(--text)', fontWeight: 700 }} id="nextBilling">
-                    {nextBilling.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  <div style={{ fontSize: 13, color: 'var(--soft)', marginBottom: 6 }}>Acceso hasta</div>
+                  <div style={{ fontSize: 20, color: 'var(--text)', fontWeight: 700 }}>
+                    {user?.subscription_ends_at
+                      ? new Date(user.subscription_ends_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
+                      : 'Sin suscripción activa'}
                   </div>
                   <div style={{ height: 1, background: 'var(--border)', margin: '18px 0' }} />
-                  <div style={{ fontSize: 13, color: 'var(--soft)', marginBottom: 6 }}>Método de pago</div>
-                  <div style={{ fontSize: 14, color: 'var(--text)' }}>Tarjeta •••• 0000</div>
+                  <div style={{ fontSize: 13, color: 'var(--soft)', marginBottom: 6 }}>Último pago</div>
+                  {latestPayment ? (
+                    <>
+                      <div style={{ fontSize: 16, color: 'var(--text)', fontWeight: 700 }}>
+                        €{latestPayment.amount_euro.toFixed(2)} · {latestPayment.plan_id}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, fontFamily: 'monospace' }}>
+                        {new Date(latestPayment.created_at).toLocaleDateString('es-ES')}
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ fontSize: 14, color: 'var(--muted)' }}>Sin pagos registrados</div>
+                  )}
                 </div>
               </div>
             </div>

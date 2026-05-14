@@ -335,6 +335,44 @@ create unique index if not exists idx_customer_whatsapp_configs_phone_number_id
   where meta_phone_number_id is not null;
 
 -- ---------------------------------------------------------------------------
+-- Customer bookings (calendar / agenda inside the customer dashboard) and
+-- business info that the bot uses when answering. Replaces localStorage stubs.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.customer_events (
+  id uuid primary key default gen_random_uuid(),
+  customer_user_id uuid not null references public.customer_users(id) on delete cascade,
+  name text,
+  datetime timestamptz not null,
+  service text,
+  phone text,
+  notes text,
+  source text not null default 'manual' check (source in ('manual', 'bot')),
+  status text not null default 'confirmed' check (status in ('pending', 'confirmed', 'cancelled')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_customer_events_user_dt
+  on public.customer_events(customer_user_id, datetime);
+
+create index if not exists idx_customer_events_user_created
+  on public.customer_events(customer_user_id, created_at desc);
+
+create table if not exists public.customer_business_info (
+  customer_user_id uuid primary key references public.customer_users(id) on delete cascade,
+  name text,
+  type text,
+  phone text,
+  email text,
+  address text,
+  hours text,
+  services text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------------------------
 -- OpenAI fallback keys (admin-editable). If Vercel env OPENAI_API_KEY fails
 -- with 401 / 429 / insufficient_quota the webhook walks this list in order
 -- and uses the first key that succeeds. fail_count / last_failed_at give the
