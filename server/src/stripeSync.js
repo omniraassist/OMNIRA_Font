@@ -2,6 +2,42 @@ import Stripe from "stripe";
 import { supabaseAdmin } from "./config/supabase.js";
 import { getCheckoutPlan, computeNewSubscriptionEnd } from "./billing.js";
 
+/**
+ * Drop a "purchase confirmed" notification into user_notifications targeting
+ * this customer's email. created_by is set to a deterministic system key so
+ * we don't insert duplicates if Stripe re-delivers the same webhook.
+ */
+async function insertPurchaseNotification({ customerId, planLabel, newEnd, dedupKey }) {
+  if (!customerId || !dedupKey) return;
+  try {
+    const { data: u } = await supabaseAdmin
+      .from("customer_users")
+      .select("email")
+      .eq("id", customerId)
+      .maybeSingle();
+    if (!u?.email) return;
+    const { data: existing } = await supabaseAdmin
+      .from("user_notifications")
+      .select("id")
+      .eq("created_by", dedupKey)
+      .maybeSingle();
+    if (existing) return;
+    const dateStr = newEnd ? new Date(newEnd).toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" }) : "";
+    await supabaseAdmin.from("user_notifications").insert({
+      target_email: u.email,
+      title: "✅ ¡Compra exitosa! Tu plan está activo",
+      message:
+        `Gracias por elegir Omnira. Tu plan${planLabel ? ` "${planLabel}"` : ""} está activo` +
+        (dateStr ? ` hasta el ${dateStr}.` : ".") +
+        " Conecta tu WhatsApp Business para activar el agente.",
+      created_by: dedupKey
+    });
+  } catch (e) {
+    // Notifications are best-effort — never let them block the subscription grant.
+    console.warn("[stripeSync] insertPurchaseNotification failed:", e?.message || e);
+  }
+}
+
 export function getStripe() {
   const k = String(process.env.STRIPE_SECRET_KEY || "").trim();
   if (!k) return null;
@@ -79,6 +115,13 @@ export async function applyPaidCheckoutSession(session) {
   if (payErr) {
     return { ok: false, reason: payErr.message };
   }
+
+  await insertPurchaseNotification({
+    customerId: userId,
+    planLabel: plan.label,
+    newEnd,
+    dedupKey: `system:purchase:checkout:${sessionId}`
+  });
 
   return { ok: true, planId, subscription_ends_at: newEnd };
 }
@@ -158,6 +201,13 @@ export async function applyPaidPaymentIntent(pi) {
   if (payErr) {
     return { ok: false, reason: payErr.message };
   }
+
+  await insertPurchaseNotification({
+    customerId: userId,
+    planLabel: plan.label,
+    newEnd,
+    dedupKey: `system:purchase:pi:${piId}`
+  });
 
   return { ok: true, planId, subscription_ends_at: newEnd };
 }

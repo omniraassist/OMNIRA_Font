@@ -177,12 +177,14 @@ export function Dashboard() {
     } catch {
       /* ignore */
     }
-    // Notifications for this email
+    // Notifications — the panel call is authenticated (JWT) so the server
+    // also auto-generates the daily ≤5-days-remaining warnings and the
+    // expired notice when relevant. We still pass ?email= as a back-compat
+    // fallback in case the token gets stripped somewhere along the way.
     try {
-      if (user?.email) {
-        const n = await apiCall(`/api/customer/notifications?email=${encodeURIComponent(user.email)}`);
-        setNotifications(Array.isArray(n.notifications) ? n.notifications : []);
-      }
+      const q = user?.email ? `?email=${encodeURIComponent(user.email)}` : '';
+      const n = await apiCall(`/api/customer/notifications${q}`);
+      setNotifications(Array.isArray(n.notifications) ? n.notifications : []);
     } catch {
       /* ignore */
     }
@@ -584,6 +586,153 @@ export function Dashboard() {
         </aside>
 
         <main className="p-main">
+          {/* Sticky top bar — always-visible notification bell + dropdown */}
+          <style>{`
+            .p-tb {
+              position: sticky; top: 0; z-index: 50;
+              display: flex; align-items: center; justify-content: flex-end;
+              gap: 12px;
+              padding: 12px 16px;
+              background: rgba(8,11,17,0.85);
+              backdrop-filter: blur(10px);
+              border-bottom: 1px solid var(--border, rgba(255,255,255,0.06));
+              margin: -16px -16px 18px;
+            }
+            @media (max-width: 720px) { .p-tb { margin: -12px -12px 14px; padding: 10px 12px; } }
+            .p-tb-bell {
+              position: relative;
+              width: 38px; height: 38px;
+              display: inline-flex; align-items: center; justify-content: center;
+              background: rgba(255,255,255,0.04);
+              border: 1px solid var(--border, rgba(255,255,255,0.06));
+              border-radius: 12px;
+              color: var(--soft, #8fa3c0);
+              cursor: pointer;
+              transition: all .15s ease;
+            }
+            .p-tb-bell:hover { color: var(--em); border-color: rgba(0,229,160,0.30); background: rgba(0,229,160,0.06); }
+            .p-tb-bell .dot {
+              position: absolute; top: 8px; right: 8px;
+              min-width: 16px; height: 16px;
+              padding: 0 4px;
+              border-radius: 999px;
+              background: linear-gradient(135deg, var(--em), #34d399);
+              color: #00120a;
+              font-size: 10px; font-weight: 700;
+              display: inline-flex; align-items: center; justify-content: center;
+              border: 2px solid #0a0f17;
+              animation: p-pulse 2.4s ease-in-out infinite;
+            }
+            @keyframes p-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(0,229,160,0); } 50% { box-shadow: 0 0 0 4px rgba(0,229,160,0.20); } }
+
+            .p-tb-panel {
+              position: absolute; right: 16px; top: 64px;
+              width: 380px; max-width: calc(100vw - 32px);
+              background: linear-gradient(180deg, #111827 0%, #0c1220 100%);
+              border: 1px solid var(--border, rgba(255,255,255,0.10));
+              border-radius: 14px;
+              box-shadow: 0 24px 60px rgba(0,0,0,0.55);
+              overflow: hidden;
+              z-index: 60;
+              animation: p-tb-in .15s ease-out;
+            }
+            @keyframes p-tb-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+            .p-tb-panel-head {
+              display: flex; justify-content: space-between; align-items: center;
+              padding: 14px 16px;
+              border-bottom: 1px solid var(--border, rgba(255,255,255,0.08));
+            }
+            .p-tb-panel-head strong { color: var(--text, #e2eaf4); font-size: 14px; }
+            .p-tb-panel-head span { color: var(--muted, #4d6080); font-size: 11px; font-family: monospace; }
+            .p-tb-list { max-height: 440px; overflow-y: auto; }
+            .p-tb-item {
+              padding: 12px 16px;
+              border-bottom: 1px solid var(--border, rgba(255,255,255,0.06));
+              transition: background .12s ease;
+              position: relative;
+            }
+            .p-tb-item:last-child { border-bottom: 0; }
+            .p-tb-item:hover { background: rgba(255,255,255,0.03); }
+            .p-tb-item.system { background: rgba(0,229,160,0.04); }
+            .p-tb-item.warn { background: rgba(251,191,36,0.05); }
+            .p-tb-item.danger { background: rgba(239,68,68,0.05); }
+            .p-tb-item strong {
+              display: block; font-size: 13px;
+              color: var(--text, #e2eaf4);
+              margin-bottom: 4px;
+              padding-right: 8px;
+            }
+            .p-tb-item p {
+              margin: 0 0 6px;
+              font-size: 12px;
+              color: var(--soft, #8fa3c0);
+              line-height: 1.55;
+            }
+            .p-tb-item .ts {
+              font-family: monospace;
+              font-size: 10px;
+              color: var(--muted, #4d6080);
+            }
+            .p-tb-empty {
+              padding: 32px 20px;
+              text-align: center;
+              color: var(--muted, #4d6080);
+              font-size: 13px;
+            }
+          `}</style>
+          <div className="p-tb">
+            <button
+              type="button"
+              className="p-tb-bell"
+              onClick={() => setNotifOpen((v) => !v)}
+              aria-label="Notifications"
+              aria-expanded={notifOpen}
+            >
+              <i className="fa-solid fa-bell" />
+              {notifications.length > 0 ? (
+                <span className="dot">{notifications.length > 9 ? '9+' : notifications.length}</span>
+              ) : null}
+            </button>
+            {notifOpen ? (
+              <div className="p-tb-panel" role="dialog" aria-label="Notifications">
+                <div className="p-tb-panel-head">
+                  <strong>Notificaciones</strong>
+                  <span>{notifications.length} total</span>
+                </div>
+                <div className="p-tb-list">
+                  {notifications.length === 0 ? (
+                    <div className="p-tb-empty">No tienes notificaciones todavía.</div>
+                  ) : (
+                    notifications.map((n) => {
+                      const cb = String(n.created_by || '');
+                      const cls = cb.startsWith('system:expired')
+                        ? 'danger'
+                        : cb.startsWith('system:expiry-')
+                          ? 'warn'
+                          : cb.startsWith('system:purchase')
+                            ? 'system'
+                            : '';
+                      const diff = Date.now() - new Date(n.created_at).getTime();
+                      const ago = diff < 60_000
+                        ? 'ahora'
+                        : diff < 3_600_000
+                          ? `hace ${Math.round(diff / 60_000)} min`
+                          : diff < 86_400_000
+                            ? `hace ${Math.round(diff / 3_600_000)} h`
+                            : `hace ${Math.round(diff / 86_400_000)} d`;
+                      return (
+                        <div key={n.id} className={`p-tb-item ${cls}`}>
+                          <strong>{n.title}</strong>
+                          <p>{n.message}</p>
+                          <span className="ts">{ago}</span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            ) : null}
+          </div>
           {(() => {
             const daysLeft = user?.subscription_ends_at ? subscriptionDaysLeft(user.subscription_ends_at) : 0;
             const expired = user?.subscription_ends_at && new Date(user.subscription_ends_at) <= new Date();

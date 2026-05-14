@@ -4,7 +4,7 @@ import cors from "cors";
 import crypto from "crypto";
 import { testSupabaseConnection, isSupabaseConfigured } from "./config/supabase.js";
 import { supabaseAdmin } from "./config/supabase.js";
-import { signCustomerToken, requireCustomer } from "./customerJwt.js";
+import { signCustomerToken, requireCustomer, verifyCustomerToken } from "./customerJwt.js";
 import { getCheckoutPlans, getCheckoutPlan, computeNewSubscriptionEnd, invalidatePricingCache } from "./billing.js";
 import { getPlatformSetting, invalidatePlatformSettingsCache, maskSecret } from "./platformSettings.js";
 import { getStripe, applyPaidCheckoutSession, applyPaidPaymentIntent, OMNIRA_PAYMENT_INTENT_FLOW } from "./stripeSync.js";
@@ -417,6 +417,26 @@ app.post("/api/customer/subscription/simulate", requireCustomer, async (req, res
     if (error || !user) {
       return res.status(500).json({ ok: false, message: error?.message || "Update failed." });
     }
+
+    // System notification (best-effort, dedup'd by user+grant time)
+    try {
+      const dedup = `system:purchase:simulate:${req.customerId}:${newEnd}`;
+      const { data: existing } = await supabaseAdmin
+        .from("user_notifications")
+        .select("id")
+        .eq("created_by", dedup)
+        .maybeSingle();
+      if (!existing) {
+        const dateStr = new Date(newEnd).toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
+        await supabaseAdmin.from("user_notifications").insert({
+          target_email: user.email,
+          title: "✅ ¡Plan activado! (test)",
+          message: `Tu plan "${plan.label}" está activo hasta el ${dateStr}.`,
+          created_by: dedup
+        });
+      }
+    } catch { /* ignore */ }
+
     return res.status(200).json({ ok: true, user: buildCustomerUserPayload(user) });
   } catch (error) {
     return res.status(500).json({ ok: false, message: error.message });
@@ -1486,17 +1506,97 @@ app.put("/api/customer/business", requireCustomer, async (req, res) => {
   }
 });
 
+/**
+ * Customer notifications. Two flows in one endpoint:
+ *
+ *   1. If a JWT is present (panel call via apiCall + omnira_session token),
+ *      we look up the customer's subscription_ends_at and auto-insert a
+ *      daily "subscription expiring" reminder when ≤5 days remain (or an
+ *      "expired" notice when already past). Dedup'd by created_by so we
+ *      insert at most one per remaining-day-bucket per calendar day.
+ *
+ *   2. Anonymous (?email=...) calls still work for back-compat — they
+ *      return the broadcast + targeted rows but don't auto-generate.
+ */
 app.get("/api/customer/notifications", async (req, res) => {
   try {
-    const email = normalizeEmail(req.query.email || "");
+    let email = "";
+    let customerId = null;
+
+    // Try JWT first (panel call)
+    try {
+      const auth = String(req.headers.authorization || "").trim();
+      if (auth.toLowerCase().startsWith("bearer ")) {
+        const token = auth.slice(7).trim();
+        const payload = verifyCustomerToken(token);
+        if (payload?.sub) {
+          customerId = payload.sub;
+          const { data: u } = await supabaseAdmin
+            .from("customer_users")
+            .select("email, subscription_ends_at")
+            .eq("id", customerId)
+            .maybeSingle();
+          email = normalizeEmail(u?.email);
+
+          // Auto-generate subscription warnings (≤5 days) / expired notice.
+          if (email && u?.subscription_ends_at) {
+            const now = new Date();
+            const ends = new Date(u.subscription_ends_at);
+            const msLeft = ends.getTime() - now.getTime();
+            const today = now.toISOString().slice(0, 10);
+            const dateStr = ends.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
+            if (msLeft <= 0) {
+              const dedup = `system:expired:${today}:${customerId}`;
+              const { data: existing } = await supabaseAdmin
+                .from("user_notifications")
+                .select("id")
+                .eq("created_by", dedup)
+                .maybeSingle();
+              if (!existing) {
+                await supabaseAdmin.from("user_notifications").insert({
+                  target_email: email,
+                  title: "⚠️ Tu plan ha expirado",
+                  message: `Tu agente Omnira está en pausa. Renueva tu plan para que vuelva a responder en WhatsApp 24/7.`,
+                  created_by: dedup
+                });
+              }
+            } else {
+              const daysLeft = Math.ceil(msLeft / 86_400_000);
+              if (daysLeft >= 1 && daysLeft <= 5) {
+                const dedup = `system:expiry-${daysLeft}d:${today}:${customerId}`;
+                const { data: existing } = await supabaseAdmin
+                  .from("user_notifications")
+                  .select("id")
+                  .eq("created_by", dedup)
+                  .maybeSingle();
+                if (!existing) {
+                  await supabaseAdmin.from("user_notifications").insert({
+                    target_email: email,
+                    title: `⏰ Tu plan expira en ${daysLeft} día${daysLeft === 1 ? "" : "s"}`,
+                    message:
+                      `Renueva antes del ${dateStr} para que tu agente Omnira siga respondiendo automáticamente en WhatsApp.`,
+                    created_by: dedup
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      /* fall through to query-param mode */
+    }
+
+    if (!email) email = normalizeEmail(req.query.email || "");
     if (!email) return res.status(400).json({ ok: false, message: "Email query is required." });
+
     const { data, error } = await supabaseAdmin
       .from("user_notifications")
-      .select("id, title, message, created_at, target_email")
+      .select("id, title, message, created_at, target_email, created_by")
       .eq("is_active", true)
       .or(`target_email.is.null,target_email.eq.${email}`)
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(40);
     if (error) throw error;
     return res.status(200).json({ ok: true, notifications: data || [] });
   } catch (error) {
