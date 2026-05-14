@@ -229,24 +229,51 @@ async function loadCustomerBusiness(customerId) {
   }
 }
 
-const DEFAULT_CUSTOMER_SYSTEM_PROMPT = `You are the AI assistant for this business on WhatsApp Business. Detect the language the user wrote in and ALWAYS reply in that exact same language. Be warm, concise, professional — short paragraphs, no bullet symbols inside WhatsApp text, one clear next step at the end.
-Use the BUSINESS CONTEXT and KNOWLEDGE BASE below as the source of truth for prices, services, hours and policies. If the user asks something not covered, say you'll check with the team and offer to connect them — do not invent answers.`;
+const DEFAULT_CUSTOMER_SYSTEM_PROMPT = `You are the official AI assistant for the business described in the BUSINESS CONTEXT below. You speak ON BEHALF OF this business — answer as if you were a human staff member who knows everything in the context and knowledge base. Detect the language the user wrote in and ALWAYS reply in that exact same language. Be warm, concise, professional — short paragraphs, no bullet symbols inside WhatsApp text, one clear next step at the end.
 
+Strict rules — do NOT break these:
+- Use the BUSINESS CONTEXT and KNOWLEDGE BASE below as the SOLE source of truth for facts (prices, services, hours, policies, contact). Never invent details that aren't there.
+- If the user asks something not covered, say you'll check with the team and offer to connect them with a human — do not guess.
+- If a "GREETING" is provided in the BUSINESS CONTEXT, open the first reply of a fresh conversation with it (verbatim or slightly adapted to fit the user's question).
+- Never reveal that you are an AI built on Omnira; you are the assistant of this specific business.
+- Never mention "Omnira" unless the customer explicitly asks who built the assistant.`;
+
+/**
+ * Builds the full system prompt sent to OpenAI for a customer's inbound. Every
+ * field the customer filled in the dashboard (chatbot greeting, custom system
+ * prompt / instructions, knowledge base, business info) is included verbatim
+ * so the bot adopts ALL of it. The order is:
+ *   1. System prompt / instructions the customer wrote ("Instrucciones especiales")
+ *      — or the strict default above if they left it empty.
+ *   2. Business context block (name, type, phone, email, address, hours, services).
+ *   3. Greeting (separate block so the bot uses it on the first turn).
+ *   4. Knowledge base (the long-form text the customer pasted in /knowledge).
+ */
 function buildCustomerSystemPrompt(customerBot, business) {
   let prompt = String(customerBot?.systemPrompt || DEFAULT_CUSTOMER_SYSTEM_PROMPT);
+
+  // Business context
   if (business && Object.values(business).some(Boolean)) {
-    prompt += `\n\n# Business context (admin-curated facts)\n`;
+    prompt += `\n\n# BUSINESS CONTEXT (this is who you work for — speak as them)\n`;
     if (business.name) prompt += `Business name: ${business.name}\n`;
-    if (business.type) prompt += `Type: ${business.type}\n`;
+    if (business.type) prompt += `Type / industry: ${business.type}\n`;
     if (business.phone) prompt += `Phone: ${business.phone}\n`;
     if (business.email) prompt += `Email: ${business.email}\n`;
     if (business.address) prompt += `Address: ${business.address}\n`;
-    if (business.hours) prompt += `Hours:\n${business.hours}\n`;
+    if (business.hours) prompt += `Opening hours:\n${business.hours}\n`;
     if (business.services) prompt += `Services & prices:\n${business.services}\n`;
   }
-  if (customerBot?.knowledgeBase) {
-    prompt += `\n\n# Knowledge base (customer-curated)\n${customerBot.knowledgeBase}`;
+
+  // Greeting (verbatim — used at the start of a fresh conversation)
+  if (customerBot?.greeting && customerBot.greeting.trim()) {
+    prompt += `\n\n# GREETING (use this — verbatim or slightly adapted — when opening a fresh conversation)\n${customerBot.greeting.trim()}`;
   }
+
+  // Long-form knowledge base
+  if (customerBot?.knowledgeBase && customerBot.knowledgeBase.trim()) {
+    prompt += `\n\n# KNOWLEDGE BASE (treat as source of truth — quote facts from here)\n${customerBot.knowledgeBase.trim()}`;
+  }
+
   return prompt.slice(0, 24000);
 }
 

@@ -219,7 +219,7 @@ function Donut({ data, total, centerLabel, centerValue, size = 200 }) {
   if (!total || data.length === 0) {
     return (
       <div style={{ width: s, height: s, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 12 }}>
-        no data
+        sin datos
       </div>
     );
   }
@@ -261,20 +261,30 @@ function Donut({ data, total, centerLabel, centerValue, size = 200 }) {
   );
 }
 
+const STATUS_LABEL_ES_A = {
+  new: 'Nuevo',
+  contacted: 'Contactado',
+  qualified: 'Cualificado',
+  converted: 'Convertido',
+  lost: 'Perdido',
+};
+
+function statusLabelEsA(s) { return STATUS_LABEL_ES_A[s] || s || '—'; }
+
 function StatusDonutCard({ statusDistribution, total }) {
   const data = statusDistribution
-    .map((s) => ({ ...s, label: s.status }))
+    .map((s) => ({ ...s, label: statusLabelEsA(s.status) }))
     .filter((s) => s.count > 0);
   return (
     <section className="a-card">
-      <div className="a-section-head"><h2>Lead status breakdown</h2><span className="a-section-sub">all-time</span></div>
+      <div className="a-section-head"><h2>Distribución por estado de lead</h2><span className="a-section-sub">histórico</span></div>
       <div className="a-donut-row">
         <Donut data={data} total={total} centerValue={total} centerLabel="leads" />
         <div className="a-donut-legend">
           {statusDistribution.map((s, i) => (
             <div key={s.status} className="a-donut-item">
               <div className="a-donut-swatch" style={{ background: DONUT_COLORS[i % DONUT_COLORS.length] }} />
-              <span className="a-donut-label">{s.status}</span>
+              <span className="a-donut-label">{statusLabelEsA(s.status)}</span>
               <span className="a-donut-count">{s.count}</span>
               <span className="a-donut-pct">{s.pct.toFixed(0)}%</span>
             </div>
@@ -289,12 +299,12 @@ function PlanDonutCard({ planDistribution, activeSubscribers }) {
   const data = planDistribution.map((p) => ({ label: p.label || p.id, count: p.count }));
   return (
     <section className="a-card">
-      <div className="a-section-head"><h2>Active subscriber plans</h2><span className="a-section-sub">current</span></div>
+      <div className="a-section-head"><h2>Planes de suscriptores activos</h2><span className="a-section-sub">actual</span></div>
       {activeSubscribers === 0 ? (
-        <div className="a-empty">No active paid subscribers yet.</div>
+        <div className="a-empty">Aún no hay suscriptores con plan activo.</div>
       ) : (
         <div className="a-donut-row">
-          <Donut data={data} total={activeSubscribers} centerValue={activeSubscribers} centerLabel="subscribers" />
+          <Donut data={data} total={activeSubscribers} centerValue={activeSubscribers} centerLabel="suscriptores" />
           <div className="a-donut-legend">
             {planDistribution.map((p, i) => (
               <div key={p.id} className="a-donut-item">
@@ -324,9 +334,23 @@ function HBar({ items, valueKey = 'count', labelKey = 'label' }) {
           <span className="a-hbar-count">{d[valueKey]}{d.pct != null ? ` · ${d.pct.toFixed(0)}%` : ''}</span>
         </div>
       ))}
-      {items.length === 0 ? <div className="a-empty">no data yet</div> : null}
+      {items.length === 0 ? <div className="a-empty">aún sin datos</div> : null}
     </div>
   );
+}
+
+const FUNNEL_STAGE_ES = {
+  total: 'Total',
+  new: 'Nuevos',
+  contacted: 'Contactados',
+  qualified: 'Cualificados',
+  converted: 'Convertidos',
+  lost: 'Perdidos',
+};
+
+function funnelStageLabel(s) {
+  const key = String(s || '').toLowerCase();
+  return FUNNEL_STAGE_ES[key] || s;
 }
 
 function Funnel({ funnel }) {
@@ -335,7 +359,7 @@ function Funnel({ funnel }) {
     <div className="a-funnel">
       {funnel.map((row) => (
         <div key={row.stage} className="a-funnel-row">
-          <div className="a-funnel-label">{row.stage}</div>
+          <div className="a-funnel-label">{funnelStageLabel(row.stage)}</div>
           <div className="a-funnel-track">
             <div className="a-funnel-fill" style={{ width: `${(row.count / max) * 100}%` }}>
               {row.pct.toFixed(0)}%
@@ -386,7 +410,7 @@ export function AnalyticsPage() {
       })
       .catch((e) => {
         if (!alive) return;
-        setError(e?.message || 'Could not load analytics');
+        setError(e?.message || 'No se pudieron cargar las analíticas');
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -412,59 +436,59 @@ export function AnalyticsPage() {
       <style>{STYLES}</style>
 
       <header className="adm-page-head">
-        <h1>Analytics</h1>
+        <h1>Analíticas</h1>
         <p>
-          Real-time view of the Omnira platform. Everything below comes from{' '}
+          Vista en tiempo real de la plataforma Omnira. Todo lo de abajo proviene de{' '}
           <code>wa_messages</code>, <code>wa_leads</code>, <code>customer_payments</code>,{' '}
-          <code>customer_users</code> and <code>openai_api_keys</code>. Nothing is mocked or projected.
-          {data?.generated_at ? <> · Generated {new Date(data.generated_at).toLocaleTimeString()}</> : null}
+          <code>customer_users</code> y <code>openai_api_keys</code>. Nada es ficticio ni proyectado.
+          {data?.generated_at ? <> · Generado a las {new Date(data.generated_at).toLocaleTimeString('es-ES')}</> : null}
         </p>
       </header>
 
       {error ? <div className="a-banner err"><strong>Error:</strong> {error}</div> : null}
 
       {loading && !data ? (
-        <div className="a-empty">Loading analytics…</div>
+        <div className="a-empty">Cargando analíticas…</div>
       ) : !data ? null : (
         <div className="a-page">
           {/* KPIs */}
           <div className="a-kpis">
             <article className="a-kpi em">
-              <div className="a-kpi-label">Leads this week</div>
+              <div className="a-kpi-label">Leads esta semana</div>
               <div className="a-kpi-value">{kpis.leadsThisWeek}<span className="unit">leads</span></div>
-              <div className="a-kpi-foot"><TrendPill pct={kpis.leadsDeltaPct} /><span>vs last week ({kpis.leadsLastWeek})</span></div>
+              <div className="a-kpi-foot"><TrendPill pct={kpis.leadsDeltaPct} /><span>vs semana pasada ({kpis.leadsLastWeek})</span></div>
             </article>
             <article className="a-kpi">
-              <div className="a-kpi-label">Messages this week</div>
-              <div className="a-kpi-value">{kpis.msgThisWeek}<span className="unit">msgs</span></div>
-              <div className="a-kpi-foot"><TrendPill pct={kpis.msgDeltaPct} /><span>vs last week ({kpis.msgLastWeek})</span></div>
+              <div className="a-kpi-label">Mensajes esta semana</div>
+              <div className="a-kpi-value">{kpis.msgThisWeek}<span className="unit">msjs</span></div>
+              <div className="a-kpi-foot"><TrendPill pct={kpis.msgDeltaPct} /><span>vs semana pasada ({kpis.msgLastWeek})</span></div>
             </article>
             <article className="a-kpi">
-              <div className="a-kpi-label">Conversion rate</div>
+              <div className="a-kpi-label">Tasa de conversión</div>
               <div className="a-kpi-value">{kpis.conversionRate.toFixed(1)}<span className="unit">%</span></div>
               <div className="a-kpi-foot">
-                <span>{kpis.convertedLeads} converted of {kpis.totalLeads} all-time</span>
+                <span>{kpis.convertedLeads} convertidos de {kpis.totalLeads} históricos</span>
               </div>
             </article>
             <article className="a-kpi">
-              <div className="a-kpi-label">Avg messages / lead</div>
-              <div className="a-kpi-value">{kpis.avgMsgPerLead}<span className="unit">msgs</span></div>
+              <div className="a-kpi-label">Media de mensajes / lead</div>
+              <div className="a-kpi-value">{kpis.avgMsgPerLead}<span className="unit">msjs</span></div>
               <div className="a-kpi-foot">
-                <span>{kpis.qualifiedLeads} qualified leads</span>
+                <span>{kpis.qualifiedLeads} leads cualificados</span>
               </div>
             </article>
             <article className="a-kpi">
-              <div className="a-kpi-label">Active subscribers</div>
+              <div className="a-kpi-label">Suscriptores activos</div>
               <div className="a-kpi-value">{kpis.activeSubscribers}</div>
               <div className="a-kpi-foot">
-                <span>Paid + not yet expired</span>
+                <span>De pago + aún no vencidos</span>
               </div>
             </article>
             <article className="a-kpi em">
-              <div className="a-kpi-label">Revenue · last 6 months</div>
-              <div className="a-kpi-value">€{kpis.revenue6mEuro.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+              <div className="a-kpi-label">Ingresos · últimos 6 meses</div>
+              <div className="a-kpi-value">€{kpis.revenue6mEuro.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
               <div className="a-kpi-foot">
-                <span>From <code>customer_payments</code></span>
+                <span>De <code>customer_payments</code></span>
               </div>
             </article>
           </div>
@@ -472,22 +496,22 @@ export function AnalyticsPage() {
           {/* Activity chart */}
           <section className="a-card">
             <div className="a-section-head">
-              <h2>WhatsApp activity · last 30 days</h2>
+              <h2>Actividad en WhatsApp · últimos 30 días</h2>
               <span className="a-section-sub">
-                {totalsLast30.inbound + totalsLast30.outbound} messages · {totalsLast30.leads} new leads
+                {totalsLast30.inbound + totalsLast30.outbound} mensajes · {totalsLast30.leads} nuevos leads
               </span>
             </div>
             <div className="a-chart-legend">
-              <span><span className="a-legend-dot" style={{ background: '#60a5fa' }} />Total messages</span>
-              <span><span className="a-legend-dot" style={{ background: '#00e5a0' }} />Inbound only</span>
+              <span><span className="a-legend-dot" style={{ background: '#60a5fa' }} />Mensajes totales</span>
+              <span><span className="a-legend-dot" style={{ background: '#00e5a0' }} />Solo entrantes</span>
             </div>
             <div className="a-chart-wrap">
               <AreaChart data={daily} height={220} />
             </div>
             <div style={{ display: 'flex', gap: 18, marginTop: 12, fontSize: 12, color: 'var(--soft)' }}>
-              <span>Inbound: <strong style={{ color: 'var(--em)' }}>{totalsLast30.inbound}</strong></span>
-              <span>Outbound: <strong style={{ color: '#60a5fa' }}>{totalsLast30.outbound}</strong></span>
-              <span>Reply ratio: <strong style={{ color: 'var(--text)' }}>
+              <span>Entrantes: <strong style={{ color: 'var(--em)' }}>{totalsLast30.inbound}</strong></span>
+              <span>Salientes: <strong style={{ color: '#60a5fa' }}>{totalsLast30.outbound}</strong></span>
+              <span>Ratio de respuesta: <strong style={{ color: 'var(--text)' }}>
                 {totalsLast30.inbound > 0 ? Math.round((totalsLast30.outbound / totalsLast30.inbound) * 100) : 0}%
               </strong></span>
             </div>
@@ -501,52 +525,52 @@ export function AnalyticsPage() {
 
           {/* Funnel */}
           <section className="a-card">
-            <div className="a-section-head"><h2>Conversion funnel</h2><span className="a-section-sub">all-time</span></div>
+            <div className="a-section-head"><h2>Embudo de conversión</h2><span className="a-section-sub">histórico</span></div>
             <Funnel funnel={data.funnel} />
           </section>
 
           {/* Intents + languages */}
           <div className="a-grid-2">
             <section className="a-card">
-              <div className="a-section-head"><h2>Top intents</h2><span className="a-section-sub">extracted by OpenAI</span></div>
+              <div className="a-section-head"><h2>Intenciones principales</h2><span className="a-section-sub">extraídas por OpenAI</span></div>
               <HBar items={data.topIntents.map((i) => ({ label: i.intent, count: i.count, pct: i.pct }))} />
             </section>
             <section className="a-card">
-              <div className="a-section-head"><h2>Top languages</h2><span className="a-section-sub">detected per lead</span></div>
+              <div className="a-section-head"><h2>Idiomas principales</h2><span className="a-section-sub">detectado por lead</span></div>
               <HBar items={data.topLanguages.map((l) => ({ label: l.language, count: l.count, pct: l.pct }))} />
             </section>
           </div>
 
           {/* Monthly revenue */}
           <section className="a-card">
-            <div className="a-section-head"><h2>Monthly revenue · last 6 months</h2><span className="a-section-sub">customer_payments.amount_cents</span></div>
+            <div className="a-section-head"><h2>Ingresos mensuales · últimos 6 meses</h2><span className="a-section-sub">customer_payments.amount_cents</span></div>
             <MonthlyRevenueBars data={data.monthlyRevenue} />
             <div style={{ marginTop: 10, fontSize: 12, color: 'var(--soft)' }}>
-              Sum: <strong style={{ color: 'var(--em)' }}>€{kpis.revenue6mEuro.toFixed(2)}</strong>{' '}
-              · {data.monthlyRevenue.reduce((s, m) => s + m.payment_count, 0)} payments
+              Total: <strong style={{ color: 'var(--em)' }}>€{kpis.revenue6mEuro.toFixed(2)}</strong>{' '}
+              · {data.monthlyRevenue.reduce((s, m) => s + m.payment_count, 0)} pagos
             </div>
           </section>
 
           {/* OpenAI health */}
           <section className="a-card">
-            <div className="a-section-head"><h2>OpenAI key fleet</h2><span className="a-section-sub">aggregate health</span></div>
+            <div className="a-section-head"><h2>Flota de claves OpenAI</h2><span className="a-section-sub">salud agregada</span></div>
             <div className="a-health-row">
               <div className="a-health">
-                <div className="a-health-label">Active keys</div>
+                <div className="a-health-label">Claves activas</div>
                 <div className="a-health-value">{data.openaiHealth.active_keys}</div>
               </div>
               <div className="a-health">
-                <div className="a-health-label">Successful calls</div>
+                <div className="a-health-label">Llamadas con éxito</div>
                 <div className="a-health-value" style={{ color: 'var(--em)' }}>{data.openaiHealth.total_successes.toLocaleString()}</div>
               </div>
               <div className="a-health">
-                <div className="a-health-label">Failed calls</div>
+                <div className="a-health-label">Llamadas fallidas</div>
                 <div className="a-health-value" style={{ color: data.openaiHealth.total_failures > 0 ? '#fca5a5' : 'var(--text)' }}>
                   {data.openaiHealth.total_failures.toLocaleString()}
                 </div>
               </div>
               <div className="a-health">
-                <div className="a-health-label">Success rate</div>
+                <div className="a-health-label">Tasa de éxito</div>
                 <div className="a-health-value">
                   {(() => {
                     const t = data.openaiHealth.total_successes + data.openaiHealth.total_failures;

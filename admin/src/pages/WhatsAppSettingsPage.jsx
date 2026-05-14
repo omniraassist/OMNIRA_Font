@@ -7,65 +7,65 @@ import { apiCall } from '../api/client.js';
 const KEYS = [
   {
     key: 'META_WABA_ACCESS_TOKEN',
-    label: 'Meta access token',
-    placeholder: 'EAAB… long-lived system user token',
-    hint: 'Meta Business Suite → System Users → Generate token with `whatsapp_business_messaging`.',
+    label: 'Token de acceso de Meta',
+    placeholder: 'EAAB… token de usuario de sistema de larga duración',
+    hint: 'Meta Business Suite → Usuarios del sistema → Generar token con `whatsapp_business_messaging`.',
     secret: true,
   },
   {
     key: 'META_WABA_PHONE_NUMBER_ID',
-    label: 'Phone number ID',
+    label: 'ID del número de teléfono',
     placeholder: '1124674670733081',
-    hint: 'Numeric ID of your WhatsApp Business number (Meta API Setup).',
+    hint: 'ID numérico de tu número de WhatsApp Business (Meta API Setup).',
     secret: false,
   },
   {
     key: 'META_WABA_BUSINESS_ACCOUNT_ID',
-    label: 'WABA business account ID',
+    label: 'ID de cuenta de negocio WABA',
     placeholder: '1936173473732174',
-    hint: 'Meta Business Suite → WhatsApp Accounts → ID at the top of the page.',
+    hint: 'Meta Business Suite → Cuentas de WhatsApp → ID en la parte superior de la página.',
     secret: false,
   },
   {
     key: 'META_WABA_VERIFY_TOKEN',
-    label: 'Webhook verify token',
-    placeholder: 'A long random string; same value in Meta dashboard',
-    hint: 'You enter this same value in Meta → WhatsApp → Configuration → Verify token.',
+    label: 'Verify token del webhook',
+    placeholder: 'Cadena aleatoria larga; mismo valor en el panel de Meta',
+    hint: 'Introduce este mismo valor en Meta → WhatsApp → Configuración → Verify token.',
     secret: true,
   },
   {
     key: 'META_WABA_APP_SECRET',
-    label: 'Meta App secret',
-    placeholder: 'From App Dashboard → Settings → Basic',
-    hint: 'Used to verify the X-Hub-Signature-256 on every inbound webhook POST.',
+    label: 'App secret de Meta',
+    placeholder: 'Desde App Dashboard → Settings → Basic',
+    hint: 'Se usa para verificar la X-Hub-Signature-256 en cada POST entrante del webhook.',
     secret: true,
   },
   {
     key: 'META_WABA_GRAPH_VERSION',
-    label: 'Graph API version',
+    label: 'Versión de Graph API',
     placeholder: 'v21.0',
-    hint: 'Default v21.0. Change only when Meta deprecates the current version.',
+    hint: 'Por defecto v21.0. Cámbialo solo cuando Meta deprecie la versión actual.',
     secret: false,
   },
   {
     key: 'META_WABA_WEBHOOK_INSECURE_LOCAL',
-    label: 'Insecure local dev',
+    label: 'Dev local inseguro',
     placeholder: 'true | false',
-    hint: 'Local-dev only. true → skip HMAC verification when NODE_ENV != production. Ignored on Vercel.',
+    hint: 'Solo para desarrollo local. true → omite verificación HMAC cuando NODE_ENV != production. Se ignora en Vercel.',
     secret: false,
   },
   {
     key: 'META_WABA_WEBHOOK_SKIP_SIGNATURE',
-    label: 'Skip HMAC signature check',
+    label: 'Saltar comprobación HMAC',
     placeholder: 'true | false',
-    hint: 'Set true only if App Secret cannot be provided. Production should keep this false.',
+    hint: 'Pon true solo si no puedes proporcionar el App Secret. En producción debe quedarse en false.',
     secret: false,
   },
   {
     key: 'OPENAI_API_KEY',
-    label: 'OpenAI API key',
-    placeholder: 'sk-… overrides the Vercel env key',
-    hint: 'When set here, this key wins over Vercel env. Used for both replies and lead extraction.',
+    label: 'Clave API de OpenAI',
+    placeholder: 'sk-… sustituye a la clave de entorno de Vercel',
+    hint: 'Si la pones aquí, esta clave tiene prioridad sobre la de entorno. Se usa para respuestas y extracción de leads.',
     secret: true,
   },
 ];
@@ -239,9 +239,9 @@ const STYLES = `
 `;
 
 function sourceBadge(source) {
-  if (source === 'db') return <span className="w-source db">DB · editable</span>;
-  if (source === 'env') return <span className="w-source env">Vercel env</span>;
-  return <span className="w-source unset">NOT SET</span>;
+  if (source === 'db') return <span className="w-source db">BD · editable</span>;
+  if (source === 'env') return <span className="w-source env">Entorno Vercel</span>;
+  return <span className="w-source unset">SIN DEFINIR</span>;
 }
 
 export function WhatsAppSettingsPage() {
@@ -264,7 +264,7 @@ export function WhatsAppSettingsPage() {
       setWebhookUrl(res.webhook_url || '');
       setDrafts({}); // reset draft inputs after load
     } catch (e) {
-      setError(e?.message || 'Could not load platform settings');
+      setError(e?.message || 'No se pudo cargar la configuración de la plataforma');
     } finally {
       setLoading(false);
     }
@@ -311,13 +311,13 @@ export function WhatsAppSettingsPage() {
           });
           savedCount += 1;
         } catch (e) {
-          failures.push(`${key}: ${e?.message || 'failed'}`);
+          failures.push(`${key}: ${e?.message || 'falló'}`);
         }
       }
       if (failures.length) {
-        setError(`Saved ${savedCount} · failed: ${failures.join(' · ')}`);
+        setError(`Guardados ${savedCount} · fallidos: ${failures.join(' · ')}`);
       } else {
-        setInfo(`Saved ${savedCount} change${savedCount === 1 ? '' : 's'}. Live in ~30 s.`);
+        setInfo(`Guardado ${savedCount} cambio${savedCount === 1 ? '' : 's'}. Activo en ~30 s.`);
       }
       await load();
     } finally {
@@ -332,21 +332,21 @@ export function WhatsAppSettingsPage() {
       <style>{STYLES}</style>
 
       <header className="adm-page-head">
-        <h1>WhatsApp configuration</h1>
+        <h1>Configuración de WhatsApp</h1>
         <p>
-          The 9 Meta + OpenAI runtime variables. Resolution priority at request time is{' '}
-          <code>Vercel env → DB (this page) → built-in default</code>. Edit any field, then hit{' '}
-          <strong>Save all changes</strong>. Changes go live within ~30 seconds — no redeploy.
+          Las 9 variables de ejecución de Meta + OpenAI. La prioridad de resolución en cada petición es{' '}
+          <code>entorno Vercel → BD (esta página) → valor por defecto integrado</code>. Edita cualquier campo y
+          pulsa <strong>Guardar todos los cambios</strong>. Los cambios se activan en ~30 segundos — sin redeploy.
         </p>
       </header>
 
       {/* Webhook URL hero */}
       <section className="w-hero">
-        <h2><span className="pulse" /> Webhook callback URL</h2>
+        <h2><span className="pulse" /> URL del webhook (callback)</h2>
         <p>
-          Paste this into Meta App → <strong>WhatsApp</strong> → Configuration → Callback URL. The
-          Verify token must match <code>META_WABA_VERIFY_TOKEN</code> below. After saving, click{' '}
-          <strong>Subscribe</strong> on the <code>messages</code> field.
+          Pega esto en Meta App → <strong>WhatsApp</strong> → Configuración → Callback URL. El Verify token debe
+          coincidir con <code>META_WABA_VERIFY_TOKEN</code> de abajo. Tras guardar, pulsa{' '}
+          <strong>Suscribirse</strong> en el campo <code>messages</code>.
         </p>
         <div className="w-url-row">
           <input readOnly value={webhookUrl} />
@@ -356,7 +356,7 @@ export function WhatsAppSettingsPage() {
             onClick={copyWebhook}
             disabled={!webhookUrl}
           >
-            {copied ? '✓ Copied' : 'Copy URL'}
+            {copied ? '✓ Copiado' : 'Copiar URL'}
           </button>
         </div>
       </section>
@@ -365,7 +365,7 @@ export function WhatsAppSettingsPage() {
       {info ? <div className="w-banner ok"><strong>OK:</strong> {info}</div> : null}
 
       {loading && !settings.length ? (
-        <div style={{ padding: 30, textAlign: 'center', color: 'var(--muted)' }}>Loading settings…</div>
+        <div style={{ padding: 30, textAlign: 'center', color: 'var(--muted)' }}>Cargando configuración…</div>
       ) : (
         <div className="w-grid">
           {visible.map(({ meta, row }) => {
@@ -381,8 +381,8 @@ export function WhatsAppSettingsPage() {
                   {sourceBadge(row.source)}
                 </div>
                 <div className="w-field-hint">{meta.hint}</div>
-                <div className={`w-current ${currentClass}`} title={row.value_masked || 'NOT SET'}>
-                  {row.has_value ? row.value_masked : 'NOT SET'}
+                <div className={`w-current ${currentClass}`} title={row.value_masked || 'SIN DEFINIR'}>
+                  {row.has_value ? row.value_masked : 'SIN DEFINIR'}
                 </div>
                 <input
                   className="w-input"
@@ -402,9 +402,9 @@ export function WhatsAppSettingsPage() {
       <div className="w-savebar">
         <div className="w-savebar-meta">
           {dirtyKeys.length === 0 ? (
-            <>No pending changes. Edit any field above to enable Save.</>
+            <>Sin cambios pendientes. Edita cualquier campo de arriba para habilitar Guardar.</>
           ) : (
-            <><strong>{dirtyKeys.length}</strong> pending change{dirtyKeys.length === 1 ? '' : 's'} ready to save</>
+            <><strong>{dirtyKeys.length}</strong> cambio{dirtyKeys.length === 1 ? '' : 's'} pendiente{dirtyKeys.length === 1 ? '' : 's'} listo{dirtyKeys.length === 1 ? '' : 's'} para guardar</>
           )}
         </div>
         <div className="w-savebar-actions">
@@ -414,7 +414,7 @@ export function WhatsAppSettingsPage() {
             onClick={discard}
             disabled={saving || dirtyKeys.length === 0}
           >
-            Discard
+            Descartar
           </button>
           <button
             type="button"
@@ -422,7 +422,7 @@ export function WhatsAppSettingsPage() {
             onClick={saveAll}
             disabled={saving || dirtyKeys.length === 0}
           >
-            {saving ? 'Saving…' : 'Save all changes'}
+            {saving ? 'Guardando…' : 'Guardar todos los cambios'}
           </button>
         </div>
       </div>

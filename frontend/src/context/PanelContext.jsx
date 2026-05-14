@@ -20,40 +20,13 @@ function writeSessionUser(user) {
   localStorage.setItem('omnira_session', JSON.stringify(next));
 }
 
-/**
- * TEMP DEV BYPASS — when localStorage has a `omnira_test_paid` entry, treat the
- * logged-in customer as if they had an active subscription so the dashboard
- * is accessible without going through Stripe. The Stripe code paths are
- * unchanged; this is a purely client-side override that lets the developer
- * iterate on the customer dashboard. Remove the helper and its call sites in
- * `openClientPanel` / `completeCustomerAuth` / `refreshCustomerUser` once
- * payment testing is done.
- */
-export const TEST_PAID_KEY = 'omnira_test_paid';
-function readTestPaid() {
-  try {
-    const raw = localStorage.getItem(TEST_PAID_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
+// The dev-mode test bypass has been removed. Customers must complete a real
+// Stripe payment (or admin-granted subscription) before they can reach the
+// dashboard. Any stale `omnira_test_paid` flag from earlier sessions is
+// cleared at module load so it never leaks.
+try { localStorage.removeItem('omnira_test_paid'); } catch { /* ignore */ }
 function applyTestPaidOverride(user) {
-  if (!user) return user;
-  const test = readTestPaid();
-  if (!test?.enabled) return user;
-  const plan = test.plan_id || user.subscription_plan_id || 'annual';
-  const endsAt =
-    test.subscription_ends_at ||
-    user.subscription_ends_at ||
-    new Date(Date.now() + 365 * 86400000).toISOString();
-  return {
-    ...user,
-    subscription_plan_id: plan,
-    subscription_ends_at: endsAt,
-    subscriptionActive: true,
-    __test_paid: true,
-  };
+  return user;
 }
 
 export function PanelProvider({ children }) {
@@ -212,7 +185,7 @@ export function PanelProvider({ children }) {
     try {
       localStorage.removeItem(PLAN_STORAGE_KEY);
       localStorage.removeItem(ONBOARDING_DONE_KEY);
-      localStorage.removeItem(TEST_PAID_KEY);
+      localStorage.removeItem('omnira_test_paid');
     } catch {
       /* ignore */
     }

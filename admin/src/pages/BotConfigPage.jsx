@@ -4,29 +4,29 @@ import { apiCall } from '../api/client.js';
 const SECTIONS = [
   {
     key: 'system_prompt',
-    title: 'System prompt',
-    hint: 'The core instructions injected at the top of every WhatsApp turn. Tone, language rules, what the agent must/must not do.',
+    title: 'Prompt del sistema',
+    hint: 'Instrucciones principales inyectadas al inicio de cada turno de WhatsApp. Tono, idioma, qué debe y qué no debe hacer el agente.',
     rows: 16,
     max: 16000,
   },
   {
     key: 'knowledge_base',
-    title: 'Knowledge base',
-    hint: 'Facts the agent quotes as source-of-truth: services, prices, policies, FAQs, opening hours. Appended after the system prompt under a heading.',
+    title: 'Base de conocimiento',
+    hint: 'Hechos que el agente cita como fuente de verdad: servicios, precios, políticas, FAQs, horarios. Se añade tras el prompt del sistema bajo una sección con encabezado.',
     rows: 16,
     max: 32000,
   },
   {
     key: 'greeting',
-    title: 'Default greeting (optional)',
-    hint: 'Optional opening message. Not auto-sent yet — reserved for future "first contact" flow.',
+    title: 'Saludo por defecto (opcional)',
+    hint: 'Mensaje de apertura opcional. Aún no se envía automáticamente — reservado para el futuro flujo de "primer contacto".',
     rows: 3,
     max: 2000,
   },
   {
     key: 'lead_extraction_prompt',
-    title: 'Lead extractor (JSON mode)',
-    hint: 'Second OpenAI call that pulls structured lead JSON from each conversation. Output must remain a single JSON object.',
+    title: 'Extractor de leads (modo JSON)',
+    hint: 'Segunda llamada a OpenAI que extrae un JSON estructurado de lead de cada conversación. La salida debe seguir siendo un único objeto JSON.',
     rows: 14,
     max: 8000,
   },
@@ -55,7 +55,7 @@ export function BotConfigPage() {
         is_active: c.is_active !== false,
       });
     } catch (e) {
-      setError(e?.message || 'Could not load bot config');
+      setError(e?.message || 'No se pudo cargar la configuración del bot');
     } finally {
       setLoading(false);
     }
@@ -77,9 +77,9 @@ export function BotConfigPage() {
         body: JSON.stringify({ ...draft, updated_by: updatedBy }),
       });
       setConfig(res.config);
-      setInfo('Saved. The WhatsApp agent will use the new prompt + knowledge base within ~30 seconds (cache TTL).');
+      setInfo('Guardado. El agente de WhatsApp usará el nuevo prompt + base de conocimiento en ~30 segundos (TTL de caché).');
     } catch (e) {
-      setError(e?.message || 'Save failed');
+      setError(e?.message || 'No se pudo guardar');
     } finally {
       setSaving(false);
     }
@@ -88,17 +88,18 @@ export function BotConfigPage() {
   return (
     <>
       <header className="adm-page-head">
-        <h1>Bot brain</h1>
+        <h1>Cerebro del bot</h1>
         <p>
-          Live prompt engineering for the Omnira WhatsApp agent. The system prompt, knowledge base, and the
-          lead-extraction prompt all live in <code>bot_configs</code>. No redeploy needed — the webhook reloads from
-          this row on a 30-second cache. The hardcoded prompts have been removed from the source.
+          Ingeniería de prompt en vivo para el agente de WhatsApp de Omnira. El prompt del sistema, la base de
+          conocimiento y el prompt extractor de leads viven en <code>bot_configs</code>. No hace falta redeploy —
+          el webhook recarga este registro con una caché de 30 segundos. Los prompts hardcodeados se han eliminado
+          del código.
         </p>
       </header>
 
       <div className="adm-toolbar">
         <button type="button" className="adm-btn adm-btn-ghost" onClick={load} disabled={loading || saving}>
-          {loading ? 'Loading…' : 'Reload'}
+          {loading ? 'Cargando…' : 'Recargar'}
         </button>
         <label
           style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--soft)', fontSize: 13, marginLeft: 8 }}
@@ -108,11 +109,11 @@ export function BotConfigPage() {
             checked={!!draft.is_active}
             onChange={(e) => setDraft((d) => ({ ...d, is_active: e.target.checked }))}
           />
-          Active (uncheck = agent falls back to minimal built-in prompt)
+          Activo (desmarcar = el agente usa el prompt mínimo integrado)
         </label>
         <span className="adm-mono" style={{ color: 'var(--muted)', marginLeft: 'auto' }}>
-          {config?.updated_at ? `Last updated: ${new Date(config.updated_at).toLocaleString()}` : ''}
-          {config?.updated_by ? ` · by ${config.updated_by}` : ''}
+          {config?.updated_at ? `Última actualización: ${new Date(config.updated_at).toLocaleString('es-ES')}` : ''}
+          {config?.updated_by ? ` · por ${config.updated_by}` : ''}
         </span>
       </div>
 
@@ -152,7 +153,7 @@ export function BotConfigPage() {
             spellCheck={false}
           />
           <div className="adm-mono" style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>
-            {(draft[s.key] || '').length} / {s.max.toLocaleString()} chars
+            {(draft[s.key] || '').length} / {s.max.toLocaleString('es-ES')} caracteres
           </div>
         </section>
       ))}
@@ -164,10 +165,10 @@ export function BotConfigPage() {
           onClick={load}
           disabled={loading || saving}
         >
-          Discard changes
+          Descartar cambios
         </button>
         <button type="button" className="adm-btn adm-btn-primary" onClick={save} disabled={saving || loading}>
-          {saving ? 'Saving…' : 'Save & activate'}
+          {saving ? 'Guardando…' : 'Guardar y activar'}
         </button>
       </div>
     </>

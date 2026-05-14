@@ -34,7 +34,7 @@ export function ClientDetailPage() {
         if (/not found/i.test(msg) || /Error 404/.test(msg)) {
           setNotFound(true);
         } else {
-          setError(msg || 'Could not load client');
+          setError(msg || 'No se pudo cargar el cliente');
         }
       })
       .finally(() => {
@@ -50,16 +50,16 @@ export function ClientDetailPage() {
   return (
     <>
       <nav className="adm-breadcrumb">
-        <Link to="/clients">Paid subscribers</Link>
+        <Link to="/clients">Suscriptores de pago</Link>
         <span>/</span>
-        <span style={{ color: 'var(--soft)' }}>{client?.businessName || 'Loading…'}</span>
+        <span style={{ color: 'var(--soft)' }}>{client?.businessName || 'Cargando…'}</span>
       </nav>
 
       <header className="adm-page-head">
-        <h1>{client?.businessName || 'Loading…'}</h1>
+        <h1>{client?.businessName || 'Cargando…'}</h1>
         <p>
-          Account snapshot from <code>customer_users</code> + payments from <code>customer_payments</code> +
-          WhatsApp activity tied to this customer (only after multi-tenant routing is enabled — Phase 3).
+          Resumen de cuenta desde <code>customer_users</code> + pagos desde <code>customer_payments</code> +
+          actividad de WhatsApp asociada a este cliente (solo cuando el enrutamiento multi-tenant esté activo — Fase 3).
         </p>
       </header>
 
@@ -71,27 +71,27 @@ export function ClientDetailPage() {
       ) : null}
 
       {!client && !loading ? null : !client ? (
-        <div className="adm-card" style={{ color: 'var(--muted)' }}>Loading…</div>
+        <div className="adm-card" style={{ color: 'var(--muted)' }}>Cargando…</div>
       ) : (
         <>
           <div className="adm-two-col-detail">
             <section className="adm-card">
-              <h2 className="adm-card-title">Account</h2>
+              <h2 className="adm-card-title">Cuenta</h2>
               <div className="adm-form-grid">
                 <div className="adm-field">
-                  <label>Owner name</label>
+                  <label>Nombre del titular</label>
                   <input readOnly value={client.ownerName || ''} />
                 </div>
                 <div className="adm-field">
-                  <label>Email</label>
+                  <label>Correo electrónico</label>
                   <input readOnly value={client.email || ''} />
                 </div>
                 <div className="adm-field">
-                  <label>Phone</label>
+                  <label>Teléfono</label>
                   <input readOnly value={client.phone || ''} />
                 </div>
                 <div className="adm-field">
-                  <label>Status</label>
+                  <label>Estado</label>
                   <input readOnly value={client.status || '—'} />
                 </div>
                 <div className="adm-field">
@@ -99,55 +99,55 @@ export function ClientDetailPage() {
                   <input readOnly value={client.planLabel ? `${client.planLabel} (${client.plan})` : (client.plan || '—')} />
                 </div>
                 <div className="adm-field">
-                  <label>Monthly equivalent</label>
-                  <input readOnly value={client.monthlyEuro != null ? `€${client.monthlyEuro.toFixed(2)} / mo` : '—'} />
+                  <label>Equivalente mensual</label>
+                  <input readOnly value={client.monthlyEuro != null ? `€${client.monthlyEuro.toFixed(2)} / mes` : '—'} />
                 </div>
                 <div className="adm-field">
-                  <label>Renews / ends</label>
+                  <label>Renueva / vence</label>
                   <input readOnly value={client.renewsAt || '—'} />
                 </div>
                 <div className="adm-field">
-                  <label>Created</label>
+                  <label>Creada</label>
                   <input readOnly value={formatDate(client.createdAt)} />
                 </div>
               </div>
             </section>
 
             <aside className="adm-card">
-              <h2 className="adm-card-title">Activity</h2>
+              <h2 className="adm-card-title">Actividad</h2>
               <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-                <Link to="/chats" className="adm-btn adm-btn-ghost">View WhatsApp chats →</Link>
-                <Link to="/leads" className="adm-btn adm-btn-ghost">View leads →</Link>
+                <Link to="/chats" className="adm-btn adm-btn-ghost">Ver chats de WhatsApp →</Link>
+                <Link to="/leads" className="adm-btn adm-btn-ghost">Ver leads →</Link>
               </div>
-              <div className="adm-stat-label">Lifetime spend</div>
+              <div className="adm-stat-label">Gasto total histórico</div>
               <div className="adm-stat-value">€{(client.lifetimeEuro ?? 0).toFixed(2)}</div>
               <div className="adm-divider" />
-              <div className="adm-stat-label">Payments</div>
+              <div className="adm-stat-label">Pagos</div>
               <div className="adm-stat-value" style={{ fontSize: 24 }}>{client.paymentsCount ?? 0}</div>
               <div className="adm-divider" />
-              <div className="adm-stat-label">WhatsApp messages this month</div>
+              <div className="adm-stat-label">Mensajes de WhatsApp este mes</div>
               <div className="adm-stat-value" style={{ fontSize: 24 }}>{client.messagesThisMonth ?? 0}</div>
-              <div className="adm-stat-label" style={{ marginTop: 12 }}>WhatsApp messages (total)</div>
+              <div className="adm-stat-label" style={{ marginTop: 12 }}>Mensajes de WhatsApp (total)</div>
               <div className="adm-stat-value" style={{ fontSize: 24 }}>{client.messagesTotal ?? 0}</div>
-              <div className="adm-stat-label" style={{ marginTop: 12 }}>Leads captured</div>
+              <div className="adm-stat-label" style={{ marginTop: 12 }}>Leads capturados</div>
               <div className="adm-stat-value" style={{ fontSize: 24 }}>{client.leadsTotal ?? 0}</div>
             </aside>
           </div>
 
           <section className="adm-card" style={{ marginTop: 18 }}>
-            <h2 className="adm-card-title">Payment history</h2>
+            <h2 className="adm-card-title">Historial de pagos</h2>
             {(!client.payments || !client.payments.length) ? (
-              <p style={{ color: 'var(--muted)' }}>No payments yet.</p>
+              <p style={{ color: 'var(--muted)' }}>Aún no hay pagos.</p>
             ) : (
               <div className="adm-table-wrap">
                 <table className="adm-table">
                   <thead>
                     <tr>
-                      <th>Date</th>
+                      <th>Fecha</th>
                       <th>Plan</th>
-                      <th>Amount</th>
-                      <th>Period</th>
-                      <th>Subscription end after</th>
+                      <th>Importe</th>
+                      <th>Periodo</th>
+                      <th>Vence tras</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -156,7 +156,7 @@ export function ClientDetailPage() {
                         <td className="adm-mono">{formatDate(p.created_at)}</td>
                         <td>{p.plan_id}</td>
                         <td>€{(p.amount_euro ?? 0).toFixed(2)} {String(p.currency || 'eur').toUpperCase()}</td>
-                        <td>{p.period_days} days</td>
+                        <td>{p.period_days} días</td>
                         <td className="adm-mono">{p.subscription_end_after ? p.subscription_end_after.slice(0, 10) : '—'}</td>
                       </tr>
                     ))}

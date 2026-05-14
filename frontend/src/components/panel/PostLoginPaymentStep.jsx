@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { LogoMark } from '../brand/LogoMark.jsx';
 import { PLAN_STORAGE_KEY } from '../../constants/plans.js';
 import { apiCall } from '../../api/client.js';
-import { usePanel, TEST_PAID_KEY } from '../../context/PanelContext.jsx';
+import { usePanel } from '../../context/PanelContext.jsx';
 import { EmbeddedStripePay } from './EmbeddedStripePay.jsx';
 
 export function PostLoginPaymentStep() {
@@ -87,70 +87,6 @@ export function PostLoginPaymentStep() {
     }
   }
 
-  async function simulateLocal() {
-    if (!plan?.id) return;
-    setErr('');
-    setBusy(true);
-    try {
-      const r = await apiCall('/api/customer/subscription/simulate', {
-        method: 'POST',
-        body: JSON.stringify({ plan_id: plan.id }),
-      });
-      if (r.user) {
-        await persistUser(r.user);
-        return;
-      }
-      setErr('No se pudo simular el plan.');
-    } catch (e) {
-      setErr(e.message || 'Simulación no disponible (OMNIRA_ALLOW_SUBSCRIPTION_SIMULATE=true en el servidor).');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  /**
-   * Pure client-side dev bypass — no backend call, no Stripe, no SQL. Sets a
-   * localStorage flag that PanelContext reads via applyTestPaidOverride() so
-   * the customer is treated as paid for the dashboard. Stripe code paths are
-   * untouched and continue to work for real customers.
-   */
-  function devSkipPayment() {
-    setErr('');
-    try {
-      const planId = plan?.id || 'annual';
-      const endsAt = new Date(Date.now() + 365 * 86400000).toISOString();
-      localStorage.setItem(
-        TEST_PAID_KEY,
-        JSON.stringify({
-          enabled: true,
-          plan_id: planId,
-          subscription_ends_at: endsAt,
-          enabled_at: new Date().toISOString(),
-        })
-      );
-      // Also patch the session user immediately so the next view (WhatsApp setup
-      // → Dashboard) renders as a paid customer without waiting for refresh.
-      try {
-        const sess = JSON.parse(localStorage.getItem('omnira_session') || '{}');
-        if (sess?.token && sess?.user) {
-          const u = {
-            ...sess.user,
-            subscription_plan_id: planId,
-            subscription_ends_at: endsAt,
-            subscriptionActive: true,
-            __test_paid: true,
-          };
-          localStorage.setItem('omnira_session', JSON.stringify({ ...sess, user: u }));
-        }
-      } catch {
-        /* ignore */
-      }
-      completePaymentStep();
-    } catch (e) {
-      setErr(e.message || 'Could not enable test mode');
-    }
-  }
-
   function handleEmbeddedPaid(user) {
     setEmbed(null);
     void persistUser(user);
@@ -219,78 +155,6 @@ export function PostLoginPaymentStep() {
             </div>
 
             {err ? <div className="auth-error show" style={{ marginBottom: 14 }}>{err}</div> : null}
-
-            {/* ──────────────────────────────────────────────────────────────
-                TEMP TEST BUTTON — bypasses the payment screen so the customer
-                dashboard can be developed without a real Stripe transaction.
-                Calls /api/customer/subscription/simulate which grants the
-                subscription in the DB (requires OMNIRA_ALLOW_SUBSCRIPTION_SIMULATE
-                =true on the server). Real Stripe flows below are UNCHANGED.
-                REMOVE this <section> when payment work resumes.
-                ────────────────────────────────────────────────────────────── */}
-            {!embed ? (
-              <section
-                style={{
-                  padding: '14px 16px',
-                  borderRadius: 12,
-                  border: '1px dashed rgba(251,191,36,0.40)',
-                  background: 'rgba(251,191,36,0.06)',
-                  marginBottom: 16,
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    letterSpacing: '0.06em',
-                    textTransform: 'uppercase',
-                    color: '#fbbf24',
-                    marginBottom: 8,
-                  }}
-                >
-                  <span style={{ fontSize: 14 }}>🧪</span> Dev mode · temporary
-                </div>
-                <p
-                  style={{
-                    margin: '0 0 12px',
-                    color: 'rgba(255,255,255,0.78)',
-                    fontSize: 13,
-                    lineHeight: 1.55,
-                  }}
-                >
-                  Skip the payment step so you can iterate on the customer dashboard. This grants the selected
-                  plan ({plan?.name || 'first available'}) for its duration without charging Stripe. Remove
-                  this button before going live.
-                </p>
-                <button
-                  type="button"
-                  onClick={devSkipPayment}
-                  disabled={busy}
-                  style={{
-                    width: '100%',
-                    background: 'linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%)',
-                    color: '#1a1100',
-                    fontWeight: 700,
-                    border: 0,
-                    borderRadius: 10,
-                    padding: '12px 18px',
-                    cursor: busy ? 'not-allowed' : 'pointer',
-                    opacity: busy ? 0.6 : 1,
-                    fontSize: 14,
-                    letterSpacing: '0.01em',
-                    transition: 'filter .15s ease, transform .15s ease',
-                    fontFamily: 'inherit',
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.08)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.filter = 'none'; }}
-                >
-                  ⚡ Test · skip payment & go to dashboard
-                </button>
-              </section>
-            ) : null}
 
             {!embed ? (
               <>

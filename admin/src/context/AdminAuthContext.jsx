@@ -23,9 +23,9 @@ export function AdminAuthProvider({ children }) {
     const u = {
       id: res.user?.id,
       email: res.user?.email,
-      name: res.user?.full_name || 'Omnira Admin',
+      name: res.user?.full_name || 'Administrador Omnira',
       avatar: res.user?.avatar_data_url || null,
-      role: 'Superadmin',
+      role: 'Superadministrador',
       token: `admin_${res.user?.id || 'session'}`,
     };
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(u));

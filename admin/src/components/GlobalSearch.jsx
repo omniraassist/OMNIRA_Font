@@ -8,17 +8,17 @@ import { IconSearch } from './icons.jsx';
 // to any screen even when the backend search is empty/slow.
 // ---------------------------------------------------------------------------
 const PAGES = [
-  { path: '/',             title: 'Dashboard',        kw: 'home overview kpi metrics' },
-  { path: '/analytics',    title: 'Analytics',        kw: 'charts insights revenue funnel' },
-  { path: '/clients',      title: 'Paid subscribers', kw: 'customers users subscribers paying' },
-  { path: '/leads',        title: 'WhatsApp leads',   kw: 'leads pipeline crm prospects' },
-  { path: '/chats',        title: 'WhatsApp chats',   kw: 'conversations messages threads' },
-  { path: '/notifications',title: 'Notifications',    kw: 'broadcast announce inbox' },
-  { path: '/sessions',     title: 'Admin users',      kw: 'team admins access' },
-  { path: '/pricing',      title: 'Pricing',          kw: 'plans stripe price packs' },
-  { path: '/bot-config',   title: 'Bot brain',        kw: 'prompt knowledge base ai openai system' },
-  { path: '/whatsapp',     title: 'WhatsApp config',  kw: 'meta tokens webhook secrets verify openai key' },
-  { path: '/profile',      title: 'My profile',       kw: 'account password avatar logout settings' },
+  { path: '/',             title: 'Panel',                  kw: 'inicio resumen kpi metricas dashboard' },
+  { path: '/analytics',    title: 'Analíticas',             kw: 'graficos estadisticas ingresos embudo charts' },
+  { path: '/clients',      title: 'Suscriptores de pago',   kw: 'clientes usuarios suscriptores pagos paying' },
+  { path: '/leads',        title: 'Leads de WhatsApp',      kw: 'leads embudo crm prospectos pipeline' },
+  { path: '/chats',        title: 'Chats de WhatsApp',      kw: 'conversaciones mensajes hilos chats' },
+  { path: '/notifications',title: 'Notificaciones',         kw: 'enviar difusion broadcast bandeja' },
+  { path: '/sessions',     title: 'Administradores',        kw: 'equipo administradores acceso' },
+  { path: '/pricing',      title: 'Precios',                kw: 'planes stripe precio paquetes' },
+  { path: '/bot-config',   title: 'Cerebro del bot',        kw: 'prompt base de conocimiento ia openai sistema' },
+  { path: '/whatsapp',     title: 'Configuración WhatsApp', kw: 'meta tokens webhook secretos verificar openai key' },
+  { path: '/profile',      title: 'Mi perfil',              kw: 'cuenta contrasena avatar salir ajustes' },
 ];
 
 const STYLES = `
@@ -336,7 +336,7 @@ export function GlobalSearch() {
           ref={inputRef}
           className="gs-input"
           type="search"
-          placeholder="Search pages, customers, leads… (Ctrl+K)"
+          placeholder="Buscar páginas, clientes, leads… (Ctrl+K)"
           value={query}
           onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
@@ -355,7 +355,7 @@ export function GlobalSearch() {
             <>
               {recent.length > 0 ? (
                 <div className="gs-section">
-                  <div className="gs-section-label">Recent <span className="count">{recent.length}</span></div>
+                  <div className="gs-section-label">Recientes <span className="count">{recent.length}</span></div>
                   {recent.map((r) => {
                     const i = next();
                     return (
@@ -380,7 +380,7 @@ export function GlobalSearch() {
               ) : null}
 
               <div className="gs-section">
-                <div className="gs-section-label">All pages <span className="count">{PAGES.length}</span></div>
+                <div className="gs-section-label">Todas las páginas <span className="count">{PAGES.length}</span></div>
                 {PAGES.map((p) => {
                   const i = next();
                   return (
@@ -407,7 +407,7 @@ export function GlobalSearch() {
             <>
               {pageHits.length > 0 ? (
                 <div className="gs-section">
-                  <div className="gs-section-label">Pages <span className="count">{pageHits.length}</span></div>
+                  <div className="gs-section-label">Páginas <span className="count">{pageHits.length}</span></div>
                   {pageHits.map((p) => {
                     const i = next();
                     return (
@@ -424,7 +424,7 @@ export function GlobalSearch() {
                           <div className="gs-row-title">{p.title}</div>
                           <div className="gs-row-sub">{p.path}</div>
                         </div>
-                        <div className="gs-row-hint">page</div>
+                        <div className="gs-row-hint">página</div>
                       </div>
                     );
                   })}
@@ -433,7 +433,7 @@ export function GlobalSearch() {
 
               {customers.length > 0 ? (
                 <div className="gs-section">
-                  <div className="gs-section-label">Customers <span className="count">{customers.length}</span></div>
+                  <div className="gs-section-label">Clientes <span className="count">{customers.length}</span></div>
                   {customers.map((u) => {
                     const i = next();
                     const name = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email.split('@')[0];
@@ -451,7 +451,7 @@ export function GlobalSearch() {
                           <div className="gs-row-title">{name}</div>
                           <div className="gs-row-sub">{u.email}{u.plan ? ` · ${u.plan}` : ''}</div>
                         </div>
-                        <div className="gs-row-hint">{u.subscription_active ? 'paid' : 'free'}</div>
+                        <div className="gs-row-hint">{u.subscription_active ? 'pagando' : 'gratis'}</div>
                       </div>
                     );
                   })}
@@ -460,7 +460,7 @@ export function GlobalSearch() {
 
               {leads.length > 0 ? (
                 <div className="gs-section">
-                  <div className="gs-section-label">WhatsApp leads <span className="count">{leads.length}</span></div>
+                  <div className="gs-section-label">Leads de WhatsApp <span className="count">{leads.length}</span></div>
                   {leads.map((l) => {
                     const i = next();
                     const name = l.name || `+${l.wa_from}`;
@@ -487,16 +487,16 @@ export function GlobalSearch() {
 
               {pageHits.length === 0 && customers.length === 0 && leads.length === 0 ? (
                 <div className="gs-empty">
-                  No matches for <strong>"{query}"</strong>.
-                  {loading ? <div style={{ marginTop: 6 }}>still searching…</div> : null}
+                  Sin resultados para <strong>"{query}"</strong>.
+                  {loading ? <div style={{ marginTop: 6 }}>buscando…</div> : null}
                 </div>
               ) : null}
             </>
           )}
 
           <div className="gs-foot">
-            <span><span className="gs-kbd">↑↓</span> navigate · <span className="gs-kbd">↵</span> open · <span className="gs-kbd">Esc</span> close</span>
-            <span>Omnira global search</span>
+            <span><span className="gs-kbd">↑↓</span> navegar · <span className="gs-kbd">↵</span> abrir · <span className="gs-kbd">Esc</span> cerrar</span>
+            <span>Búsqueda global de Omnira</span>
           </div>
         </div>
       ) : null}

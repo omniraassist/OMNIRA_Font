@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom';
 import { apiCall } from '../api/client.js';
 
 const STATUS_FILTERS = [
-  { value: 'all',     label: 'All',      dot: 'all' },
-  { value: 'active',  label: 'Enabled',  dot: 'green' },
-  { value: 'blocked', label: 'Blocked',  dot: 'rose' },
+  { value: 'all',     label: 'Todos',       dot: 'all' },
+  { value: 'active',  label: 'Habilitados', dot: 'green' },
+  { value: 'blocked', label: 'Bloqueados',  dot: 'rose' },
 ];
 
 const STYLES = `
@@ -165,11 +165,11 @@ const STYLES = `
 function formatRelative(iso) {
   if (!iso) return '—';
   const diff = Date.now() - new Date(iso).getTime();
-  if (diff < 60_000) return 'just now';
-  if (diff < 3600_000) return `${Math.round(diff / 60_000)}m`;
-  if (diff < 86_400_000) return `${Math.round(diff / 3600_000)}h`;
-  if (diff < 30 * 86_400_000) return `${Math.round(diff / 86_400_000)}d`;
-  return new Date(iso).toLocaleDateString();
+  if (diff < 60_000) return 'ahora mismo';
+  if (diff < 3600_000) return `${Math.round(diff / 60_000)} min`;
+  if (diff < 86_400_000) return `${Math.round(diff / 3600_000)} h`;
+  if (diff < 30 * 86_400_000) return `${Math.round(diff / 86_400_000)} d`;
+  return new Date(iso).toLocaleDateString('es-ES');
 }
 
 export function PaidUsersPage() {
@@ -192,7 +192,7 @@ export function PaidUsersPage() {
       setUsers(res.users || []);
     } catch (e) {
       setUsers([]);
-      setError(e?.message || 'Could not load users');
+      setError(e?.message || 'No se pudieron cargar las cuentas');
     } finally {
       setLoading(false);
     }
@@ -227,10 +227,10 @@ export function PaidUsersPage() {
         body: JSON.stringify(form),
       });
       setEditingId(null);
-      setInfo('Profile saved.');
+      setInfo('Perfil guardado.');
       await load();
     } catch (e) {
-      setError(e?.message || 'Save failed');
+      setError(e?.message || 'No se pudo guardar');
     }
   };
 
@@ -241,22 +241,22 @@ export function PaidUsersPage() {
         method: 'PATCH',
         body: JSON.stringify({ blocked: u.is_active }),
       });
-      setInfo(u.is_active ? `${u.email} blocked.` : `${u.email} unblocked.`);
+      setInfo(u.is_active ? `${u.email} bloqueado.` : `${u.email} desbloqueado.`);
       await load();
     } catch (e) {
-      setError(e?.message || 'Failed');
+      setError(e?.message || 'Operación fallida');
     }
   };
 
   const removeUser = async (u) => {
-    if (!window.confirm(`Delete ${u.email}? This is permanent.`)) return;
+    if (!window.confirm(`¿Eliminar ${u.email}? Esta acción es permanente.`)) return;
     setError(''); setInfo('');
     try {
       await apiCall(`/api/admin/users/${u.id}`, { method: 'DELETE' });
-      setInfo(`${u.email} deleted.`);
+      setInfo(`${u.email} eliminado.`);
       await load();
     } catch (e) {
-      setError(e?.message || 'Delete failed');
+      setError(e?.message || 'No se pudo eliminar');
     }
   };
 
@@ -265,35 +265,35 @@ export function PaidUsersPage() {
       <style>{STYLES}</style>
 
       <header className="adm-page-head" style={{ marginBottom: 0, padding: 0, height: 0, overflow: 'hidden' }} aria-hidden>
-        <h1>Paid subscribers</h1>
+        <h1>Suscriptores</h1>
       </header>
 
       <div className="u-page">
         {/* Hero */}
         <section className="u-hero">
-          <h1>Paid <span className="grad">subscribers</span></h1>
+          <h1>Suscriptores de <span className="grad">pago</span></h1>
           <p>
-            All customers with an Omnira account. Filter by status, edit profile fields, block sign-in, or delete
-            permanently. Plan and subscription end-date come from <code>customer_users</code>.
+            Todos los clientes con cuenta Omnira. Filtra por estado, edita perfiles, bloquea el acceso o elimina
+            permanentemente. El plan y la fecha de renovación se leen de <code>customer_users</code>.
           </p>
         </section>
 
         {/* KPIs */}
         <div className="u-kpis">
           <article className="u-kpi em">
-            <div className="l"><span className="dot all" /> Total accounts</div>
+            <div className="l"><span className="dot all" /> Cuentas totales</div>
             <div className="v">{stats.all}</div>
           </article>
           <article className="u-kpi">
-            <div className="l"><span className="dot green" /> Enabled</div>
+            <div className="l"><span className="dot green" /> Habilitadas</div>
             <div className="v">{stats.active}</div>
           </article>
           <article className="u-kpi">
-            <div className="l"><span className="dot rose" /> Blocked</div>
+            <div className="l"><span className="dot rose" /> Bloqueadas</div>
             <div className="v">{stats.blocked}</div>
           </article>
           <article className="u-kpi em">
-            <div className="l"><span className="dot blue" /> Paying now</div>
+            <div className="l"><span className="dot blue" /> Pagando ahora</div>
             <div className="v">{stats.paid}</div>
           </article>
         </div>
@@ -307,7 +307,7 @@ export function PaidUsersPage() {
             </svg>
             <input
               type="search"
-              placeholder="Search email, name, or phone…"
+              placeholder="Buscar por email, nombre o teléfono…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -335,8 +335,8 @@ export function PaidUsersPage() {
 
         {users.length === 0 && !loading ? (
           <div className="u-empty">
-            <strong>No accounts match the current filters.</strong>
-            New signups appear here automatically.
+            <strong>Ninguna cuenta coincide con los filtros actuales.</strong>
+            Las nuevas altas aparecerán aquí automáticamente.
           </div>
         ) : (
           <div className="u-grid">
@@ -357,32 +357,32 @@ export function PaidUsersPage() {
                     </div>
                     <div className="u-badges">
                       {!u.is_active ? (
-                        <span className="u-badge blocked">Blocked</span>
+                        <span className="u-badge blocked">Bloqueado</span>
                       ) : u.subscription_active ? (
-                        <span className="u-badge paid">● Paid</span>
+                        <span className="u-badge paid">● Pagando</span>
                       ) : (
-                        <span className="u-badge free">Free</span>
+                        <span className="u-badge free">Gratis</span>
                       )}
                       {u.plan ? <span className="u-badge plan">{u.plan}</span> : null}
                     </div>
                   </div>
 
                   <div className="u-info">
-                    {u.phone ? <div>phone <strong>{u.phone}</strong></div> : null}
+                    {u.phone ? <div>teléfono <strong>{u.phone}</strong></div> : null}
                     {planEndIso ? (
-                      <div>renews <strong>{new Date(planEndIso).toLocaleDateString()}</strong></div>
+                      <div>renueva <strong>{new Date(planEndIso).toLocaleDateString('es-ES')}</strong></div>
                     ) : null}
-                    <div>joined <strong>{formatRelative(u.created_at)} ago</strong></div>
+                    <div>se unió hace <strong>{formatRelative(u.created_at)}</strong></div>
                   </div>
 
                   {isEditing ? (
                     <div className="u-edit">
                       <div className="u-row">
-                        <label>First name</label>
+                        <label>Nombre</label>
                         <input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
                       </div>
                       <div className="u-row">
-                        <label>Last name</label>
+                        <label>Apellido</label>
                         <input value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
                       </div>
                       <div className="u-row">
@@ -390,12 +390,12 @@ export function PaidUsersPage() {
                         <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
                       </div>
                       <div className="u-row">
-                        <label>Phone</label>
+                        <label>Teléfono</label>
                         <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
                       </div>
                       <div className="u-edit-actions">
-                        <button type="button" className="u-btn-ghost" onClick={() => setEditingId(null)}>Cancel</button>
-                        <button type="button" className="u-btn" onClick={saveEdit}>Save</button>
+                        <button type="button" className="u-btn-ghost" onClick={() => setEditingId(null)}>Cancelar</button>
+                        <button type="button" className="u-btn" onClick={saveEdit}>Guardar</button>
                       </div>
                     </div>
                   ) : null}
@@ -406,7 +406,7 @@ export function PaidUsersPage() {
                       <button
                         type="button"
                         className={`u-icon-btn${isEditing ? ' active' : ''}`}
-                        title="Edit profile"
+                        title="Editar perfil"
                         onClick={() => (isEditing ? setEditingId(null) : openEdit(u))}
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
@@ -416,7 +416,7 @@ export function PaidUsersPage() {
                       <button
                         type="button"
                         className={`u-icon-btn ${u.is_active ? 'warn' : 'success'}`}
-                        title={u.is_active ? 'Block sign-in' : 'Unblock'}
+                        title={u.is_active ? 'Bloquear acceso' : 'Desbloquear'}
                         onClick={() => toggleBlock(u)}
                       >
                         {u.is_active ? (
@@ -433,7 +433,7 @@ export function PaidUsersPage() {
                       <button
                         type="button"
                         className="u-icon-btn danger"
-                        title="Delete account"
+                        title="Eliminar cuenta"
                         onClick={() => removeUser(u)}
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">

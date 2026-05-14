@@ -94,15 +94,15 @@ export function Sidebar({ onNavigate, mobileOpen, collapsed, onToggleCollapse })
         </div>
         <div className="adm-brand-text">
           <strong>Omnira</strong>
-          <span>Control center</span>
+          <span>Centro de control</span>
         </div>
         {/* Desktop collapse toggle — sits at the right of the brand row, hidden on mobile via CSS */}
         <button
           type="button"
           className="adm-sidebar-toggle"
           onClick={onToggleCollapse}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={collapsed ? 'Expandir menú' : 'Contraer menú'}
+          aria-label={collapsed ? 'Expandir menú' : 'Contraer menú'}
         >
           <svg className="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
@@ -110,91 +110,91 @@ export function Sidebar({ onNavigate, mobileOpen, collapsed, onToggleCollapse })
         </button>
       </div>
 
-      <nav className="adm-nav" aria-label="Main">
-        <div className="adm-nav-section-label">Overview</div>
+      <nav className="adm-nav" aria-label="Principal">
+        <div className="adm-nav-section-label">Resumen</div>
         <NavLink to="/" end className={linkClass} onClick={wrap}>
           <IconDashboard />
-          <span>Dashboard</span>
-          <span className="adm-nav-tip">Dashboard</span>
+          <span>Panel</span>
+          <span className="adm-nav-tip">Panel</span>
         </NavLink>
         <NavLink to="/analytics" className={linkClass} onClick={wrap}>
           <IconChart />
-          <span>Analytics</span>
-          <span className="adm-nav-tip">Analytics</span>
+          <span>Analíticas</span>
+          <span className="adm-nav-tip">Analíticas</span>
         </NavLink>
 
-        <div className="adm-nav-section-label">Customers</div>
+        <div className="adm-nav-section-label">Clientes</div>
         <NavLink to="/clients" className={linkClass} onClick={wrap}>
           <IconUsers />
-          <span>Paid subscribers</span>
-          <span className="adm-nav-tip">Paid subscribers</span>
+          <span>Suscriptores</span>
+          <span className="adm-nav-tip">Suscriptores</span>
         </NavLink>
         <NavLink to="/leads" className={linkClass} onClick={wrap}>
           <IconLeads />
-          <span>WhatsApp leads</span>
-          <span className="adm-nav-tip">WhatsApp leads</span>
+          <span>Leads de WhatsApp</span>
+          <span className="adm-nav-tip">Leads de WhatsApp</span>
         </NavLink>
         <NavLink to="/chats" className={linkClass} onClick={wrap}>
           <IconChats />
-          <span>WhatsApp chats</span>
-          <span className="adm-nav-tip">WhatsApp chats</span>
+          <span>Chats de WhatsApp</span>
+          <span className="adm-nav-tip">Chats de WhatsApp</span>
         </NavLink>
         <NavLink to="/notifications" className={linkClass} onClick={wrap}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" strokeLinecap="round" />
           </svg>
-          <span>Notifications</span>
-          <span className="adm-nav-tip">Notifications</span>
+          <span>Notificaciones</span>
+          <span className="adm-nav-tip">Notificaciones</span>
         </NavLink>
         <NavLink to="/sessions" className={linkClass} onClick={wrap}>
           <IconPulse />
-          <span>Admin users</span>
-          <span className="adm-nav-tip">Admin users</span>
+          <span>Administradores</span>
+          <span className="adm-nav-tip">Administradores</span>
         </NavLink>
 
-        <div className="adm-nav-section-label">Platform</div>
+        <div className="adm-nav-section-label">Plataforma</div>
         <NavLink to="/pricing" className={linkClass} onClick={wrap}>
           <IconPricing />
-          <span>Pricing</span>
-          <span className="adm-nav-tip">Pricing</span>
+          <span>Precios</span>
+          <span className="adm-nav-tip">Precios</span>
         </NavLink>
         <NavLink to="/bot-config" className={linkClass} onClick={wrap}>
           <IconBrain />
-          <span>Bot brain</span>
-          <span className="adm-nav-tip">Bot brain</span>
+          <span>Cerebro del bot</span>
+          <span className="adm-nav-tip">Cerebro del bot</span>
         </NavLink>
         <NavLink to="/whatsapp" className={linkClass} onClick={wrap}>
           <IconWhatsApp />
-          <span>WhatsApp config</span>
-          <span className="adm-nav-tip">WhatsApp config</span>
+          <span>WhatsApp</span>
+          <span className="adm-nav-tip">WhatsApp</span>
         </NavLink>
       </nav>
 
       <div className="adm-sidebar-foot">
         <div className="adm-sidebar-user">
           <div className="av">
-            {user?.avatar ? <img src={user.avatar} alt={user?.name || 'admin'} /> : initials}
+            {user?.avatar ? <img src={user.avatar} alt={user?.name || 'administrador'} /> : initials}
           </div>
           <div className="meta">
-            <strong>{user?.name || 'Omnira Admin'}</strong>
-            <small>{user?.email || 'Superadmin'}</small>
+            <strong>{user?.name || 'Administrador'}</strong>
+            <small>{user?.email || 'Superadministrador'}</small>
           </div>
         </div>
         <div className="adm-sidebar-foot-actions">
-          <NavLink to="/profile" onClick={wrap} title="Edit profile">
+          <NavLink to="/profile" onClick={wrap} title="Editar perfil">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
               <circle cx="12" cy="8" r="4" />
               <path d="M4 21a8 8 0 0 1 16 0" strokeLinecap="round" />
             </svg>
-            <span>Profile</span>
-            <span className="adm-nav-tip">Profile</span>
+            <span>Perfil</span>
+            <span className="adm-nav-tip">Perfil</span>
           </NavLink>
-          <button type="button" className="logout" onClick={onLogout} title="Sign out">
+          <button type="button" className="logout" onClick={onLogout} title="Cerrar sesión">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <span>Sign out</span>
-            <span className="adm-nav-tip">Sign out</span>
+            <span>Salir</span>
+            <span className="adm-nav-tip">Cerrar sesión</span>
           </button>
         </div>
       </div>

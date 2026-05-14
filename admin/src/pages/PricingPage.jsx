@@ -85,7 +85,7 @@ const STYLES = `
     box-shadow: 0 0 0 1px rgba(0,229,160,0.18), 0 16px 36px rgba(0,229,160,0.10);
   }
   .pr-card.featured::before {
-    content: 'Best value';
+    content: 'Mejor valor';
     position: absolute;
     top: 14px; right: 14px;
     background: linear-gradient(90deg, var(--em) 0%, #93c5fd 100%);
@@ -243,7 +243,7 @@ export function PricingPage() {
       }
       setDrafts(next);
     } catch (e) {
-      setError(e?.message || 'Could not load pricing');
+      setError(e?.message || 'No se pudieron cargar los precios');
       setPlans([]);
     } finally {
       setLoading(false);
@@ -273,7 +273,7 @@ export function PricingPage() {
     const d = drafts[plan.id] || {};
     const cents = euroToCents(d.amount_euro);
     if (!Number.isInteger(cents) || cents <= 0) {
-      setError(`Plan "${plan.id}": invalid price (use a positive number, e.g. 49 or 49.00).`);
+      setError(`Plan "${plan.id}": precio no válido (usa un número positivo, p. ej. 49 o 49.00).`);
       return;
     }
     setError(''); setInfo('');
@@ -289,9 +289,9 @@ export function PricingPage() {
         }),
       });
       setPlans((all) => all.map((p) => (p.id === plan.id ? res.plan : p)));
-      setInfo(`"${res.plan.label || res.plan.id}" updated. Stripe uses the new amount from the next checkout.`);
+      setInfo(`"${res.plan.label || res.plan.id}" actualizado. Stripe usará el nuevo importe a partir del próximo pago.`);
     } catch (e) {
-      setError(e?.message || 'Save failed');
+      setError(e?.message || 'No se pudo guardar');
     } finally {
       setSavingId('');
     }
@@ -317,21 +317,21 @@ export function PricingPage() {
       <style>{STYLES}</style>
 
       <header className="adm-page-head" style={{ marginBottom: 0, padding: 0, height: 0, overflow: 'hidden' }} aria-hidden>
-        <h1>Pricing</h1>
+        <h1>Precios</h1>
       </header>
 
       <div className="pr-page">
         <section className="pr-hero">
-          <h1>Stripe <span className="grad">pricing</span></h1>
+          <h1>Precios de <span className="grad">Stripe</span></h1>
           <p>
-            Edit the amount Stripe charges for each Omnira pack. The landing page, post-login plan picker
-            and embedded checkout all read these values <strong>live</strong> — no redeploy. Duration is locked
-            so already-paid subscriptions keep their original end date.
+            Edita el importe que cobra Stripe por cada pack Omnira. La página de inicio, el selector de plan tras
+            iniciar sesión y el checkout integrado leen estos valores <strong>en vivo</strong> — sin redeploy. La
+            duración está fijada para que las suscripciones ya pagadas conserven su fecha de fin original.
           </p>
           <div className="pr-stats">
-            <span className="pr-stat"><span className="dot" /> <strong>{plans.length}</strong> plans</span>
-            <span className="pr-stat"><span className="dot" /> <strong>{activeCount}</strong> active</span>
-            <span className="pr-stat">total catalog <strong>€{(totalCents / 100).toFixed(2)}</strong></span>
+            <span className="pr-stat"><span className="dot" /> <strong>{plans.length}</strong> planes</span>
+            <span className="pr-stat"><span className="dot" /> <strong>{activeCount}</strong> activos</span>
+            <span className="pr-stat">catálogo total <strong>€{(totalCents / 100).toFixed(2)}</strong></span>
           </div>
         </section>
 
@@ -345,7 +345,7 @@ export function PricingPage() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
               <path d="M3 12a9 9 0 0 1 15.5-6.3M21 4v6h-6M21 12a9 9 0 0 1-15.5 6.3M3 20v-6h6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            {loading ? 'Loading…' : 'Refresh'}
+            {loading ? 'Cargando…' : 'Actualizar'}
           </button>
         </div>
 
@@ -354,7 +354,7 @@ export function PricingPage() {
 
         {!plans.length && !loading ? (
           <div className="pr-empty">
-            No pricing plans yet. Apply <code>server/sql/phase2-pricing.sql</code> in Supabase SQL Editor.
+            Aún no hay planes de precios. Aplica <code>server/sql/phase2-pricing.sql</code> en el editor SQL de Supabase.
           </div>
         ) : (
           <div className="pr-grid">
@@ -373,7 +373,7 @@ export function PricingPage() {
                   <div className="pr-card-head">
                     <span className="pr-plan-id">{plan.id}</span>
                     <span className={`pr-status ${d.is_active ? 'active' : 'hidden'}`}>
-                      {d.is_active ? '● visible' : '○ hidden'}
+                      {d.is_active ? '● visible' : '○ oculto'}
                     </span>
                   </div>
 
@@ -390,12 +390,12 @@ export function PricingPage() {
                     <div className="pr-monthly">
                       {monthlyEuro != null ? (
                         months > 1 ? (
-                          <>≈ <strong>€{monthlyEuro.toFixed(2)}</strong> / month equivalent · {plan.duration_days} days</>
+                          <>≈ <strong>€{monthlyEuro.toFixed(2)}</strong> / mes equivalente · {plan.duration_days} días</>
                         ) : (
-                          <>{plan.duration_days} days · no commitment</>
+                          <>{plan.duration_days} días · sin compromiso</>
                         )
                       ) : (
-                        <>{plan.duration_days} days</>
+                        <>{plan.duration_days} días</>
                       )}
                     </div>
                   </div>
@@ -404,7 +404,7 @@ export function PricingPage() {
 
                   <div className="pr-edit">
                     <div className="pr-row amount">
-                      <label>Amount (€)</label>
+                      <label>Importe (€)</label>
                       <input
                         type="text"
                         inputMode="decimal"
@@ -413,12 +413,12 @@ export function PricingPage() {
                         placeholder="49.00"
                       />
                       <span className="pr-cents-hint">
-                        = {Number.isFinite(cents) ? cents : '—'} cents (Stripe `unit_amount`)
+                        = {Number.isFinite(cents) ? cents : '—'} céntimos (Stripe `unit_amount`)
                       </span>
                     </div>
 
                     <div className="pr-row">
-                      <label>Display label</label>
+                      <label>Etiqueta visible</label>
                       <input
                         type="text"
                         value={d.label || ''}
@@ -428,7 +428,7 @@ export function PricingPage() {
                     </div>
 
                     <div className="pr-row">
-                      <label>Period suffix</label>
+                      <label>Sufijo de periodo</label>
                       <input
                         type="text"
                         value={d.period_text || ''}
@@ -443,7 +443,7 @@ export function PricingPage() {
                         checked={!!d.is_active}
                         onChange={(e) => updateField(plan.id, 'is_active', e.target.checked)}
                       />
-                      Visible to customers
+                      Visible para los clientes
                     </label>
                   </div>
 
@@ -454,7 +454,7 @@ export function PricingPage() {
                       onClick={() => reset(plan)}
                       disabled={savingId === plan.id || !dirtyNow}
                     >
-                      Reset
+                      Restablecer
                     </button>
                     <button
                       type="button"
@@ -462,13 +462,13 @@ export function PricingPage() {
                       onClick={() => save(plan)}
                       disabled={savingId === plan.id || !dirtyNow}
                     >
-                      {savingId === plan.id ? 'Saving…' : 'Save'}
+                      {savingId === plan.id ? 'Guardando…' : 'Guardar'}
                     </button>
                   </div>
 
                   <div className="pr-foot">
-                    {plan.duration_days} days locked
-                    {dirtyNow ? <span className="dirty">● pending changes</span> : ''}
+                    {plan.duration_days} días fijados
+                    {dirtyNow ? <span className="dirty">● cambios pendientes</span> : ''}
                   </div>
                 </article>
               );

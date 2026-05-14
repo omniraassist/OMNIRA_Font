@@ -9,19 +9,19 @@ import { useAdminAuth } from '../context/AdminAuthContext.jsx';
  */
 async function fileToAvatarDataUrl(file) {
   if (!file || !file.type.startsWith('image/')) {
-    throw new Error('Please choose an image file (PNG, JPEG, WEBP, or GIF).');
+    throw new Error('Elige un archivo de imagen (PNG, JPEG, WEBP o GIF).');
   }
   if (file.size > 8 * 1024 * 1024) {
-    throw new Error('Image is too large (max 8 MB before resize).');
+    throw new Error('La imagen es demasiado grande (máx. 8 MB antes del redimensionado).');
   }
   const bitmap = await createImageBitmap(file).catch(() => null);
-  if (!bitmap) throw new Error('Could not decode the image.');
+  if (!bitmap) throw new Error('No se pudo decodificar la imagen.');
   const SIZE = 256;
   const canvas = document.createElement('canvas');
   canvas.width = SIZE;
   canvas.height = SIZE;
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas not supported in this browser.');
+  if (!ctx) throw new Error('Este navegador no soporta canvas.');
   // Cover-fit: scale to fill, then center-crop.
   const scale = Math.max(SIZE / bitmap.width, SIZE / bitmap.height);
   const sw = SIZE / scale;
@@ -223,7 +223,7 @@ export function ProfilePage() {
       })
       .catch((e) => {
         if (!alive) return;
-        setError(e?.message || 'Could not load admin profile');
+        setError(e?.message || 'No se pudo cargar el perfil de administrador');
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -245,10 +245,10 @@ export function ProfilePage() {
         body: JSON.stringify({ full_name: name.trim() }),
       });
       setAdmin(res.admin);
-      updateUser({ name: res.admin.full_name || 'Omnira Admin' });
-      setInfo('Profile updated.');
+      updateUser({ name: res.admin.full_name || 'Administrador Omnira' });
+      setInfo('Perfil actualizado.');
     } catch (ex) {
-      setError(ex?.message || 'Could not save name');
+      setError(ex?.message || 'No se pudo guardar el nombre');
     } finally {
       setSavingName(false);
     }
@@ -269,9 +269,9 @@ export function ProfilePage() {
       setAdmin(res.admin);
       setAvatar(res.admin?.avatar_data_url || '');
       updateUser({ avatar: res.admin?.avatar_data_url || null });
-      setInfo('Profile photo updated.');
+      setInfo('Foto de perfil actualizada.');
     } catch (ex) {
-      setError(ex?.message || 'Could not update photo');
+      setError(ex?.message || 'No se pudo actualizar la foto');
     } finally {
       setSavingAvatar(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -291,7 +291,7 @@ export function ProfilePage() {
 
   const removeAvatar = async () => {
     if (!avatar) return;
-    if (!window.confirm('Remove your profile photo?')) return;
+    if (!window.confirm('¿Quitar tu foto de perfil?')) return;
     setError(''); setInfo('');
     setSavingAvatar(true);
     try {
@@ -302,9 +302,9 @@ export function ProfilePage() {
       setAdmin(res.admin);
       setAvatar('');
       updateUser({ avatar: null });
-      setInfo('Profile photo removed.');
+      setInfo('Foto de perfil eliminada.');
     } catch (ex) {
-      setError(ex?.message || 'Could not remove photo');
+      setError(ex?.message || 'No se pudo eliminar la foto');
     } finally {
       setSavingAvatar(false);
     }
@@ -314,8 +314,8 @@ export function ProfilePage() {
     e.preventDefault();
     setError(''); setInfo('');
     if (!user?.id) return;
-    if (newPw.length < 8) { setError('New password must be at least 8 characters.'); return; }
-    if (newPw !== newPw2) { setError('New password and confirmation do not match.'); return; }
+    if (newPw.length < 8) { setError('La nueva contraseña debe tener al menos 8 caracteres.'); return; }
+    if (newPw !== newPw2) { setError('La nueva contraseña y su confirmación no coinciden.'); return; }
     setSavingPw(true);
     try {
       await apiCall(`/api/admin/admins/${user.id}`, {
@@ -323,9 +323,9 @@ export function ProfilePage() {
         body: JSON.stringify({ current_password: curPw, new_password: newPw }),
       });
       setCurPw(''); setNewPw(''); setNewPw2('');
-      setInfo('Password changed. The new password is active immediately.');
+      setInfo('Contraseña cambiada. La nueva contraseña ya está activa.');
     } catch (ex) {
-      setError(ex?.message || 'Could not change password');
+      setError(ex?.message || 'No se pudo cambiar la contraseña');
     } finally {
       setSavingPw(false);
     }
@@ -336,10 +336,10 @@ export function ProfilePage() {
       <style>{STYLES}</style>
 
       <header className="adm-page-head">
-        <h1>My profile</h1>
+        <h1>Mi perfil</h1>
         <p>
-          Edit the name displayed in the top bar and change your sign-in password. Your email is the unique
-          account identifier and cannot be changed from this panel.
+          Edita el nombre que aparece en la barra superior y cambia tu contraseña de acceso. Tu correo es el
+          identificador único de la cuenta y no se puede cambiar desde este panel.
         </p>
       </header>
 
@@ -351,27 +351,27 @@ export function ProfilePage() {
           <div className="p-av">
             {avatar ? <img src={avatar} alt={admin?.full_name || 'admin avatar'} /> : initials}
           </div>
-          <h3>{admin?.full_name || name || 'Omnira Admin'}</h3>
+          <h3>{admin?.full_name || name || 'Administrador Omnira'}</h3>
           <div className="em">{admin?.email || user?.email || ''}</div>
           <div className="p-badge">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            Superadmin
+            Superadministrador
           </div>
           <div className="p-meta">
-            <div><span style={{ color: 'var(--muted)' }}>Status</span><span>{admin?.is_active === false ? 'disabled' : 'active'}</span></div>
-            <div><span style={{ color: 'var(--muted)' }}>Created</span><span>{formatDate(admin?.created_at)}</span></div>
-            <div><span style={{ color: 'var(--muted)' }}>Last updated</span><span>{formatDate(admin?.updated_at)}</span></div>
+            <div><span style={{ color: 'var(--muted)' }}>Estado</span><span>{admin?.is_active === false ? 'deshabilitado' : 'activo'}</span></div>
+            <div><span style={{ color: 'var(--muted)' }}>Creado</span><span>{formatDate(admin?.created_at)}</span></div>
+            <div><span style={{ color: 'var(--muted)' }}>Última actualización</span><span>{formatDate(admin?.updated_at)}</span></div>
           </div>
         </aside>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <section className="p-card">
-            <h3>Profile photo</h3>
+            <h3>Foto de perfil</h3>
             <p className="sub">
-              Auto-resized to 256×256 JPEG. Recommended: a square image of your face or logo, &lt; 8 MB.
-              Shown in the top bar, the sidebar footer, and everywhere your initials currently appear.
+              Se redimensiona automáticamente a JPEG 256×256. Recomendado: una imagen cuadrada de tu cara o logotipo, &lt; 8 MB.
+              Se muestra en la barra superior, el pie del menú lateral y en cualquier lugar donde aparezcan tus iniciales.
             </p>
             <div
               className={`p-av-edit${dragOver ? ' drag' : ''}`}
@@ -380,21 +380,21 @@ export function ProfilePage() {
               onDrop={onDrop}
             >
               <div className={`preview${savingAvatar ? ' busy' : ''}`}>
-                {avatar ? <img src={avatar} alt="Current profile" /> : initials}
+                {avatar ? <img src={avatar} alt="Foto actual" /> : initials}
               </div>
               <div className="info">
                 <p>
                   {dragOver
-                    ? 'Drop the image here to upload'
-                    : 'Drag & drop, or click Upload. PNG / JPEG / WEBP / GIF — resized to 256×256 JPEG in your browser before uploading.'}
+                    ? 'Suelta la imagen aquí para subirla'
+                    : 'Arrastra y suelta, o pulsa Subir. PNG / JPEG / WEBP / GIF — se redimensiona a JPEG 256×256 en tu navegador antes de subir.'}
                 </p>
                 <div className="controls">
                   <button type="button" className="p-btn" onClick={onPickAvatar} disabled={savingAvatar}>
-                    {savingAvatar ? 'Uploading…' : avatar ? 'Replace photo' : 'Upload photo'}
+                    {savingAvatar ? 'Subiendo…' : avatar ? 'Reemplazar foto' : 'Subir foto'}
                   </button>
                   {avatar ? (
                     <button type="button" className="p-btn danger" onClick={removeAvatar} disabled={savingAvatar}>
-                      Remove
+                      Quitar
                     </button>
                   ) : null}
                 </div>
@@ -409,41 +409,41 @@ export function ProfilePage() {
           </section>
 
           <section className="p-card">
-            <h3>Display name</h3>
-            <p className="sub">Shown in the top bar dropdown and in audit fields on notifications you send.</p>
+            <h3>Nombre visible</h3>
+            <p className="sub">Aparece en el menú de la barra superior y en los campos de auditoría de las notificaciones que envíes.</p>
             <form onSubmit={saveName}>
               <div className="p-row">
-                <label>Email</label>
+                <label>Correo electrónico</label>
                 <input value={admin?.email || user?.email || ''} readOnly />
-                <span className="hint">Email is your sign-in identifier. To change it, contact a Superadmin.</span>
+                <span className="hint">El correo es tu identificador de acceso. Para cambiarlo, contacta con un Superadministrador.</span>
               </div>
               <div className="p-row">
-                <label>Full name</label>
+                <label>Nombre completo</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Your name"
+                  placeholder="Tu nombre"
                   maxLength={200}
                 />
               </div>
               <div className="p-actions">
                 <button type="submit" className="p-btn" disabled={savingName || loading || !name.trim()}>
-                  {savingName ? 'Saving…' : 'Save name'}
+                  {savingName ? 'Guardando…' : 'Guardar nombre'}
                 </button>
               </div>
             </form>
           </section>
 
           <section className="p-card">
-            <h3>Change password</h3>
+            <h3>Cambiar contraseña</h3>
             <p className="sub">
-              Passwords are hashed with PBKDF2-SHA512 (120k iterations). Choose at least 8 characters; mix of
-              letters, numbers and a symbol is recommended.
+              Las contraseñas se almacenan con hash PBKDF2-SHA512 (120k iteraciones). Usa al menos 8 caracteres;
+              se recomienda combinar letras, números y un símbolo.
             </p>
             <form onSubmit={changePassword} autoComplete="off">
               <div className="p-row">
-                <label>Current password</label>
+                <label>Contraseña actual</label>
                 <input
                   type="password"
                   value={curPw}
@@ -454,24 +454,24 @@ export function ProfilePage() {
                 />
               </div>
               <div className="p-row">
-                <label>New password</label>
+                <label>Nueva contraseña</label>
                 <input
                   type="password"
                   value={newPw}
                   onChange={(e) => setNewPw(e.target.value)}
-                  placeholder="At least 8 characters"
+                  placeholder="Mínimo 8 caracteres"
                   minLength={8}
                   required
                   autoComplete="new-password"
                 />
               </div>
               <div className="p-row">
-                <label>Confirm new password</label>
+                <label>Confirmar nueva contraseña</label>
                 <input
                   type="password"
                   value={newPw2}
                   onChange={(e) => setNewPw2(e.target.value)}
-                  placeholder="Re-enter new password"
+                  placeholder="Vuelve a escribir la nueva contraseña"
                   minLength={8}
                   required
                   autoComplete="new-password"
@@ -479,24 +479,24 @@ export function ProfilePage() {
               </div>
               <div className="p-actions">
                 <button type="submit" className="p-btn" disabled={savingPw || !curPw || newPw.length < 8 || newPw !== newPw2}>
-                  {savingPw ? 'Updating…' : 'Update password'}
+                  {savingPw ? 'Actualizando…' : 'Actualizar contraseña'}
                 </button>
                 <button type="button" className="p-btn ghost" onClick={() => { setCurPw(''); setNewPw(''); setNewPw2(''); }}>
-                  Clear
+                  Limpiar
                 </button>
               </div>
             </form>
           </section>
 
           <section className="p-card">
-            <h3>Session</h3>
+            <h3>Sesión</h3>
             <p className="sub">
-              Sign out of this admin panel. Your sign-in is local to this browser tab — clearing the session
-              does not affect other devices (live session tracking is not yet implemented).
+              Cierra sesión en este panel de administración. Tu acceso es local a esta pestaña — cerrar la sesión
+              no afecta a otros dispositivos (el seguimiento de sesiones en vivo aún no está implementado).
             </p>
             <div className="p-actions">
               <button type="button" className="p-btn danger" onClick={logout}>
-                Sign out
+                Cerrar sesión
               </button>
             </div>
           </section>

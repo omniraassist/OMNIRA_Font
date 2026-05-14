@@ -320,7 +320,7 @@ function Donut({ data, total, centerLabel, centerValue, size = 180 }) {
   const r = size / 2 - 16;
   const innerR = r - 22;
   if (!total || !data.length) {
-    return <div style={{ width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 12 }}>no data</div>;
+    return <div style={{ width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 12 }}>sin datos</div>;
   }
   let cum = 0;
   const segs = data.map((d, i) => {
@@ -365,7 +365,7 @@ function HBar({ items, valueKey = 'count', labelKey = 'label' }) {
           <span className="d-hbar-count">{d[valueKey]}{d.pct != null ? ` · ${d.pct.toFixed(0)}%` : ''}</span>
         </div>
       ))}
-      {!items.length ? <div className="d-empty">no data</div> : null}
+      {!items.length ? <div className="d-empty">sin datos</div> : null}
     </div>
   );
 }
@@ -394,10 +394,22 @@ function TrendPill({ pct }) {
 function formatRelative(iso) {
   if (!iso) return '—';
   const diff = Date.now() - new Date(iso).getTime();
-  if (diff < 60_000) return 'just now';
-  if (diff < 3600_000) return `${Math.round(diff / 60_000)}m`;
-  if (diff < 86_400_000) return `${Math.round(diff / 3600_000)}h`;
-  return new Date(iso).toLocaleDateString();
+  if (diff < 60_000) return 'ahora mismo';
+  if (diff < 3600_000) return `${Math.round(diff / 60_000)} min`;
+  if (diff < 86_400_000) return `${Math.round(diff / 3600_000)} h`;
+  return new Date(iso).toLocaleDateString('es-ES');
+}
+
+const DASH_STATUS_LABEL_ES = {
+  new: 'Nuevo',
+  contacted: 'Contactado',
+  qualified: 'Cualificado',
+  converted: 'Convertido',
+  lost: 'Perdido',
+};
+
+function dashStatusLabel(s) {
+  return DASH_STATUS_LABEL_ES[s] || s || '—';
 }
 
 // ---------------------------------------------------------------------------
@@ -465,10 +477,10 @@ export function DashboardPage() {
 
   const greeting = useMemo(() => {
     const h = now.getHours();
-    if (h < 5) return 'Working late';
-    if (h < 12) return 'Good morning';
-    if (h < 18) return 'Good afternoon';
-    return 'Good evening';
+    if (h < 5) return 'Trabajando de madrugada';
+    if (h < 12) return 'Buenos días';
+    if (h < 18) return 'Buenas tardes';
+    return 'Buenas noches';
   }, [now]);
 
   const firstName = (user?.name || 'Admin').split(' ')[0];
@@ -479,7 +491,7 @@ export function DashboardPage() {
       <style>{STYLES}</style>
 
       <header className="adm-page-head" style={{ marginBottom: 12 }}>
-        <h1 style={{ fontSize: 0, padding: 0, margin: 0, height: 0 }} aria-hidden>Dashboard</h1>
+        <h1 style={{ fontSize: 0, padding: 0, margin: 0, height: 0 }} aria-hidden>Panel</h1>
       </header>
 
       {error ? <div className="d-banner err"><strong>Error:</strong> {error}</div> : null}
@@ -497,13 +509,13 @@ export function DashboardPage() {
                   {greeting}, <span className="grad">{firstName}</span> 👋
                 </h1>
                 <p>
-                  {now.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}{' '}
-                  · Here's how Omnira is doing right now.
+                  {now.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}{' '}
+                  · Así está Omnira ahora mismo.
                 </p>
               </div>
             </div>
             <div className="d-hero-time">
-              <span className="dot" /> Live · {now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+              <span className="dot" /> En vivo · {now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
             </div>
           </div>
         </section>
@@ -511,72 +523,72 @@ export function DashboardPage() {
         {/* KPIs */}
         <div className="d-kpis">
           <article className="d-kpi em">
-            <div className="d-kpi-head"><span className="d-kpi-icon">{KPI_ICONS.customers}</span><span className="d-kpi-label">Customers</span></div>
+            <div className="d-kpi-head"><span className="d-kpi-icon">{KPI_ICONS.customers}</span><span className="d-kpi-label">Clientes</span></div>
             <div className="d-kpi-value">{kpiByID.customers?.value ?? 0}</div>
-            <div className="d-kpi-foot">{kpiByID.customers?.hint || ''}</div>
+            <div className="d-kpi-foot">Cuentas registradas</div>
           </article>
           <article className="d-kpi em blue">
-            <div className="d-kpi-head"><span className="d-kpi-icon">{KPI_ICONS.paid}</span><span className="d-kpi-label">Active subscribers</span></div>
+            <div className="d-kpi-head"><span className="d-kpi-icon">{KPI_ICONS.paid}</span><span className="d-kpi-label">Suscriptores activos</span></div>
             <div className="d-kpi-value">{kpiByID.paid?.value ?? 0}</div>
-            <div className="d-kpi-foot">{kpiByID.paid?.hint || ''}</div>
+            <div className="d-kpi-foot">Suscripción aún vigente</div>
           </article>
           <article className="d-kpi purple">
-            <div className="d-kpi-head"><span className="d-kpi-icon">{KPI_ICONS.leads}</span><span className="d-kpi-label">WhatsApp leads</span></div>
+            <div className="d-kpi-head"><span className="d-kpi-icon">{KPI_ICONS.leads}</span><span className="d-kpi-label">Leads de WhatsApp</span></div>
             <div className="d-kpi-value">{kpiByID.leads?.value ?? 0}</div>
-            <div className="d-kpi-foot">{kpiByID.leads?.hint || ''}</div>
+            <div className="d-kpi-foot">Histórico total</div>
           </article>
           <article className="d-kpi">
-            <div className="d-kpi-head"><span className="d-kpi-icon">{KPI_ICONS.messages}</span><span className="d-kpi-label">Messages · this week</span></div>
+            <div className="d-kpi-head"><span className="d-kpi-icon">{KPI_ICONS.messages}</span><span className="d-kpi-label">Mensajes · esta semana</span></div>
             <div className="d-kpi-value">{activity.messagesThisWeek ?? 0}</div>
             <div className="d-kpi-foot">
               {activity.messagesDeltaPct != null ? <TrendPill pct={activity.messagesDeltaPct} /> : null}
-              <span>vs {activity.messagesLastWeek ?? 0} last week</span>
+              <span>vs {activity.messagesLastWeek ?? 0} semana pasada</span>
             </div>
           </article>
           <article className="d-kpi amber">
-            <div className="d-kpi-head"><span className="d-kpi-icon">{KPI_ICONS.qualified}</span><span className="d-kpi-label">Qualified leads</span></div>
+            <div className="d-kpi-head"><span className="d-kpi-icon">{KPI_ICONS.qualified}</span><span className="d-kpi-label">Leads cualificados</span></div>
             <div className="d-kpi-value">{aKpis.qualifiedLeads ?? 0}</div>
-            <div className="d-kpi-foot">All-time across funnel</div>
+            <div className="d-kpi-foot">Histórico total del embudo</div>
           </article>
           <article className="d-kpi rose">
-            <div className="d-kpi-head"><span className="d-kpi-icon">{KPI_ICONS.conversion}</span><span className="d-kpi-label">Conversion rate</span></div>
+            <div className="d-kpi-head"><span className="d-kpi-icon">{KPI_ICONS.conversion}</span><span className="d-kpi-label">Tasa de conversión</span></div>
             <div className="d-kpi-value">{aKpis.conversionRate != null ? aKpis.conversionRate.toFixed(1) : '0.0'}<span className="unit">%</span></div>
-            <div className="d-kpi-foot">{aKpis.convertedLeads ?? 0} of {aKpis.totalLeads ?? 0} converted</div>
+            <div className="d-kpi-foot">{aKpis.convertedLeads ?? 0} de {aKpis.totalLeads ?? 0} convertidos</div>
           </article>
           <article className="d-kpi blue">
-            <div className="d-kpi-head"><span className="d-kpi-icon">{KPI_ICONS.payments}</span><span className="d-kpi-label">Payments this month</span></div>
+            <div className="d-kpi-head"><span className="d-kpi-icon">{KPI_ICONS.payments}</span><span className="d-kpi-label">Pagos · este mes</span></div>
             <div className="d-kpi-value">{kpiByID.payments_month?.value ?? 0}</div>
-            <div className="d-kpi-foot">{kpiByID.payments_month?.hint || ''}</div>
+            <div className="d-kpi-foot">Transacciones registradas</div>
           </article>
           <article className="d-kpi em">
-            <div className="d-kpi-head"><span className="d-kpi-icon">{KPI_ICONS.revenue}</span><span className="d-kpi-label">Revenue · this month</span></div>
+            <div className="d-kpi-head"><span className="d-kpi-icon">{KPI_ICONS.revenue}</span><span className="d-kpi-label">Ingresos · este mes</span></div>
             <div className="d-kpi-value">{kpiByID.revenue_month?.value || '0€'}</div>
-            <div className="d-kpi-foot">€{aKpis.revenue6mEuro?.toFixed?.(0) ?? '0'} last 6 months</div>
+            <div className="d-kpi-foot">€{aKpis.revenue6mEuro?.toFixed?.(0) ?? '0'} últimos 6 meses</div>
           </article>
         </div>
 
         {/* Activity chart */}
         <section className="d-card">
           <div className="d-section-head">
-            <h2>WhatsApp activity · last 30 days</h2>
+            <h2>Actividad en WhatsApp · últimos 30 días</h2>
             <span className="d-section-sub">
-              {daily.reduce((s, d) => s + d.inbound + d.outbound, 0)} messages · {daily.reduce((s, d) => s + d.leads, 0)} new leads
+              {daily.reduce((s, d) => s + d.inbound + d.outbound, 0)} mensajes · {daily.reduce((s, d) => s + d.leads, 0)} nuevos leads
             </span>
           </div>
           <div className="d-legend">
-            <span><span className="d-legend-dot" style={{ background: '#60a5fa' }} />Total messages</span>
-            <span><span className="d-legend-dot" style={{ background: '#00e5a0' }} />Inbound only</span>
+            <span><span className="d-legend-dot" style={{ background: '#60a5fa' }} />Mensajes totales</span>
+            <span><span className="d-legend-dot" style={{ background: '#00e5a0' }} />Solo entrantes</span>
           </div>
-          {daily.length ? <AreaChart data={daily} height={220} /> : <div className="d-empty">No activity yet — open <Link to="/whatsapp" style={{ color: 'var(--em)' }}>WhatsApp config</Link>.</div>}
+          {daily.length ? <AreaChart data={daily} height={220} /> : <div className="d-empty">Aún sin actividad — abre <Link to="/whatsapp" style={{ color: 'var(--em)' }}>Configuración de WhatsApp</Link>.</div>}
         </section>
 
         {/* Status + Plan donuts */}
         <div className="d-grid-2">
           <section className="d-card">
-            <div className="d-section-head"><h2>Lead status</h2><span className="d-section-sub">all-time</span></div>
+            <div className="d-section-head"><h2>Estado de leads</h2><span className="d-section-sub">histórico total</span></div>
             <div className="d-donut-row">
               <Donut
-                data={(analytics?.statusDistribution || []).filter((s) => s.count > 0).map((s) => ({ ...s, label: s.status }))}
+                data={(analytics?.statusDistribution || []).filter((s) => s.count > 0).map((s) => ({ ...s, label: dashStatusLabel(s.status) }))}
                 total={aKpis.totalLeads || 0}
                 centerValue={aKpis.totalLeads || 0}
                 centerLabel="leads"
@@ -585,7 +597,7 @@ export function DashboardPage() {
                 {(analytics?.statusDistribution || []).map((s, i) => (
                   <div key={s.status} className="d-donut-item">
                     <div className="d-donut-swatch" style={{ background: DONUT_COLORS[i % DONUT_COLORS.length] }} />
-                    <span className="d-donut-label">{s.status}</span>
+                    <span className="d-donut-label">{dashStatusLabel(s.status)}</span>
                     <span className="d-donut-count">{s.count}</span>
                     <span className="d-donut-pct">{s.pct.toFixed(0)}%</span>
                   </div>
@@ -595,16 +607,16 @@ export function DashboardPage() {
           </section>
 
           <section className="d-card">
-            <div className="d-section-head"><h2>Active plans</h2><span className="d-section-sub">current subscribers</span></div>
+            <div className="d-section-head"><h2>Planes activos</h2><span className="d-section-sub">suscriptores actuales</span></div>
             {aKpis.activeSubscribers === 0 ? (
-              <div className="d-empty">No active paid subscribers yet.</div>
+              <div className="d-empty">Aún no hay suscriptores con plan activo.</div>
             ) : (
               <div className="d-donut-row">
                 <Donut
                   data={(analytics?.planDistribution || []).map((p) => ({ label: p.label || p.id, count: p.count }))}
                   total={aKpis.activeSubscribers || 0}
                   centerValue={aKpis.activeSubscribers || 0}
-                  centerLabel="active"
+                  centerLabel="activos"
                 />
                 <div className="d-donut-legend">
                   {(analytics?.planDistribution || []).map((p, i) => (
@@ -626,11 +638,11 @@ export function DashboardPage() {
         {/* Intents + Languages */}
         <div className="d-grid-2">
           <section className="d-card">
-            <div className="d-section-head"><h2>Top intents</h2><span className="d-section-sub">extracted by OpenAI</span></div>
+            <div className="d-section-head"><h2>Intenciones principales</h2><span className="d-section-sub">extraídas por OpenAI</span></div>
             <HBar items={(analytics?.topIntents || []).map((i) => ({ label: i.intent, count: i.count, pct: i.pct }))} />
           </section>
           <section className="d-card">
-            <div className="d-section-head"><h2>Top languages</h2><span className="d-section-sub">detected per lead</span></div>
+            <div className="d-section-head"><h2>Idiomas principales</h2><span className="d-section-sub">detectado por lead</span></div>
             <HBar items={(analytics?.topLanguages || []).map((l) => ({ label: l.language, count: l.count, pct: l.pct }))} />
           </section>
         </div>
@@ -639,29 +651,29 @@ export function DashboardPage() {
         <div className="d-grid-2-wide">
           <section className="d-card">
             <div className="d-section-head">
-              <h2>Monthly revenue</h2>
-              <span className="d-section-sub">last 6 months · €{aKpis.revenue6mEuro?.toFixed?.(2) ?? '0.00'}</span>
+              <h2>Ingresos mensuales</h2>
+              <span className="d-section-sub">últimos 6 meses · €{aKpis.revenue6mEuro?.toFixed?.(2) ?? '0.00'}</span>
             </div>
             {analytics?.monthlyRevenue?.length ? (
               <RevenueBars data={analytics.monthlyRevenue} />
             ) : (
-              <div className="d-empty">No payments yet.</div>
+              <div className="d-empty">Aún no hay pagos.</div>
             )}
           </section>
 
           <section className="d-card">
-            <div className="d-section-head"><h2>OpenAI fleet</h2><span className="d-section-sub">live</span></div>
+            <div className="d-section-head"><h2>Claves OpenAI</h2><span className="d-section-sub">en vivo</span></div>
             <div className="d-health-row">
               <div className="d-health">
-                <div className="l">Active keys</div>
+                <div className="l">Claves activas</div>
                 <div className="v">{analytics?.openaiHealth?.active_keys ?? 0}</div>
               </div>
               <div className="d-health">
-                <div className="l">Successes</div>
+                <div className="l">Éxitos</div>
                 <div className="v" style={{ color: 'var(--em)' }}>{analytics?.openaiHealth?.total_successes?.toLocaleString?.() ?? 0}</div>
               </div>
               <div className="d-health">
-                <div className="l">Failures</div>
+                <div className="l">Fallos</div>
                 <div className="v" style={{ color: (analytics?.openaiHealth?.total_failures || 0) > 0 ? '#fca5a5' : 'var(--text)' }}>
                   {analytics?.openaiHealth?.total_failures?.toLocaleString?.() ?? 0}
                 </div>
@@ -674,11 +686,11 @@ export function DashboardPage() {
         <div className="d-grid-2-wide">
           <section className="d-card">
             <div className="d-section-head">
-              <h2>Latest leads</h2>
-              <Link to="/leads" style={{ fontSize: 12, color: 'var(--em)', textDecoration: 'none', fontWeight: 600 }}>View all →</Link>
+              <h2>Leads recientes</h2>
+              <Link to="/leads" style={{ fontSize: 12, color: 'var(--em)', textDecoration: 'none', fontWeight: 600 }}>Ver todos →</Link>
             </div>
             <div className="d-list">
-              {recentLeads.length === 0 ? <div className="d-empty">No leads yet.</div> : null}
+              {recentLeads.length === 0 ? <div className="d-empty">Aún no hay leads.</div> : null}
               {recentLeads.map((l) => {
                 const initials = (l.name || `+${l.wa_from}`).split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
                 return (
@@ -689,7 +701,7 @@ export function DashboardPage() {
                       <small>{l.email || `+${l.wa_from}`}{l.intent ? ` · ${l.intent}` : ''}</small>
                     </div>
                     <div className="meta">
-                      <span className={`badge ${STATUS_BADGE[l.status] || 'grey'}`}>{l.status}</span>
+                      <span className={`badge ${STATUS_BADGE[l.status] || 'grey'}`}>{dashStatusLabel(l.status)}</span>
                       <span className="ts">{formatRelative(l.last_message_at)}</span>
                     </div>
                   </Link>
@@ -699,31 +711,31 @@ export function DashboardPage() {
           </section>
 
           <section className="d-card">
-            <div className="d-section-head"><h2>Quick actions</h2></div>
+            <div className="d-section-head"><h2>Accesos rápidos</h2></div>
             <div className="d-quick">
               <Link to="/leads">
                 <span className="ic">{KPI_ICONS.leads}</span>
-                <span className="meta"><strong>WhatsApp leads</strong><small>Manage statuses</small></span>
+                <span className="meta"><strong>Leads de WhatsApp</strong><small>Gestionar estados</small></span>
               </Link>
               <Link to="/chats">
                 <span className="ic">{KPI_ICONS.messages}</span>
-                <span className="meta"><strong>Live chats</strong><small>Open conversations</small></span>
+                <span className="meta"><strong>Chats en vivo</strong><small>Abrir conversaciones</small></span>
               </Link>
               <Link to="/whatsapp">
                 <span className="ic">{KPI_ICONS.paid}</span>
-                <span className="meta"><strong>WhatsApp config</strong><small>Edit Meta tokens</small></span>
+                <span className="meta"><strong>Config WhatsApp</strong><small>Editar tokens de Meta</small></span>
               </Link>
               <Link to="/bot-config">
                 <span className="ic">{KPI_ICONS.qualified}</span>
-                <span className="meta"><strong>Bot brain</strong><small>Edit prompt + KB</small></span>
+                <span className="meta"><strong>Cerebro del bot</strong><small>Editar prompt + KB</small></span>
               </Link>
               <Link to="/pricing">
                 <span className="ic">{KPI_ICONS.revenue}</span>
-                <span className="meta"><strong>Pricing</strong><small>Change plan prices</small></span>
+                <span className="meta"><strong>Precios</strong><small>Cambiar tarifas</small></span>
               </Link>
               <Link to="/notifications">
                 <span className="ic">{KPI_ICONS.messages}</span>
-                <span className="meta"><strong>Notifications</strong><small>Broadcast to users</small></span>
+                <span className="meta"><strong>Notificaciones</strong><small>Enviar a usuarios</small></span>
               </Link>
             </div>
           </section>
@@ -732,11 +744,11 @@ export function DashboardPage() {
         {/* Recent signups */}
         <section className="d-card">
           <div className="d-section-head">
-            <h2>Recent signups</h2>
-            <Link to="/clients" style={{ fontSize: 12, color: 'var(--em)', textDecoration: 'none', fontWeight: 600 }}>View all →</Link>
+            <h2>Altas recientes</h2>
+            <Link to="/clients" style={{ fontSize: 12, color: 'var(--em)', textDecoration: 'none', fontWeight: 600 }}>Ver todos →</Link>
           </div>
           <div className="d-list">
-            {(overview?.recentClients || []).length === 0 ? <div className="d-empty">No signups yet.</div> : null}
+            {(overview?.recentClients || []).length === 0 ? <div className="d-empty">Aún no hay altas.</div> : null}
             {(overview?.recentClients || []).map((c) => {
               const initials = c.businessName.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
               return (
@@ -748,7 +760,7 @@ export function DashboardPage() {
                   </div>
                   <div className="meta">
                     <span className={`badge ${c.agentStatus === 'live' ? 'green' : 'grey'}`}>
-                      {c.agentStatus === 'live' ? '● live' : '○ paused'}
+                      {c.agentStatus === 'live' ? '● activo' : '○ pausado'}
                     </span>
                     <span className="ts">{formatRelative(c.createdAt)}</span>
                   </div>
@@ -758,7 +770,7 @@ export function DashboardPage() {
           </div>
         </section>
 
-        {loading ? <div className="d-empty">Refreshing…</div> : null}
+        {loading ? <div className="d-empty">Actualizando…</div> : null}
       </div>
     </>
   );

@@ -4,7 +4,7 @@ import { apiCall } from '../api/client.js';
 function formatDate(iso) {
   if (!iso) return '—';
   try {
-    return new Date(iso).toLocaleString();
+    return new Date(iso).toLocaleString('es-ES');
   } catch {
     return '—';
   }
@@ -23,7 +23,7 @@ export function SessionsPage() {
       setError('');
     } catch (e) {
       setAdmins([]);
-      setError(e?.message || 'Could not load admin users');
+      setError(e?.message || 'No se pudieron cargar los administradores');
     } finally {
       setLoading(false);
     }
@@ -36,20 +36,21 @@ export function SessionsPage() {
   return (
     <>
       <header className="adm-page-head">
-        <h1>Admin users</h1>
+        <h1>Administradores</h1>
         <p>
-          Accounts that can sign into this panel (from <code>admin_users</code>). Live session tracking is not
-          yet implemented — when it is, the timestamps below become "last active" and we will surface IP/device
-          here. Until then, this page shows real account data only.
+          Cuentas con acceso a este panel (desde <code>admin_users</code>). El seguimiento de sesiones en vivo
+          aún no está implementado — cuando lo esté, las marcas de tiempo de abajo pasarán a ser "última
+          actividad" y mostraremos IP/dispositivo aquí. Hasta entonces, esta página solo muestra datos reales
+          de cuenta.
         </p>
       </header>
 
       <div className="adm-toolbar">
         <button type="button" className="adm-btn adm-btn-ghost" onClick={load} disabled={loading}>
-          {loading ? 'Loading…' : 'Refresh'}
+          {loading ? 'Cargando…' : 'Actualizar'}
         </button>
         <span className="adm-mono" style={{ color: 'var(--muted)' }}>
-          {admins.length} admin{admins.length === 1 ? '' : 's'}
+          {admins.length} administrador{admins.length === 1 ? '' : 'es'}
         </span>
       </div>
 
@@ -64,11 +65,11 @@ export function SessionsPage() {
         <table className="adm-table">
           <thead>
             <tr>
-              <th>Email</th>
-              <th>Full name</th>
-              <th>Status</th>
-              <th>Created</th>
-              <th>Updated</th>
+              <th>Correo</th>
+              <th>Nombre completo</th>
+              <th>Estado</th>
+              <th>Creado</th>
+              <th>Actualizado</th>
             </tr>
           </thead>
           <tbody>
@@ -78,7 +79,7 @@ export function SessionsPage() {
                 <td>{a.fullName || '—'}</td>
                 <td>
                   <span className={`adm-badge ${a.isActive ? 'active' : 'paused'}`}>
-                    {a.isActive ? 'active' : 'disabled'}
+                    {a.isActive ? 'activo' : 'deshabilitado'}
                   </span>
                 </td>
                 <td className="adm-mono">{formatDate(a.createdAt)}</td>
@@ -86,7 +87,7 @@ export function SessionsPage() {
               </tr>
             ))}
             {!admins.length && !loading ? (
-              <tr><td colSpan={5} style={{ color: 'var(--muted)' }}>No admin users found.</td></tr>
+              <tr><td colSpan={5} style={{ color: 'var(--muted)' }}>No se encontraron administradores.</td></tr>
             ) : null}
           </tbody>
         </table>

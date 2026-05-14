@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiCall } from '../api/client.js';
 
 const STATUS_OPTIONS = [
-  { value: 'all',       label: 'All',       color: 'all' },
-  { value: 'new',       label: 'New',       color: 'green' },
-  { value: 'contacted', label: 'Contacted', color: 'blue' },
-  { value: 'qualified', label: 'Qualified', color: 'amber' },
-  { value: 'converted', label: 'Converted', color: 'em' },
-  { value: 'lost',      label: 'Lost',      color: 'grey' },
+  { value: 'all',       label: 'Todos',       color: 'all' },
+  { value: 'new',       label: 'Nuevos',      color: 'green' },
+  { value: 'contacted', label: 'Contactados', color: 'blue' },
+  { value: 'qualified', label: 'Cualificados',color: 'amber' },
+  { value: 'converted', label: 'Convertidos', color: 'em' },
+  { value: 'lost',      label: 'Perdidos',    color: 'grey' },
 ];
 
 const STATUS_FOR_DETAIL = STATUS_OPTIONS.filter((s) => s.value !== 'all');
@@ -280,22 +280,34 @@ const STATUS_COLOR = {
   lost: 'grey',
 };
 
+const STATUS_LABEL_ES = {
+  new: 'Nuevo',
+  contacted: 'Contactado',
+  qualified: 'Cualificado',
+  converted: 'Convertido',
+  lost: 'Perdido',
+};
+
 function getStatusColor(status) {
   return STATUS_COLOR[status] || 'grey';
+}
+
+function getStatusLabel(status) {
+  return STATUS_LABEL_ES[status] || status || '—';
 }
 
 function formatRelative(iso) {
   if (!iso) return '—';
   const diff = Date.now() - new Date(iso).getTime();
-  if (diff < 60_000) return 'just now';
-  if (diff < 3600_000) return `${Math.round(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.round(diff / 3600_000)}h ago`;
-  return new Date(iso).toLocaleDateString();
+  if (diff < 60_000) return 'ahora mismo';
+  if (diff < 3600_000) return `hace ${Math.round(diff / 60_000)} min`;
+  if (diff < 86_400_000) return `hace ${Math.round(diff / 3600_000)} h`;
+  return new Date(iso).toLocaleDateString('es-ES');
 }
 
 function formatDate(iso) {
   if (!iso) return '—';
-  try { return new Date(iso).toLocaleString(); } catch { return '—'; }
+  try { return new Date(iso).toLocaleString('es-ES'); } catch { return '—'; }
 }
 
 function ConfBar({ value }) {
@@ -336,7 +348,7 @@ export function LeadsPage() {
       setLeads(res.leads || []);
     } catch (e) {
       setLeads([]);
-      setError(e?.message || 'Could not load leads');
+      setError(e?.message || 'No se pudieron cargar los leads');
     } finally {
       setLoading(false);
     }
@@ -378,10 +390,10 @@ export function LeadsPage() {
         body: JSON.stringify({ status: statusDraft, notes: notesDraft }),
       });
       setSelected(res.lead || selected);
-      setInfo('Saved.');
+      setInfo('Guardado.');
       await load();
     } catch (e) {
-      setError(e?.message || 'Could not save');
+      setError(e?.message || 'No se pudo guardar');
     } finally {
       setSaving(false);
     }
@@ -405,10 +417,11 @@ export function LeadsPage() {
       <div className="l-page">
         {/* Hero */}
         <section className="l-hero">
-          <h1>WhatsApp <span className="grad">leads</span></h1>
+          <h1>Leads de <span className="grad">WhatsApp</span></h1>
           <p>
-            Every prospect the agent has talked to, auto-captured by the OpenAI extractor and updated on each new
-            message. Manage the funnel from <strong>new → contacted → qualified → converted</strong> here.
+            Cada prospecto con el que ha hablado el agente, capturado automáticamente por el extractor de OpenAI
+            y actualizado con cada nuevo mensaje. Gestiona el embudo desde{' '}
+            <strong>nuevo → contactado → cualificado → convertido</strong>.
           </p>
         </section>
 
@@ -419,23 +432,23 @@ export function LeadsPage() {
             <div className="l-kpi-value">{stats.all}</div>
           </article>
           <article className="l-kpi">
-            <div className="l-kpi-label"><span className="dot green" /> New</div>
+            <div className="l-kpi-label"><span className="dot green" /> Nuevos</div>
             <div className="l-kpi-value">{stats.new}</div>
           </article>
           <article className="l-kpi">
-            <div className="l-kpi-label"><span className="dot blue" /> Contacted</div>
+            <div className="l-kpi-label"><span className="dot blue" /> Contactados</div>
             <div className="l-kpi-value">{stats.contacted}</div>
           </article>
           <article className="l-kpi">
-            <div className="l-kpi-label"><span className="dot amber" /> Qualified</div>
+            <div className="l-kpi-label"><span className="dot amber" /> Cualificados</div>
             <div className="l-kpi-value">{stats.qualified}</div>
           </article>
           <article className="l-kpi em">
-            <div className="l-kpi-label"><span className="dot em" /> Converted</div>
+            <div className="l-kpi-label"><span className="dot em" /> Convertidos</div>
             <div className="l-kpi-value">{stats.converted}</div>
           </article>
           <article className="l-kpi">
-            <div className="l-kpi-label"><span className="dot grey" /> Lost</div>
+            <div className="l-kpi-label"><span className="dot grey" /> Perdidos</div>
             <div className="l-kpi-value">{stats.lost}</div>
           </article>
         </div>
@@ -449,7 +462,7 @@ export function LeadsPage() {
             </svg>
             <input
               type="search"
-              placeholder="Search name, email, phone, number or notes…"
+              placeholder="Buscar por nombre, email, teléfono, número o notas…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -473,8 +486,8 @@ export function LeadsPage() {
             className={`l-refresh${loading ? ' spin' : ''}`}
             onClick={load}
             disabled={loading}
-            title="Refresh"
-            aria-label="Refresh"
+            title="Actualizar"
+            aria-label="Actualizar"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
               <path d="M3 12a9 9 0 0 1 15.5-6.3M21 4v6h-6M21 12a9 9 0 0 1-15.5 6.3M3 20v-6h6" strokeLinecap="round" strokeLinejoin="round" />
@@ -497,7 +510,7 @@ export function LeadsPage() {
                   {selected.language ? ` · ${selected.language}` : ''}
                 </div>
               </div>
-              <button type="button" className="l-close" onClick={closeDetail} aria-label="Close">
+              <button type="button" className="l-close" onClick={closeDetail} aria-label="Cerrar">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
                 </svg>
@@ -510,11 +523,11 @@ export function LeadsPage() {
                 <input className="mono" value={selected.email || ''} readOnly />
               </div>
               <div className="l-field">
-                <label>Extra phone</label>
+                <label>Teléfono extra</label>
                 <input className="mono" value={selected.phone || ''} readOnly />
               </div>
               <div className="l-field">
-                <label>Status</label>
+                <label>Estado</label>
                 <select value={statusDraft} onChange={(e) => setStatusDraft(e.target.value)}>
                   {STATUS_FOR_DETAIL.map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
@@ -522,36 +535,36 @@ export function LeadsPage() {
                 </select>
               </div>
               <div className="l-field">
-                <label>Confidence</label>
+                <label>Confianza</label>
                 <ConfBar value={selected.confidence} />
               </div>
               <div className="l-field" style={{ gridColumn: '1 / -1' }}>
-                <label>Notes</label>
+                <label>Notas</label>
                 <textarea
                   value={notesDraft}
                   onChange={(e) => setNotesDraft(e.target.value)}
-                  placeholder="Internal notes about this lead"
+                  placeholder="Notas internas sobre este lead"
                 />
               </div>
             </div>
 
             <div className="l-detail-actions">
               <button type="button" className="l-btn" onClick={saveLead} disabled={saving}>
-                {saving ? 'Saving…' : 'Save changes'}
+                {saving ? 'Guardando…' : 'Guardar cambios'}
               </button>
             </div>
 
             <h3 style={{ marginTop: 22, marginBottom: 8, fontSize: 14, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.04em' }}>
-              Conversation
+              Conversación
             </h3>
             <div className="l-thread">
               {messages.length === 0 ? (
-                <div style={{ color: 'var(--muted)', textAlign: 'center', padding: 20 }}>No messages stored yet.</div>
+                <div style={{ color: 'var(--muted)', textAlign: 'center', padding: 20 }}>Aún no hay mensajes guardados.</div>
               ) : (
                 messages.map((m) => (
                   <div key={m.id} className={`l-msg ${m.direction === 'outbound' ? 'out' : 'in'}`}>
                     <div className="l-msg-who">
-                      {m.direction === 'outbound' ? 'Omnira agent' : `+${selected.wa_from}`} · {formatDate(m.created_at)}
+                      {m.direction === 'outbound' ? 'Agente Omnira' : `+${selected.wa_from}`} · {formatDate(m.created_at)}
                     </div>
                     <div className="l-msg-body">{m.body}</div>
                   </div>
@@ -564,8 +577,8 @@ export function LeadsPage() {
         {/* Lead cards */}
         {leads.length === 0 && !loading ? (
           <div className="l-empty">
-            <strong>No leads match the current filters.</strong>
-            When users WhatsApp the Omnira number, leads appear here automatically.
+            <strong>Ningún lead coincide con los filtros actuales.</strong>
+            Cuando alguien escriba al número de WhatsApp, los leads aparecerán aquí automáticamente.
           </div>
         ) : (
           <div className="l-grid">
@@ -587,18 +600,18 @@ export function LeadsPage() {
                         <div className="l-card-sub">+{l.wa_from}</div>
                       </div>
                     </div>
-                    <span className={`l-status-badge ${getStatusColor(l.status)}`}>{l.status}</span>
+                    <span className={`l-status-badge ${getStatusColor(l.status)}`}>{getStatusLabel(l.status)}</span>
                   </div>
                   <div className="l-card-info">
                     {l.email ? <div>email <strong>{l.email}</strong></div> : null}
-                    {l.intent ? <div>intent <strong>{l.intent}</strong></div> : null}
-                    {l.language ? <div>lang <strong>{l.language}</strong></div> : null}
-                    <div>msgs <strong>{l.message_count ?? 0}</strong></div>
+                    {l.intent ? <div>intención <strong>{l.intent}</strong></div> : null}
+                    {l.language ? <div>idioma <strong>{l.language}</strong></div> : null}
+                    <div>msjs <strong>{l.message_count ?? 0}</strong></div>
                   </div>
                   <ConfBar value={l.confidence} />
                   <div className="l-card-foot">
-                    <span>last activity · {formatRelative(l.last_message_at)}</span>
-                    <span className="open-cta">{isOpen ? '✕ Close' : 'Open →'}</span>
+                    <span>última actividad · {formatRelative(l.last_message_at)}</span>
+                    <span className="open-cta">{isOpen ? '✕ Cerrar' : 'Abrir →'}</span>
                   </div>
                 </article>
               );

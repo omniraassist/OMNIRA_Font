@@ -207,7 +207,7 @@ export function TopBar({ onMenuClick }) {
   return (
     <header className="adm-topbar adm-topbar-pro">
       <style>{STYLES}</style>
-      <button type="button" className="adm-menu-toggle" aria-label="Open menu" onClick={onMenuClick}>
+      <button type="button" className="adm-menu-toggle" aria-label="Abrir menú" onClick={onMenuClick}>
         <span className="adm-menu-toggle-bars" aria-hidden>
           <span />
           <span />
@@ -221,8 +221,8 @@ export function TopBar({ onMenuClick }) {
           <button
             type="button"
             className="adm-icon-btn adm-tb-bell"
-            title="Notifications"
-            aria-label="Notifications"
+            title="Notificaciones"
+            aria-label="Notificaciones"
             onClick={handleNotifClick}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
@@ -232,15 +232,15 @@ export function TopBar({ onMenuClick }) {
           </button>
 
           {notifOpen ? (
-            <div className="adm-tb-notif" role="dialog" aria-label="Recent notifications">
+            <div className="adm-tb-notif" role="dialog" aria-label="Notificaciones recientes">
               <div className="adm-tb-notif-head">
-                <strong>Notifications</strong>
-                <span className="count">{notifications.length} total</span>
+                <strong>Notificaciones</strong>
+                <span className="count">{notifications.length} en total</span>
               </div>
               <div className="adm-tb-notif-list">
                 {notifications.length === 0 ? (
                   <div style={{ padding: 28, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
-                    No notifications yet.
+                    Aún no tienes notificaciones.
                   </div>
                 ) : (
                   notifications.slice(0, 10).map((n) => (
@@ -248,7 +248,7 @@ export function TopBar({ onMenuClick }) {
                       <strong>{n.title}</strong>
                       <p>{n.message}</p>
                       <div className="meta">
-                        {n.target_email || 'All users'} · {formatRelative(n.created_at)}
+                        {n.target_email || 'Todos los usuarios'} · {formatRelative(n.created_at)}
                       </div>
                     </div>
                   ))
@@ -260,10 +260,10 @@ export function TopBar({ onMenuClick }) {
                   onClick={() => setNotifOpen(false)}
                   style={{ color: 'var(--em)', fontWeight: 600, textDecoration: 'none' }}
                 >
-                  Compose + manage →
+                  Redactar y gestionar →
                 </Link>
                 <span style={{ color: 'var(--muted)', fontFamily: 'monospace', fontSize: 11 }}>
-                  refreshes every 60s
+                  se actualiza cada 60s
                 </span>
               </div>
             </div>
@@ -282,8 +282,8 @@ export function TopBar({ onMenuClick }) {
               {user?.avatar ? <img src={user.avatar} alt={user?.name || 'admin'} /> : initials}
             </span>
             <span className="meta">
-              <small>Signed in</small>
-              <span>{user?.name ?? 'Admin'}</span>
+              <small>Conectado</small>
+              <span>{user?.name ?? 'Administrador'}</span>
             </span>
             <svg className="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
@@ -293,7 +293,7 @@ export function TopBar({ onMenuClick }) {
           {userOpen ? (
             <div className="adm-tb-menu" role="menu">
               <div className="adm-tb-menu-head">
-                <strong>{user?.name || 'Omnira Admin'}</strong>
+                <strong>{user?.name || 'Administrador'}</strong>
                 <span>{user?.email || ''}</span>
               </div>
               <Link to="/profile" className="adm-tb-menu-item" onClick={() => setUserOpen(false)}>
@@ -301,27 +301,27 @@ export function TopBar({ onMenuClick }) {
                   <circle cx="12" cy="8" r="4" />
                   <path d="M4 21a8 8 0 0 1 16 0" strokeLinecap="round" />
                 </svg>
-                My profile
+                Mi perfil
               </Link>
               <Link to="/notifications" className="adm-tb-menu-item" onClick={() => setUserOpen(false)}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
                   <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" strokeLinecap="round" />
                 </svg>
-                Send notification
+                Enviar notificación
               </Link>
               <Link to="/whatsapp" className="adm-tb-menu-item" onClick={() => setUserOpen(false)}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
                   <circle cx="12" cy="12" r="3" />
                   <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9 1.65 1.65 0 0 0 4.27 7.18l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" strokeLinejoin="round" />
                 </svg>
-                Platform settings
+                Configuración de plataforma
               </Link>
               <div className="adm-tb-divider" />
               <button type="button" className="adm-tb-menu-item danger" onClick={onLogout}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                Sign out
+                Cerrar sesión
               </button>
             </div>
           ) : null}

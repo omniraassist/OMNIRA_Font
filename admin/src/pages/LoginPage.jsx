@@ -146,13 +146,13 @@ export function LoginPage() {
         <div className="lg-logo">
           <IconBot style={{ width: 30, height: 30 }} />
         </div>
-        <h1 className="lg-title">Omnira admin</h1>
+        <h1 className="lg-title">Omnira · administración</h1>
         <p className="lg-lead">
-          Sign in to manage paying customers, WhatsApp agent prompts, payment plans, leads, and platform secrets.
+          Inicia sesión para gestionar clientes de pago, prompts del agente de WhatsApp, planes, leads y secretos de la plataforma.
         </p>
         <form onSubmit={submit} autoComplete="off">
           <div className="lg-field">
-            <label htmlFor="adm-email">Work email</label>
+            <label htmlFor="adm-email">Correo de trabajo</label>
             <input
               id="adm-email"
               type="email"
@@ -164,7 +164,7 @@ export function LoginPage() {
             />
           </div>
           <div className="lg-field">
-            <label htmlFor="adm-password">Password</label>
+            <label htmlFor="adm-password">Contraseña</label>
             <div className="lg-pw-wrap">
               <input
                 id="adm-password"
@@ -175,13 +175,13 @@ export function LoginPage() {
                 minLength={8}
                 autoComplete="current-password"
                 style={{ paddingRight: 48, width: '100%' }}
-                placeholder="At least 8 characters"
+                placeholder="Mínimo 8 caracteres"
               />
               <button
                 type="button"
                 className="lg-pw-toggle"
                 onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
               >
                 {showPassword ? (
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
@@ -198,11 +198,11 @@ export function LoginPage() {
           </div>
           {error ? <div className="lg-err">{error}</div> : null}
           <button type="submit" className="lg-btn" disabled={loading || !email || password.length < 8}>
-            {loading ? 'Signing in…' : 'Enter control center'}
+            {loading ? 'Entrando…' : 'Entrar al centro de control'}
           </button>
         </form>
         <div className="lg-foot">
-          Omnira · <strong>Superadmin access</strong>
+          Omnira · <strong>Acceso de superadministrador</strong>
         </div>
       </div>
     </div>

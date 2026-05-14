@@ -3,8 +3,17 @@ import { apiCall } from '../api/client.js';
 
 function formatDate(iso) {
   if (!iso) return '—';
-  try { return new Date(iso).toLocaleString(); } catch { return '—'; }
+  try { return new Date(iso).toLocaleString('es-ES'); } catch { return '—'; }
 }
+
+const CHAT_STATUS_LABEL_ES = {
+  new: 'Nuevo',
+  contacted: 'Contactado',
+  qualified: 'Cualificado',
+  converted: 'Convertido',
+  lost: 'Perdido',
+};
+function chatStatusLabel(s) { return CHAT_STATUS_LABEL_ES[s] || s || '—'; }
 function shortPreview(text, len = 110) {
   const s = String(text || '').replace(/\s+/g, ' ').trim();
   return s.length > len ? `${s.slice(0, len)}…` : s;
@@ -190,7 +199,7 @@ export function ChatsPage() {
       setConversations(res.conversations || []);
     } catch (e) {
       setConversations([]);
-      setError(e?.message || 'Could not load conversations');
+      setError(e?.message || 'No se pudieron cargar las conversaciones');
     } finally {
       setLoading(false);
     }
@@ -206,7 +215,7 @@ export function ChatsPage() {
       const res = await apiCall(`/api/admin/wa-messages?from=${encodeURIComponent(c.wa_from)}&limit=500`);
       setMessages((res.messages || []).slice().reverse());
     } catch (e) {
-      setError(e?.message || 'Could not load thread');
+      setError(e?.message || 'No se pudo cargar la conversación');
     } finally {
       setMessagesLoading(false);
     }
@@ -235,8 +244,8 @@ export function ChatsPage() {
       <style>{STYLES}</style>
 
       <header className="adm-page-head">
-        <h1>WhatsApp chats</h1>
-        <p>Every conversation on the Omnira WhatsApp number. Tap a thread to see the full back-and-forth between the user and the agent.</p>
+        <h1>Chats de WhatsApp</h1>
+        <p>Todas las conversaciones del número de WhatsApp de Omnira. Pulsa una para ver el ida y vuelta completo entre el usuario y el agente.</p>
       </header>
 
       <div className="c-page">
@@ -248,7 +257,7 @@ export function ChatsPage() {
             </svg>
             <input
               type="search"
-              placeholder="Search number / name / email / message…"
+              placeholder="Buscar por número / nombre / email / mensaje…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -257,7 +266,7 @@ export function ChatsPage() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
               <path d="M3 12a9 9 0 0 1 15.5-6.3M21 4v6h-6M21 12a9 9 0 0 1-15.5 6.3M3 20v-6h6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            {loading ? 'Loading…' : 'Refresh'}
+            {loading ? 'Cargando…' : 'Actualizar'}
           </button>
           <span className="c-counter">{filtered.length} / {conversations.length}</span>
         </div>
@@ -269,7 +278,7 @@ export function ChatsPage() {
           <aside className="c-list">
             {!filtered.length && !loading ? (
               <div className="c-list-empty">
-                No conversations yet. When users message the Omnira WhatsApp number, threads appear here.
+                Aún no hay conversaciones. Cuando los usuarios escriban al número de WhatsApp de Omnira, las conversaciones aparecerán aquí.
               </div>
             ) : null}
             {filtered.map((c) => {
@@ -287,13 +296,13 @@ export function ChatsPage() {
                   </div>
                   <div className="c-row-mid">
                     <span>+{c.wa_from}</span>
-                    <span>{c.message_count} msg</span>
+                    <span>{c.message_count} msjs</span>
                   </div>
                   <div className="c-row-prev">{shortPreview(c.last_body)}</div>
                   {c.lead ? (
                     <div className="c-row-tags">
                       <span className={`c-tag ${c.lead.status === 'lost' ? 'grey' : c.lead.status === 'qualified' ? 'amber' : c.lead.status === 'converted' ? 'green' : 'blue'}`}>
-                        {c.lead.status}
+                        {chatStatusLabel(c.lead.status)}
                       </span>
                       {c.lead.intent ? <span className="c-tag intent">{c.lead.intent}</span> : null}
                       {c.lead.email ? <span className="em">{c.lead.email}</span> : null}
@@ -307,7 +316,7 @@ export function ChatsPage() {
           {/* THREAD */}
           <section className="c-thread">
             {!active ? (
-              <div className="c-thread-empty">Select a conversation on the left to see the full chat.</div>
+              <div className="c-thread-empty">Selecciona una conversación a la izquierda para ver el chat completo.</div>
             ) : (
               <>
                 <div className="c-thread-head">
@@ -315,27 +324,27 @@ export function ChatsPage() {
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                    Back
+                    Atrás
                   </button>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div className="who">{active.lead?.name || `+${active.wa_from}`}</div>
-                    <div className="sub">+{active.wa_from} · {active.message_count} messages · {formatDate(active.last_at)}</div>
+                    <div className="sub">+{active.wa_from} · {active.message_count} mensajes · {formatDate(active.last_at)}</div>
                   </div>
                   {active.lead ? (
-                    <a href="/leads" className="c-thread-lead-link" onClick={(e) => e.stopPropagation()}>Open lead →</a>
+                    <a href="/leads" className="c-thread-lead-link" onClick={(e) => e.stopPropagation()}>Abrir lead →</a>
                   ) : null}
                 </div>
 
                 <div className="c-msgs">
                   {messagesLoading ? (
-                    <span style={{ color: 'var(--muted)' }}>Loading messages…</span>
+                    <span style={{ color: 'var(--muted)' }}>Cargando mensajes…</span>
                   ) : messages.length === 0 ? (
-                    <span style={{ color: 'var(--muted)' }}>No stored messages for this thread.</span>
+                    <span style={{ color: 'var(--muted)' }}>No hay mensajes guardados para esta conversación.</span>
                   ) : (
                     messages.map((m) => (
                       <div key={m.id} className={`c-msg ${m.direction === 'outbound' ? 'out' : 'in'}`}>
                         <div className="who">
-                          {m.direction === 'outbound' ? 'Omnira agent' : `+${active.wa_from}`} · {formatDate(m.created_at)}
+                          {m.direction === 'outbound' ? 'Agente Omnira' : `+${active.wa_from}`} · {formatDate(m.created_at)}
                         </div>
                         <div className="body">{m.body}</div>
                       </div>

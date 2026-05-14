@@ -116,10 +116,10 @@ const STYLES = `
 function formatRelative(iso) {
   if (!iso) return '—';
   const diff = Date.now() - new Date(iso).getTime();
-  if (diff < 60_000) return 'just now';
-  if (diff < 3600_000) return `${Math.round(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.round(diff / 3600_000)}h ago`;
-  return new Date(iso).toLocaleDateString();
+  if (diff < 60_000) return 'ahora mismo';
+  if (diff < 3600_000) return `hace ${Math.round(diff / 60_000)} min`;
+  if (diff < 86_400_000) return `hace ${Math.round(diff / 3600_000)} h`;
+  return new Date(iso).toLocaleDateString('es-ES');
 }
 
 export function NotificationsPage() {
@@ -144,7 +144,7 @@ export function NotificationsPage() {
       const res = await apiCall('/api/admin/notifications');
       setList(res.notifications || []);
     } catch (e) {
-      setError(e?.message || 'Could not load notifications');
+      setError(e?.message || 'No se pudieron cargar las notificaciones');
     } finally {
       setLoading(false);
     }
@@ -157,7 +157,7 @@ export function NotificationsPage() {
   const submit = async (e) => {
     e.preventDefault();
     if (!title.trim() || !message.trim()) {
-      setError('Title and message are required.');
+      setError('El título y el mensaje son obligatorios.');
       return;
     }
     setSending(true);
@@ -175,12 +175,12 @@ export function NotificationsPage() {
       setTitle(''); setMessage(''); setTargetEmail('');
       setInfo(
         targetEmail.trim()
-          ? `Notification sent to ${targetEmail.trim()}.`
-          : 'Notification posted to all customers.'
+          ? `Notificación enviada a ${targetEmail.trim()}.`
+          : 'Notificación enviada a todos los clientes.'
       );
       await load();
     } catch (e) {
-      setError(e?.message || 'Could not send notification');
+      setError(e?.message || 'No se pudo enviar la notificación');
     } finally {
       setSending(false);
     }
@@ -194,17 +194,17 @@ export function NotificationsPage() {
       });
       await load();
     } catch (e) {
-      setError(e?.message || 'Could not toggle');
+      setError(e?.message || 'No se pudo cambiar el estado');
     }
   };
 
   const remove = async (n) => {
-    if (!window.confirm(`Delete notification "${n.title}"? This cannot be undone.`)) return;
+    if (!window.confirm(`¿Eliminar la notificación "${n.title}"? Esta acción no se puede deshacer.`)) return;
     try {
       await apiCall(`/api/admin/notifications/${n.id}`, { method: 'DELETE' });
       await load();
     } catch (e) {
-      setError(e?.message || 'Could not delete');
+      setError(e?.message || 'No se pudo eliminar');
     }
   };
 
@@ -238,11 +238,11 @@ export function NotificationsPage() {
       <style>{STYLES}</style>
 
       <header className="adm-page-head">
-        <h1>Notifications</h1>
+        <h1>Notificaciones</h1>
         <p>
-          Send a notification to all customers or to a specific email. Active notifications appear in each
-          customer's dashboard (bell icon). Inactive ones are kept for history but not delivered. All counts and
-          dates below come straight from <code>user_notifications</code>.
+          Envía una notificación a todos los clientes o a un correo concreto. Las notificaciones activas aparecen
+          en el panel de cada cliente (icono de campana). Las inactivas se conservan como histórico pero no se
+          entregan. Todos los recuentos y fechas vienen directamente de <code>user_notifications</code>.
         </p>
       </header>
 
@@ -251,53 +251,53 @@ export function NotificationsPage() {
 
       <div className="n-grid">
         <section className="n-card em">
-          <h3>Compose</h3>
-          <p className="sub">Plain text. Markdown is not parsed. Customer sees this exactly as written.</p>
+          <h3>Redactar</h3>
+          <p className="sub">Texto plano. No se interpreta Markdown. El cliente lo verá exactamente como lo escribas.</p>
           <form onSubmit={submit}>
             <div className="n-field">
-              <label>Title</label>
+              <label>Título</label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value.slice(0, 200))}
-                placeholder="Maintenance window tonight"
+                placeholder="Ventana de mantenimiento esta noche"
                 maxLength={200}
                 required
               />
               <span className="n-counter">{title.length} / 200</span>
             </div>
             <div className="n-field">
-              <label>Message</label>
+              <label>Mensaje</label>
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value.slice(0, 4000))}
-                placeholder="We will deploy a database update tonight from 23:00 to 23:30 UTC. The agent may be unavailable for ~5 minutes."
+                placeholder="Aplicaremos una actualización de la base de datos esta noche de 23:00 a 23:30 UTC. El agente puede no estar disponible durante ~5 minutos."
                 maxLength={4000}
                 required
               />
               <span className="n-counter">{message.length} / 4000</span>
             </div>
             <div className="n-field">
-              <label>Target email <span style={{ textTransform: 'none', color: 'var(--muted)' }}>(optional · leave empty to broadcast)</span></label>
+              <label>Correo destinatario <span style={{ textTransform: 'none', color: 'var(--muted)' }}>(opcional · dejar vacío para enviar a todos)</span></label>
               <input
                 type="email"
                 value={targetEmail}
                 onChange={(e) => setTargetEmail(e.target.value)}
-                placeholder="customer@example.com"
+                placeholder="cliente@ejemplo.com"
                 autoComplete="off"
               />
             </div>
             <button type="submit" className="n-btn" disabled={sending || !title.trim() || !message.trim()}>
-              {sending ? 'Sending…' : targetEmail.trim() ? `Send to ${targetEmail.trim()}` : 'Broadcast to all customers'}
+              {sending ? 'Enviando…' : targetEmail.trim() ? `Enviar a ${targetEmail.trim()}` : 'Enviar a todos los clientes'}
             </button>
           </form>
         </section>
 
         <section className="n-card">
           <div className="n-list-head">
-            <h3>Sent</h3>
+            <h3>Enviadas</h3>
             <span>
-              {stats.total} total · {stats.active} active · {stats.broadcast} broadcast · {stats.total - stats.broadcast} targeted
+              {stats.total} total · {stats.active} activas · {stats.broadcast} a todos · {stats.total - stats.broadcast} a destinatario
             </span>
           </div>
 
@@ -306,20 +306,20 @@ export function NotificationsPage() {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search title, message, target…"
+              placeholder="Buscar título, mensaje, destinatario…"
             />
             <select value={filter} onChange={(e) => setFilter(e.target.value)}>
-              <option value="all">All</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="broadcast">Broadcast</option>
-              <option value="targeted">Targeted</option>
+              <option value="all">Todas</option>
+              <option value="active">Activas</option>
+              <option value="inactive">Inactivas</option>
+              <option value="broadcast">A todos</option>
+              <option value="targeted">A destinatario</option>
             </select>
-            <button type="button" className="n-icon-btn" title="Refresh" onClick={load} disabled={loading}>↻</button>
+            <button type="button" className="n-icon-btn" title="Actualizar" onClick={load} disabled={loading}>↻</button>
           </div>
 
           {filtered.length === 0 && !loading ? (
-            <div className="n-empty">No notifications match the current filter.</div>
+            <div className="n-empty">Ninguna notificación coincide con el filtro actual.</div>
           ) : null}
 
           {filtered.map((n) => (
@@ -329,9 +329,9 @@ export function NotificationsPage() {
                 <div className="msg">{n.message}</div>
                 <div className="meta">
                   <span className={`target ${n.target_email ? '' : 'all'}`}>
-                    {n.target_email || 'all customers'}
+                    {n.target_email || 'todos los clientes'}
                   </span>
-                  <span>by {n.created_by || 'admin'}</span>
+                  <span>por {n.created_by || 'admin'}</span>
                   <span>·</span>
                   <span>{formatRelative(n.created_at)}</span>
                 </div>
@@ -340,7 +340,7 @@ export function NotificationsPage() {
                 <button
                   type="button"
                   className={`n-icon-btn toggle ${n.is_active !== false ? 'active' : ''}`}
-                  title={n.is_active !== false ? 'Disable' : 'Enable'}
+                  title={n.is_active !== false ? 'Desactivar' : 'Activar'}
                   onClick={() => toggleActive(n)}
                 >
                   {n.is_active !== false ? '●' : '○'}
@@ -348,7 +348,7 @@ export function NotificationsPage() {
                 <button
                   type="button"
                   className="n-icon-btn danger"
-                  title="Delete"
+                  title="Eliminar"
                   onClick={() => remove(n)}
                 >
                   ✕
