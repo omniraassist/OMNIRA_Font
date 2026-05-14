@@ -183,17 +183,6 @@ export function PostLoginPaymentStep() {
                 onError={(m) => setErr(m || 'Error de pago')}
               />
             )}
-
-            {!embed ? (
-              <>
-                <p className="panel-plan-lead" style={{ marginTop: 16, fontSize: 13, opacity: 0.85 }}>
-                  Solo desarrollo: si Stripe no está configurado, usa el botón de abajo.
-                </p>
-                <button type="button" className="btn-ghost" style={{ width: '100%', marginTop: 8 }} onClick={simulateLocal} disabled={busy}>
-                  Simular pago (requiere OMNIRA_ALLOW_SUBSCRIPTION_SIMULATE en servidor)
-                </button>
-              </>
-            ) : null}
           </div>
         </div>
       </main>
