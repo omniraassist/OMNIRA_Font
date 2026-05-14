@@ -101,6 +101,8 @@ export function Dashboard() {
   const [upcomingBookings, setUpcomingBookings] = useState([]);
   const [latestPayment, setLatestPayment] = useState(null);
   const [recentConversations, setRecentConversations] = useState([]);
+  const [widget, setWidget] = useState(null);
+  const [widgetCopied, setWidgetCopied] = useState('');
   const [allEvents, setAllEvents] = useState([]);
   const [calDate, setCalDate] = useState(() => {
     const d = new Date();
@@ -191,7 +193,22 @@ export function Dashboard() {
     } catch {
       /* ignore */
     }
+    // Widget snippet (wa.me + floating button HTML for embedding on customer's site)
+    try {
+      const w = await apiCall('/api/customer/widget-snippet');
+      setWidget(w || null);
+    } catch {
+      /* ignore */
+    }
   }, [user?.email]);
+
+  const copyWidgetPiece = async (kind, value) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setWidgetCopied(kind);
+      setTimeout(() => setWidgetCopied(''), 1800);
+    } catch { /* ignore */ }
+  };
 
   useEffect(() => {
     loadData();
@@ -543,6 +560,13 @@ export function Dashboard() {
                   <i className="fa-solid fa-lock" style={{ marginLeft: 'auto', opacity: 0.45, fontSize: 11 }} />
                 ) : null}
               </button>
+              <button
+                type="button"
+                className={`p-nav-item${page === 'widget' ? ' active' : ''}`}
+                onClick={() => openNavPage('widget')}
+              >
+                <i className="fa-solid fa-code" /> Widget
+              </button>
             </div>
           </nav>
           <div className="p-sidebar-footer">
@@ -560,31 +584,97 @@ export function Dashboard() {
         </aside>
 
         <main className="p-main">
-          {user?.subscriptionActive && user?.subscription_ends_at ? (
-            <div className="p-subscription-banner" role="status">
-              <div className="p-subscription-banner-shine" aria-hidden />
-              <div className="p-subscription-banner-content">
-                <span className="p-subscription-badge">
-                  <i className="fa-solid fa-gem" /> {planDisplayName(user.subscription_plan_id)}
-                </span>
-                <div className="p-subscription-countdown">
-                  <span className="p-subscription-days">{subscriptionDaysLeft(user.subscription_ends_at)}</span>
-                  <span className="p-subscription-days-label">días restantes</span>
-                </div>
-                <div className="p-subscription-until">
-                  Acceso hasta el{' '}
-                  <strong>
-                    {new Date(user.subscription_ends_at).toLocaleDateString('es-ES', {
-                      weekday: 'short',
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                    })}
-                  </strong>
+          {(() => {
+            const daysLeft = user?.subscription_ends_at ? subscriptionDaysLeft(user.subscription_ends_at) : 0;
+            const expired = user?.subscription_ends_at && new Date(user.subscription_ends_at) <= new Date();
+            const lowDays = !expired && daysLeft <= 7;
+            if (!user?.subscription_ends_at && !user?.subscriptionActive) {
+              // No subscription info at all → don't render banner
+              return null;
+            }
+            const accentBg = expired
+              ? 'linear-gradient(135deg, rgba(239,68,68,0.25), rgba(239,68,68,0.05))'
+              : lowDays
+                ? 'linear-gradient(135deg, rgba(251,191,36,0.20), rgba(251,191,36,0.04))'
+                : undefined;
+            const accentBorder = expired
+              ? 'rgba(239,68,68,0.45)'
+              : lowDays
+                ? 'rgba(251,191,36,0.45)'
+                : undefined;
+            const daysColor = expired ? '#fca5a5' : lowDays ? '#fde68a' : undefined;
+            return (
+              <div
+                className="p-subscription-banner"
+                role="status"
+                style={{
+                  ...(accentBg ? { background: accentBg } : {}),
+                  ...(accentBorder ? { borderColor: accentBorder } : {}),
+                  position: 'relative',
+                }}
+              >
+                <div className="p-subscription-banner-shine" aria-hidden />
+                <div className="p-subscription-banner-content">
+                  <span className="p-subscription-badge" style={daysColor ? { color: daysColor, borderColor: daysColor } : undefined}>
+                    <i className={`fa-solid ${expired ? 'fa-triangle-exclamation' : 'fa-gem'}`} />
+                    {expired ? 'Plan expirado' : planDisplayName(user.subscription_plan_id)}
+                  </span>
+                  <div className="p-subscription-countdown">
+                    <span className="p-subscription-days" style={daysColor ? { color: daysColor } : undefined}>
+                      {expired ? '0' : daysLeft}
+                    </span>
+                    <span className="p-subscription-days-label">
+                      {expired ? 'tu agente está pausado' : daysLeft === 1 ? 'día restante' : 'días restantes'}
+                    </span>
+                  </div>
+                  <div className="p-subscription-until">
+                    {expired ? (
+                      <>
+                        Tu WhatsApp dejó de responder.{' '}
+                        <button
+                          type="button"
+                          onClick={() => setUpgradeOpen(true)}
+                          style={{
+                            background: 'none', border: 0, color: 'var(--em)',
+                            fontWeight: 700, cursor: 'pointer', textDecoration: 'underline',
+                          }}
+                        >
+                          Renovar plan →
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        Acceso hasta el{' '}
+                        <strong>
+                          {new Date(user.subscription_ends_at).toLocaleDateString('es-ES', {
+                            weekday: 'short',
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                          })}
+                        </strong>
+                        {lowDays ? (
+                          <>
+                            {' · '}
+                            <button
+                              type="button"
+                              onClick={() => setUpgradeOpen(true)}
+                              style={{
+                                background: 'none', border: 0, color: 'var(--em)',
+                                fontWeight: 700, cursor: 'pointer', textDecoration: 'underline',
+                              }}
+                            >
+                              Renovar ahora
+                            </button>
+                          </>
+                        ) : null}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : null}
+            );
+          })()}
           <div id="page-dash" className={`p-page${page === 'dash' ? ' active' : ''}`}>
             <div id="dashUpgradeBanner" className="upgrade-banner" style={{ display: isPro ? 'none' : 'flex' }}>
               <div className="upgrade-text">
@@ -1109,6 +1199,120 @@ export function Dashboard() {
                 ) : null}
               </div>
             </div>
+          </div>
+
+          {/* Widget page — paste-ready WhatsApp button for the customer's site */}
+          <div id="page-widget" className={`p-page${page === 'widget' ? ' active' : ''}`}>
+            <h1 className="p-page-title">Widget · 24/7 WhatsApp button</h1>
+            <p className="p-page-sub">
+              Pega este código en tu sitio web justo antes de <code style={{ background: 'rgba(255,255,255,0.04)', padding: '1px 5px', borderRadius: 4 }}>&lt;/body&gt;</code>{' '}
+              y aparecerá un botón flotante de WhatsApp. Cuando alguien lo pulse, se abrirá WhatsApp directamente con tu
+              número y un mensaje inicial — y tu agente Omnira responderá automáticamente.
+            </p>
+
+            {!widget?.is_active ? (
+              <div className="p-card" style={{ borderColor: 'rgba(251,191,36,0.35)', background: 'rgba(251,191,36,0.05)' }}>
+                <div className="p-card-header">
+                  <span className="p-card-title" style={{ color: '#fde68a' }}>⏳ Aún no verificado</span>
+                </div>
+                <p style={{ fontSize: 13, color: 'var(--soft)', lineHeight: 1.6, margin: '8px 0' }}>
+                  Primero conecta tu cuenta de WhatsApp Business (paso 3 del onboarding). Una vez verificada,
+                  podrás copiar el snippet del widget desde aquí.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="p-content-grid">
+                  <div className="p-card">
+                    <div className="p-card-header">
+                      <span className="p-card-title">Tu número verificado</span>
+                    </div>
+                    <div style={{ padding: '14px 0', fontFamily: 'monospace', fontSize: 16, color: 'var(--em)' }}>
+                      {widget.display_phone_number || `+${widget.digits}`}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                      Negocio: <strong style={{ color: 'var(--text)' }}>{widget.business_name}</strong>
+                    </div>
+                  </div>
+                  <div className="p-card">
+                    <div className="p-card-header">
+                      <span className="p-card-title">Enlace wa.me directo</span>
+                      <button
+                        type="button"
+                        className="p-card-link"
+                        onClick={() => copyWidgetPiece('wa', widget.wa_me_url_with_message)}
+                      >
+                        {widgetCopied === 'wa' ? '✓ Copiado' : 'Copiar'}
+                      </button>
+                    </div>
+                    <input
+                      readOnly
+                      value={widget.wa_me_url_with_message}
+                      className="form-input"
+                      style={{ fontFamily: 'monospace', fontSize: 12, marginTop: 10 }}
+                    />
+                    <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>
+                      Úsalo en un botón "Contactar" o en redes sociales.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-card" style={{ marginTop: 18 }}>
+                  <div className="p-card-header">
+                    <span className="p-card-title">Snippet HTML (pega antes de &lt;/body&gt;)</span>
+                    <button
+                      type="button"
+                      className="p-card-link"
+                      onClick={() => copyWidgetPiece('snippet', widget.snippet)}
+                    >
+                      {widgetCopied === 'snippet' ? '✓ Copiado' : 'Copiar snippet'}
+                    </button>
+                  </div>
+                  <pre style={{
+                    background: 'rgba(0,0,0,0.40)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 10,
+                    padding: 14,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 11,
+                    lineHeight: 1.55,
+                    color: 'var(--soft)',
+                    overflow: 'auto',
+                    maxHeight: 360,
+                    margin: '10px 0 0',
+                    whiteSpace: 'pre',
+                  }}>
+                    {widget.snippet}
+                  </pre>
+                  <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10 }}>
+                    Sin dependencias externas, sin CSS extra. El botón es accesible (aria-label), abre WhatsApp
+                    en pestaña nueva y funciona en escritorio + móvil.
+                  </p>
+                </div>
+
+                <div className="p-card" style={{ marginTop: 18 }}>
+                  <div className="p-card-header">
+                    <span className="p-card-title">Webhook de Meta (para referencia)</span>
+                    <button
+                      type="button"
+                      className="p-card-link"
+                      onClick={() => copyWidgetPiece('webhook', widget.webhook_url)}
+                    >
+                      {widgetCopied === 'webhook' ? '✓ Copiado' : 'Copiar'}
+                    </button>
+                  </div>
+                  <input
+                    readOnly
+                    value={widget.webhook_url || ''}
+                    className="form-input"
+                    style={{ fontFamily: 'monospace', fontSize: 12, marginTop: 10 }}
+                  />
+                  <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>
+                    Ya está pegado en Meta App → WhatsApp → Configuration → Callback URL. No necesitas tocarlo de nuevo.
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </main>
       </div>

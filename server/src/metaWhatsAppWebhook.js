@@ -112,6 +112,159 @@ async function sendMarketingWhatsAppReply(toE164Digits, text) {
   return { ok: true, status: res.status, snippet: "" };
 }
 
+// ---------------------------------------------------------------------------
+// Multi-tenant helpers — used by the webhook to route each inbound message to
+// the right customer's bot using their phone_number_id, their access token,
+// their bot prompt + knowledge base, and their business info. Falls back to
+// the platform agent when no customer matches.
+// ---------------------------------------------------------------------------
+
+export async function findCustomerConfigByPhoneNumberId(phoneNumberId) {
+  if (!isSupabaseConfigured() || !phoneNumberId) return null;
+  try {
+    const { data } = await supabaseAdmin
+      .from("customer_whatsapp_configs")
+      .select(
+        "customer_user_id, meta_access_token, meta_app_secret, meta_verify_token, meta_phone_number_id, meta_business_account_id, meta_display_phone_number, meta_verified_name, meta_graph_version, is_active"
+      )
+      .eq("meta_phone_number_id", String(phoneNumberId))
+      .maybeSingle();
+    return data || null;
+  } catch (e) {
+    console.warn("[meta whatsapp] customer lookup failed:", e?.message || e);
+    return null;
+  }
+}
+
+export async function isCustomerSubscriptionActive(customerId) {
+  if (!customerId || !isSupabaseConfigured()) return false;
+  try {
+    const { data } = await supabaseAdmin
+      .from("customer_users")
+      .select("subscription_ends_at")
+      .eq("id", customerId)
+      .maybeSingle();
+    return Boolean(data?.subscription_ends_at && new Date(data.subscription_ends_at) > new Date());
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Send a WhatsApp message using a *customer's* credentials (their access token
+ * + their phone_number_id). Used both for replies the customer's agent
+ * generates and for the platform-issued "your plan expired" renewal nudge.
+ */
+async function sendCustomerWhatsAppMessage(customerConfig, toE164Digits, text) {
+  const token = String(customerConfig?.meta_access_token || "").trim();
+  const phoneNumberId = String(customerConfig?.meta_phone_number_id || "").trim();
+  if (!token || !phoneNumberId || !toE164Digits || !text) {
+    return { ok: false, status: 0, snippet: "missing customer credentials or recipient" };
+  }
+  const gv =
+    String(customerConfig?.meta_graph_version || "").trim() ||
+    (await graphVersion());
+  const versionTag = gv.startsWith("v") ? gv : `v${gv}`;
+  const url = `https://graph.facebook.com/${versionTag}/${phoneNumberId}/messages`;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to: toE164Digits,
+        type: "text",
+        text: { preview_url: false, body: text.slice(0, 4096) }
+      })
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      console.warn("[meta whatsapp] customer outbound failed", res.status, t.slice(0, 300));
+      return { ok: false, status: res.status, snippet: t.slice(0, 300) };
+    }
+    return { ok: true, status: res.status, snippet: "" };
+  } catch (e) {
+    return { ok: false, status: 0, snippet: e?.message || "network" };
+  }
+}
+
+/**
+ * Load a customer's bot config row (system prompt + knowledge base + greeting).
+ * Falls back to the platform row if the customer never edited theirs, so the
+ * agent always has something coherent to say.
+ */
+async function loadCustomerBotConfig(customerId) {
+  const platform = await loadPlatformBotConfig();
+  if (!customerId || !isSupabaseConfigured()) return platform;
+  try {
+    const { data } = await supabaseAdmin
+      .from("bot_configs")
+      .select("system_prompt, knowledge_base, greeting")
+      .eq("scope", "customer")
+      .eq("customer_user_id", customerId)
+      .maybeSingle();
+    if (!data) return platform;
+    return {
+      systemPrompt: String(data.system_prompt || platform.systemPrompt || "").slice(0, 16000),
+      knowledgeBase: String(data.knowledge_base || "").slice(0, 32000),
+      leadExtractionPrompt: platform.leadExtractionPrompt,
+      greeting: String(data.greeting || "").slice(0, 1000)
+    };
+  } catch {
+    return platform;
+  }
+}
+
+async function loadCustomerBusiness(customerId) {
+  if (!customerId || !isSupabaseConfigured()) return null;
+  try {
+    const { data } = await supabaseAdmin
+      .from("customer_business_info")
+      .select("name, type, phone, email, address, hours, services")
+      .eq("customer_user_id", customerId)
+      .maybeSingle();
+    return data || null;
+  } catch {
+    return null;
+  }
+}
+
+const DEFAULT_CUSTOMER_SYSTEM_PROMPT = `You are the AI assistant for this business on WhatsApp Business. Detect the language the user wrote in and ALWAYS reply in that exact same language. Be warm, concise, professional — short paragraphs, no bullet symbols inside WhatsApp text, one clear next step at the end.
+Use the BUSINESS CONTEXT and KNOWLEDGE BASE below as the source of truth for prices, services, hours and policies. If the user asks something not covered, say you'll check with the team and offer to connect them — do not invent answers.`;
+
+function buildCustomerSystemPrompt(customerBot, business) {
+  let prompt = String(customerBot?.systemPrompt || DEFAULT_CUSTOMER_SYSTEM_PROMPT);
+  if (business && Object.values(business).some(Boolean)) {
+    prompt += `\n\n# Business context (admin-curated facts)\n`;
+    if (business.name) prompt += `Business name: ${business.name}\n`;
+    if (business.type) prompt += `Type: ${business.type}\n`;
+    if (business.phone) prompt += `Phone: ${business.phone}\n`;
+    if (business.email) prompt += `Email: ${business.email}\n`;
+    if (business.address) prompt += `Address: ${business.address}\n`;
+    if (business.hours) prompt += `Hours:\n${business.hours}\n`;
+    if (business.services) prompt += `Services & prices:\n${business.services}\n`;
+  }
+  if (customerBot?.knowledgeBase) {
+    prompt += `\n\n# Knowledge base (customer-curated)\n${customerBot.knowledgeBase}`;
+  }
+  return prompt.slice(0, 24000);
+}
+
+/**
+ * Used by the verify endpoint to send the welcome WhatsApp message to the
+ * customer's own personal number after their credentials check out.
+ */
+export async function sendWelcomeWhatsAppMessage(customerConfig, customerPersonalDigits) {
+  const phone = String(customerPersonalDigits || "").replace(/\D/g, "");
+  if (!phone) return { ok: false, snippet: "no recipient" };
+  const body =
+    "🎉 ¡Bienvenido a Omnira! Tu agente de WhatsApp está ACTIVO 24/7. " +
+    "Tus credenciales de Meta están verificadas y todo está listo. " +
+    "Cuando un cliente te escriba, Omnira responderá automáticamente con tu prompt y base de conocimiento. " +
+    "Si necesitas ayuda: omniraassist@gmail.com.";
+  return await sendCustomerWhatsAppMessage(customerConfig, phone, body);
+}
+
 /**
  * The agent's system prompt and lead-extraction prompt live in Supabase
  * (public.bot_configs, scope='platform') so admins can edit them from /bot-config
@@ -687,6 +840,27 @@ export async function handleMetaWhatsAppGet(req, res) {
     return res.send(ch);
   }
 
+  // Multi-tenant: if the platform verify token didn't match, try each
+  // customer's verify token. Whichever matches owns this Meta app.
+  if (mode === "subscribe" && token && ch && isSupabaseConfigured()) {
+    try {
+      const { data } = await supabaseAdmin
+        .from("customer_whatsapp_configs")
+        .select("customer_user_id, meta_verify_token")
+        .not("meta_verify_token", "is", null);
+      for (const row of data || []) {
+        if (row.meta_verify_token && token === row.meta_verify_token) {
+          console.info("[meta whatsapp] GET verify matched customer", row.customer_user_id);
+          res.status(200);
+          res.setHeader("Content-Type", "text/plain; charset=utf-8");
+          return res.send(ch);
+        }
+      }
+    } catch (e) {
+      console.warn("[meta whatsapp] customer verify lookup failed:", e?.message || e);
+    }
+  }
+
   if (mode !== "subscribe") {
     console.warn("[meta whatsapp] GET verify 403: hub.mode is not subscribe (got:", mode, ")");
   } else if (!expected) {
@@ -795,11 +969,11 @@ function summarizeMetaWebhookPayload(body) {
 export async function handleMetaWhatsAppPost(req, res) {
   try {
     const raw = req.rawBody;
-    const appSecret = String(await getPlatformSetting("META_WABA_APP_SECRET", "")).trim();
+    const platformAppSecret = String(await getPlatformSetting("META_WABA_APP_SECRET", "")).trim();
     const insecureLocal =
       process.env.NODE_ENV !== "production" &&
       String(await getPlatformSetting("META_WABA_WEBHOOK_INSECURE_LOCAL", "")).trim().toLowerCase() === "true" &&
-      !appSecret;
+      !platformAppSecret;
     const skipSignature =
       String(await getPlatformSetting("META_WABA_WEBHOOK_SKIP_SIGNATURE", "")).trim().toLowerCase() === "true";
 
@@ -813,15 +987,28 @@ export async function handleMetaWhatsAppPost(req, res) {
       contentType: String(req.headers["content-type"] || "").slice(0, 80)
     });
 
+    // Look up which (if any) customer owns the phone_number_id in this payload.
+    // Doing it before signature verification lets us validate against THAT
+    // customer's app secret if the platform secret doesn't match.
+    const inbound = extractInboundText(req.body);
+    const customerCfg = inbound?.phoneNumberId
+      ? await findCustomerConfigByPhoneNumberId(inbound.phoneNumberId)
+      : null;
+
     if (skipSignature) {
-      console.warn(
-        "[meta whatsapp] META_WABA_WEBHOOK_SKIP_SIGNATURE=true - NOT verifying X-Hub-Signature-256 (set META_WABA_APP_SECRET and remove this flag when possible)"
-      );
+      console.warn("[meta whatsapp] SKIP_SIGNATURE on — accepting POST without HMAC check");
     } else if (!insecureLocal) {
       const sig = req.headers["x-hub-signature-256"];
-      if (!appSecret || !verifyMetaAppSecretSignature(raw, sig, appSecret)) {
+      // Try platform secret first, then the customer's own app secret if any.
+      let signatureValid = false;
+      if (platformAppSecret && verifyMetaAppSecretSignature(raw, sig, platformAppSecret)) {
+        signatureValid = true;
+      } else if (customerCfg?.meta_app_secret && verifyMetaAppSecretSignature(raw, sig, customerCfg.meta_app_secret)) {
+        signatureValid = true;
+      }
+      if (!signatureValid) {
         console.warn(
-          "[meta whatsapp] POST /webhook 403 - signature missing or invalid. Set META_WABA_APP_SECRET to Meta App Secret, or temporarily META_WABA_WEBHOOK_SKIP_SIGNATURE=true on Vercel."
+          "[meta whatsapp] POST /webhook 403 - signature missing or invalid (neither platform nor customer secret matched)."
         );
         return res.sendStatus(403);
       }
@@ -829,10 +1016,139 @@ export async function handleMetaWhatsAppPost(req, res) {
       console.warn("[meta whatsapp] META_WABA_WEBHOOK_INSECURE_LOCAL: signature not verified (dev only)");
     }
 
-    await processMetaWebhookInboundBody(req.body);
+    // Route the inbound message: customer-owned phone_number_id → customer's
+    // agent (with subscription check); otherwise the platform agent.
+    if (inbound?.from && customerCfg && customerCfg.is_active) {
+      await processCustomerWebhookInbound(inbound, customerCfg);
+    } else {
+      await processMetaWebhookInboundBody(req.body);
+    }
     return res.status(200).json({ ok: true });
   } catch (e) {
     console.error("[meta whatsapp] webhook error", e?.message || e);
     return res.status(500).json({ ok: false });
+  }
+}
+
+/**
+ * Inbound handler for a paying customer's own WhatsApp number. Enforces
+ * subscription_ends_at — when expired the agent stays silent on real replies
+ * and instead sends one short renewal nudge so the user knows the agent will
+ * resume after they pay.
+ */
+async function processCustomerWebhookInbound(inbound, customerCfg) {
+  const customerId = customerCfg.customer_user_id;
+  console.info("[meta whatsapp] inbound for customer", customerId, "from", inbound.from);
+
+  // Always log the inbound first, scoped to this customer.
+  await logWaMessage({
+    customer_user_id: customerId,
+    phone_number_id: inbound.phoneNumberId,
+    wa_from: inbound.from,
+    wa_message_id: inbound.messageId || null,
+    direction: "inbound",
+    message_type: inbound.messageType || "text",
+    body: inbound.body
+  });
+
+  const active = await isCustomerSubscriptionActive(customerId);
+  if (!active) {
+    // Subscription expired — send the renewal nudge once per inbound, in the
+    // user's language as best-effort (Spanish default since most Omnira
+    // customers are ES; the message is short and clear in either case).
+    const renewMsg =
+      "Hola 👋 Tu plan de Omnira ha expirado, por eso este asistente no puede responder ahora mismo. " +
+      "Renueva tu plan en https://omnira-saas-application.vercel.app/ para reactivar las respuestas automáticas. ¡Gracias!";
+    const out = await sendCustomerWhatsAppMessage(customerCfg, inbound.from, renewMsg);
+    if (out?.ok) {
+      await logWaMessage({
+        customer_user_id: customerId,
+        phone_number_id: inbound.phoneNumberId,
+        wa_from: inbound.from,
+        direction: "outbound",
+        message_type: "text",
+        body: renewMsg
+      });
+    }
+    return;
+  }
+
+  // Active subscription — generate a reply with the customer's bot + business
+  // context, send it via the customer's access token, then save outbound +
+  // extract lead.
+  try {
+    const customerBot = await loadCustomerBotConfig(customerId);
+    const business = await loadCustomerBusiness(customerId);
+    const system = buildCustomerSystemPrompt(customerBot, business);
+    const history = await loadRecentConversation(inbound.phoneNumberId, inbound.from);
+    const trimmedHistory = history.slice(-10);
+
+    const model = String(await getPlatformSetting("OPENAI_CHAT_MODEL", "gpt-4o-mini")).trim() || "gpt-4o-mini";
+    const apiKeyData = await callOpenAiWithRetry(
+      "https://api.openai.com/v1/chat/completions",
+      (apiKey) => ({
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: system },
+            ...trimmedHistory,
+            { role: "user", content: String(inbound.body).trim().slice(0, 8000) }
+          ],
+          temperature: 0.55,
+          max_tokens: 700
+        })
+      }),
+      `openai reply customer/${customerId}`
+    );
+    const reply = apiKeyData?.choices?.[0]?.message?.content;
+    const fallback =
+      customerBot?.greeting && customerBot.greeting.trim()
+        ? customerBot.greeting.trim()
+        : "¡Hola! Gracias por escribir. En unos minutos te responderé.";
+    const textToSend = (typeof reply === "string" && reply.trim()) ? reply.trim().slice(0, 4090) : fallback;
+
+    const sendResult = await sendCustomerWhatsAppMessage(customerCfg, inbound.from, textToSend);
+    if (sendResult?.ok) {
+      await logWaMessage({
+        customer_user_id: customerId,
+        phone_number_id: inbound.phoneNumberId,
+        wa_from: inbound.from,
+        direction: "outbound",
+        message_type: "text",
+        body: textToSend
+      });
+    } else {
+      console.warn("[meta whatsapp] customer reply failed", sendResult?.status, sendResult?.snippet);
+    }
+
+    // Lead extraction (best-effort, same flow as platform)
+    const conversation = [
+      ...trimmedHistory,
+      { role: "user", content: inbound.body },
+      { role: "assistant", content: textToSend }
+    ];
+    const extracted = await extractLeadFromConversation(conversation);
+    await upsertWaLead({
+      phoneNumberId: inbound.phoneNumberId,
+      waFrom: inbound.from,
+      extracted,
+      inboundBody: inbound.body
+    });
+
+    // Tag the lead row with the customer so /api/customer/leads sees it.
+    try {
+      await supabaseAdmin
+        .from("wa_leads")
+        .update({ customer_user_id: customerId })
+        .eq("phone_number_id", inbound.phoneNumberId)
+        .eq("wa_from", inbound.from)
+        .is("customer_user_id", null);
+    } catch {
+      /* ignore */
+    }
+  } catch (e) {
+    console.error("[meta whatsapp] customer reply error", customerId, e?.message || e);
   }
 }

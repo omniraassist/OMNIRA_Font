@@ -3,85 +3,274 @@ import { LogoMark } from '../brand/LogoMark.jsx';
 import { usePanel } from '../../context/PanelContext.jsx';
 import { apiCall } from '../../api/client.js';
 
+/**
+ * Post-payment screen where the paying customer pastes their own Meta
+ * WhatsApp Cloud API credentials. Only the 5 fields the customer must
+ * provide are visible — graph_version / insecure_local / skip_signature
+ * are set to sensible defaults server-side so we don't ask for them.
+ *
+ * Flow:
+ *   1. Customer pastes credentials.
+ *   2. We save them to `customer_whatsapp_configs` (PATCH /api/customer/whatsapp-config).
+ *   3. We call /api/customer/whatsapp-config/verify which hits Meta Graph
+ *      to confirm token + phone_number_id are real. On success the row is
+ *      marked `is_active = true` and a welcome WhatsApp message is sent.
+ *   4. We show a celebration screen with the verified business name and
+ *      a button to enter the dashboard.
+ */
 const FIELDS = [
   {
+    key: 'meta_access_token',
+    label: 'Meta access token',
+    placeholder: 'EAAB… long-lived system user token',
+    hint: 'Meta Business Suite → System Users → Generate token with whatsapp_business_messaging.',
+    type: 'password',
+    required: true,
+    secret: true,
+  },
+  {
     key: 'meta_phone_number_id',
-    label: 'WhatsApp phone number ID',
+    label: 'Phone number ID',
     placeholder: 'e.g. 1124674670733081',
-    hint: 'Meta Business Suite → API Setup → Phone number ID. Numeric only.',
+    hint: 'Meta Business Suite → API Setup → Phone numbers → ID column.',
     type: 'text',
     required: true,
   },
   {
     key: 'meta_business_account_id',
-    label: 'WhatsApp Business Account (WABA) ID',
+    label: 'WABA business account ID',
     placeholder: 'e.g. 1936173473732174',
     hint: 'Meta Business Suite → WhatsApp Accounts → ID at the top.',
     type: 'text',
     required: true,
   },
   {
-    key: 'meta_display_phone_number',
-    label: 'Display phone number',
-    placeholder: '+34 600 000 000',
-    hint: 'How your number appears to recipients.',
+    key: 'meta_verify_token',
+    label: 'Webhook verify token',
+    placeholder: 'A random string — you also paste this same value in Meta',
+    hint: 'Choose any long random string. Paste this exact value into Meta → Configuration → Verify token.',
     type: 'text',
-    required: false,
-  },
-  {
-    key: 'meta_verified_name',
-    label: 'Verified business name',
-    placeholder: 'My Business S.L.',
-    hint: 'The name Meta approved for your WABA.',
-    type: 'text',
-    required: false,
-  },
-  {
-    key: 'meta_access_token',
-    label: 'Meta access token (long-lived system user)',
-    placeholder: 'EAAB…',
-    hint: 'Meta Business Suite → Settings → System Users → generate token with whatsapp_business_messaging.',
-    type: 'password',
     required: true,
-    secret: true,
   },
   {
     key: 'meta_app_secret',
     label: 'Meta App secret',
-    placeholder: 'From App Dashboard → Settings → Basic',
-    hint: 'Used to verify the HMAC signature on every inbound webhook POST.',
+    placeholder: 'From App Dashboard → Settings → Basic → App secret',
+    hint: 'Used to verify the X-Hub-Signature on every inbound webhook POST.',
     type: 'password',
     required: true,
     secret: true,
   },
-  {
-    key: 'meta_verify_token',
-    label: 'Webhook verify token (you choose)',
-    placeholder: 'A random string — must match what you paste in Meta',
-    hint: 'You enter this same value in Meta → WhatsApp → Configuration → Verify token.',
-    type: 'text',
-    required: true,
-  },
-  {
-    key: 'meta_graph_version',
-    label: 'Graph API version',
-    placeholder: 'v21.0',
-    hint: 'Default v21.0. Only change if Meta deprecates it.',
-    type: 'text',
-    required: false,
-  },
 ];
 
+const STYLES = `
+  .swa-screen {
+    min-height: 100dvh;
+    background:
+      radial-gradient(60% 60% at 80% 0%, rgba(0,229,160,0.08), transparent 60%),
+      radial-gradient(60% 60% at 20% 100%, rgba(96,165,250,0.06), transparent 65%);
+    display: flex; flex-direction: column;
+  }
+  .swa-card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
+    border: 1px solid rgba(0,229,160,0.18);
+    border-radius: 22px;
+    padding: 28px 32px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+  }
+  @media (max-width: 560px) { .swa-card { padding: 22px 18px; border-radius: 18px; } }
+  .swa-title { font-family: var(--font-display, 'Syne', sans-serif); font-size: 26px; color: var(--text); margin: 0 0 4px; line-height: 1.2; }
+  .swa-title .grad { background: linear-gradient(90deg, var(--em) 0%, #93c5fd 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .swa-sub { color: var(--soft); font-size: 14px; line-height: 1.6; margin: 0; }
+
+  .swa-webhook-card {
+    background: rgba(0,229,160,0.05);
+    border: 1px solid rgba(0,229,160,0.28);
+    border-radius: 14px;
+    padding: 16px 18px;
+    margin: 18px 0;
+  }
+  .swa-webhook-card label {
+    display: block; font-size: 11px; font-weight: 700;
+    letter-spacing: .06em; text-transform: uppercase;
+    color: var(--em); margin-bottom: 6px;
+  }
+  .swa-webhook-row {
+    display: flex; gap: 8px;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+  }
+  .swa-webhook-row input {
+    flex: 1; min-width: 0;
+    background: transparent; border: 0;
+    color: var(--em); font-family: monospace; font-size: 13px;
+    padding: 8px 12px; outline: none;
+  }
+  .swa-copy {
+    background: var(--em); color: #00120a;
+    font-weight: 700; border: 0;
+    border-radius: 8px; padding: 0 14px;
+    cursor: pointer; transition: filter .15s ease;
+  }
+  .swa-copy:hover { filter: brightness(1.08); }
+  .swa-copy.copied { background: #22c55e; color: #052e1a; }
+
+  .swa-grid {
+    display: grid; gap: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+  .swa-field { display: flex; flex-direction: column; gap: 6px; }
+  .swa-field label {
+    font-size: 12px; font-weight: 700;
+    color: var(--soft);
+  }
+  .swa-field label .req { color: var(--em); margin-left: 3px; }
+  .swa-input {
+    background: rgba(0,0,0,0.30);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 14px;
+    color: var(--text); font-size: 14px;
+    outline: none; transition: border-color .15s ease, background .15s ease;
+    font-family: inherit;
+  }
+  .swa-input:focus { border-color: var(--em); background: rgba(0,0,0,0.45); }
+  .swa-field .hint { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+  .swa-submit {
+    width: 100%;
+    background: linear-gradient(180deg, var(--em) 0%, var(--em2, #00c87a) 100%);
+    color: #00120a; font-weight: 700;
+    border: 0; border-radius: 12px;
+    padding: 14px; font-size: 15px;
+    cursor: pointer;
+    transition: filter .15s ease, transform .15s ease;
+    margin-top: 16px;
+    letter-spacing: .01em;
+  }
+  .swa-submit:disabled { filter: grayscale(.55) brightness(.7); cursor: not-allowed; }
+  .swa-submit:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(0,229,160,0.30); filter: brightness(1.06); }
+
+  .swa-skip {
+    margin-top: 10px; width: 100%;
+    background: transparent;
+    color: var(--soft);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+  .swa-skip:hover { color: var(--text); border-color: rgba(255,255,255,0.18); }
+
+  .swa-err {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: rgba(239,68,68,0.10);
+    border: 1px solid rgba(239,68,68,0.35);
+    border-radius: 10px;
+    color: #fecaca; font-size: 13px;
+    line-height: 1.55;
+  }
+  .swa-info {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: rgba(96,165,250,0.10);
+    border: 1px solid rgba(96,165,250,0.35);
+    border-radius: 10px;
+    color: #bfdbfe; font-size: 13px;
+  }
+
+  /* Celebration screen */
+  .swa-cele {
+    text-align: center;
+    padding: 22px 8px;
+  }
+  .swa-cele-ring {
+    width: 96px; height: 96px;
+    margin: 0 auto 18px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--em) 0%, #34d399 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 44px;
+    box-shadow: 0 16px 38px rgba(0,229,160,0.40);
+    animation: swa-pop .5s ease-out;
+  }
+  @keyframes swa-pop {
+    0% { transform: scale(0.4); opacity: 0; }
+    60% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  .swa-cele h2 {
+    margin: 0 0 8px;
+    font-family: var(--font-display, 'Syne', sans-serif);
+    font-size: 28px;
+    color: var(--text);
+  }
+  .swa-cele p { color: var(--soft); font-size: 14px; line-height: 1.6; max-width: 460px; margin: 0 auto 18px; }
+  .swa-cele-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px;
+    background: rgba(0,229,160,0.12);
+    border: 1px solid rgba(0,229,160,0.30);
+    border-radius: 999px;
+    color: var(--em); font-size: 12px; font-weight: 600;
+    margin: 0 4px 18px;
+  }
+  .swa-cele-meta {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    margin: 6px auto 20px;
+    max-width: 380px;
+    text-align: left;
+    font-size: 13px;
+  }
+  .swa-cele-meta div { display: flex; justify-content: space-between; padding: 4px 0; }
+  .swa-cele-meta span { color: var(--muted); }
+  .swa-cele-meta strong { color: var(--text); font-family: monospace; font-size: 12px; }
+
+  /* Pipeline (steps indicator) */
+  .swa-pipe {
+    display: flex; align-items: center; gap: 8px;
+    margin: 24px 0 18px;
+    overflow-x: auto;
+  }
+  .swa-pipe-step {
+    display: flex; align-items: center; gap: 8px;
+    flex-shrink: 0;
+  }
+  .swa-pipe-step .num {
+    width: 26px; height: 26px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.06);
+    color: var(--soft);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+  }
+  .swa-pipe-step.done .num { background: var(--em); color: #00120a; }
+  .swa-pipe-step.active .num { background: linear-gradient(135deg, var(--em), #93c5fd); color: #00120a; box-shadow: 0 0 0 4px rgba(0,229,160,0.15); }
+  .swa-pipe-step .lbl { font-size: 12px; color: var(--soft); white-space: nowrap; }
+  .swa-pipe-step.done .lbl, .swa-pipe-step.active .lbl { color: var(--text); font-weight: 600; }
+  .swa-pipe-line { flex: 1; height: 1px; background: var(--border); min-width: 10px; }
+`;
+
 export function PostLoginWhatsAppSetup() {
-  const { closeClientPanel, completeWhatsAppSetup } = usePanel();
+  const { closeClientPanel, completeWhatsAppSetup, user } = usePanel();
   const [draft, setDraft] = useState(() => Object.fromEntries(FIELDS.map((f) => [f.key, ''])));
   const [server, setServer] = useState(null);
   const [webhookUrl, setWebhookUrl] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [err, setErr] = useState('');
   const [info, setInfo] = useState('');
   const [copied, setCopied] = useState(false);
+  const [verified, setVerified] = useState(null); // { display_phone_number, verified_name, welcome }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -93,11 +282,15 @@ export function PostLoginWhatsAppSetup() {
         ...d,
         meta_phone_number_id: res.config?.meta_phone_number_id || '',
         meta_business_account_id: res.config?.meta_business_account_id || '',
-        meta_display_phone_number: res.config?.meta_display_phone_number || '',
-        meta_verified_name: res.config?.meta_verified_name || '',
         meta_verify_token: res.config?.meta_verify_token || '',
-        meta_graph_version: res.config?.meta_graph_version || 'v21.0',
       }));
+      if (res.config?.is_active && res.config?.setup_completed_at) {
+        setVerified({
+          display_phone_number: res.config.meta_display_phone_number,
+          verified_name: res.config.meta_verified_name,
+          welcome: null,
+        });
+      }
     } catch (e) {
       setErr(e?.message || 'No se pudo cargar la configuración');
     } finally {
@@ -105,160 +298,229 @@ export function PostLoginWhatsAppSetup() {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   const copyWebhook = async () => {
     try {
       await navigator.clipboard.writeText(webhookUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   };
 
   async function onSubmit(e) {
     e.preventDefault();
+    setErr(''); setInfo('');
+
+    // 1. Save the credentials
+    const payload = {};
+    for (const f of FIELDS) {
+      // Don't overwrite already-saved secrets with an empty value
+      if (f.secret && !draft[f.key]) continue;
+      payload[f.key] = draft[f.key] || '';
+    }
+    payload.meta_graph_version = 'v21.0'; // sensible default — hidden from UI
     setSaving(true);
-    setErr('');
-    setInfo('');
     try {
-      const payload = {};
-      for (const f of FIELDS) {
-        if (f.secret && !draft[f.key]) continue; // don't overwrite saved secrets with blank
-        payload[f.key] = draft[f.key] || '';
-      }
-      payload.mark_complete = true;
       await apiCall('/api/customer/whatsapp-config', {
         method: 'PATCH',
         body: JSON.stringify(payload),
       });
-      setInfo('Guardado. Podrás editarlo más tarde desde "Mi Negocio" en el panel.');
-      // After saving, advance to dashboard.
-      setTimeout(() => completeWhatsAppSetup(), 700);
     } catch (ex) {
-      setErr(ex?.message || 'No se pudo guardar');
-    } finally {
       setSaving(false);
+      setErr(`Could not save credentials: ${ex?.message || ex}`);
+      return;
+    }
+    setSaving(false);
+
+    // 2. Verify with Meta
+    setVerifying(true);
+    try {
+      const r = await apiCall('/api/customer/whatsapp-config/verify', { method: 'POST' });
+      if (r.verified) {
+        setVerified({
+          display_phone_number: r.display_phone_number,
+          verified_name: r.verified_name,
+          quality_rating: r.quality_rating,
+          welcome: r.welcome,
+        });
+      } else {
+        setErr(r.message || `Verification failed${r.meta_status ? ` (HTTP ${r.meta_status})` : ''}.`);
+      }
+    } catch (ex) {
+      setErr(`Verification failed: ${ex?.message || ex}`);
+    } finally {
+      setVerifying(false);
     }
   }
 
+  const allRequiredFilled = FIELDS
+    .filter((f) => f.required)
+    .every((f) => {
+      // Secrets that already exist on server are OK if empty in form
+      if (f.secret) {
+        if (f.key === 'meta_access_token' && server?.meta_access_token_set) return true;
+        if (f.key === 'meta_app_secret' && server?.meta_app_secret_set) return true;
+      }
+      return draft[f.key] && draft[f.key].trim();
+    });
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Celebration screen (after verify success)
+  // ────────────────────────────────────────────────────────────────────────
+  if (verified) {
+    return (
+      <div className="auth-screen swa-screen">
+        <style>{STYLES}</style>
+        <header className="auth-header">
+          <div className="auth-header-inner">
+            <button type="button" className="auth-header-brand" onClick={closeClientPanel}>
+              <span className="auth-header-mini-icon"><LogoMark size={22} alt="" /></span>
+              Omni<span>ra</span>
+            </button>
+          </div>
+        </header>
+        <main className="panel-payment-main" style={{ padding: '24px 16px', flex: 1 }}>
+          <div className="panel-plan-inner" style={{ maxWidth: 640, margin: '0 auto' }}>
+            <div className="swa-card swa-cele">
+              <div className="swa-cele-ring">🎉</div>
+              <h2>¡Tu agente está <span style={{ background: 'linear-gradient(90deg, var(--em) 0%, #93c5fd 100%)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>en vivo</span>!</h2>
+              <p>
+                Verificamos tus credenciales con Meta y tu agente Omnira ya responde 24/7 en tu WhatsApp Business.
+              </p>
+              <div>
+                <span className="swa-cele-pill">● Activo 24/7</span>
+                {verified.welcome?.sent ? (
+                  <span className="swa-cele-pill">📩 Mensaje de bienvenida enviado</span>
+                ) : null}
+              </div>
+              <div className="swa-cele-meta">
+                {verified.verified_name ? <div><span>Nombre verificado</span><strong>{verified.verified_name}</strong></div> : null}
+                {verified.display_phone_number ? <div><span>Número</span><strong>{verified.display_phone_number}</strong></div> : null}
+                {verified.quality_rating ? <div><span>Calidad</span><strong>{verified.quality_rating}</strong></div> : null}
+                <div><span>Webhook</span><strong style={{ wordBreak: 'break-all' }}>{webhookUrl}</strong></div>
+              </div>
+              <button
+                type="button"
+                className="swa-submit"
+                style={{ maxWidth: 320, margin: '0 auto' }}
+                onClick={completeWhatsAppSetup}
+              >
+                Entrar al dashboard →
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Setup form (default screen)
+  // ────────────────────────────────────────────────────────────────────────
   return (
-    <div className="auth-screen panel-wa-screen">
+    <div className="auth-screen swa-screen">
+      <style>{STYLES}</style>
       <header className="auth-header">
         <div className="auth-header-inner">
           <button type="button" className="auth-header-brand" onClick={closeClientPanel}>
-            <span className="auth-header-mini-icon">
-              <LogoMark size={22} alt="" />
-            </span>
+            <span className="auth-header-mini-icon"><LogoMark size={22} alt="" /></span>
             Omni<span>ra</span>
           </button>
         </div>
       </header>
+      <main className="panel-payment-main" style={{ padding: '24px 16px', flex: 1 }}>
+        <div className="panel-plan-inner" style={{ maxWidth: 760, margin: '0 auto' }}>
 
-      <main className="panel-payment-main">
-        <div className="panel-plan-inner">
-          <div className="panel-plan-pipeline reveal visible" aria-label="Flujo de onboarding">
-            <div className="panel-plan-step done">
-              <span className="panel-plan-step-num"><i className="fa-solid fa-check" /></span>
-              <span className="panel-plan-step-label">Plan</span>
-            </div>
-            <span className="panel-plan-step-line" aria-hidden />
-            <div className="panel-plan-step done">
-              <span className="panel-plan-step-num"><i className="fa-solid fa-check" /></span>
-              <span className="panel-plan-step-label">Pago</span>
-            </div>
-            <span className="panel-plan-step-line" aria-hidden />
-            <div className="panel-plan-step is-active">
-              <span className="panel-plan-step-num">3</span>
-              <span className="panel-plan-step-label">WhatsApp Business</span>
-            </div>
+          {/* Pipeline */}
+          <div className="swa-pipe">
+            <div className="swa-pipe-step done"><span className="num">✓</span><span className="lbl">Plan</span></div>
+            <div className="swa-pipe-line" />
+            <div className="swa-pipe-step done"><span className="num">✓</span><span className="lbl">Pago</span></div>
+            <div className="swa-pipe-line" />
+            <div className="swa-pipe-step active"><span className="num">3</span><span className="lbl">WhatsApp Business</span></div>
+            <div className="swa-pipe-line" />
+            <div className="swa-pipe-step"><span className="num">4</span><span className="lbl">Dashboard</span></div>
           </div>
 
-          <form className="glass panel-payment-card reveal visible panel-wa-form" onSubmit={onSubmit}>
-            <h1 className="panel-plan-title">
-              Conecta tu
-              <br />
-              <span className="gradient-text">WhatsApp Business</span>
-            </h1>
-            <p className="panel-plan-lead">
-              Pega tus credenciales de Meta Cloud API para activar tu agente Omnira en tu propio número. Todo se
-              guarda cifrado y solo tu agente lo usa.
+          <div className="swa-card">
+            <h1 className="swa-title">Conecta tu <span className="grad">WhatsApp Business</span></h1>
+            <p className="swa-sub">
+              Pega las 5 credenciales que te da Meta. Verificaremos con Meta automáticamente y, si todo está
+              correcto, tu agente se activa en este momento — no necesitas tocar nada más.
             </p>
 
-            <div className="form-group" style={{ marginBottom: 18 }}>
-              <label className="form-label">Webhook callback URL (Meta lo pedirá)</label>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input className="form-input" readOnly value={webhookUrl} style={{ fontFamily: 'monospace' }} />
+            {/* Webhook URL */}
+            <div className="swa-webhook-card">
+              <label>1️⃣ Pega esta URL en Meta App → WhatsApp → Configuration → Callback URL</label>
+              <div className="swa-webhook-row">
+                <input readOnly value={webhookUrl} />
                 <button
                   type="button"
-                  className="btn-ghost"
-                  style={{ whiteSpace: 'nowrap' }}
+                  className={`swa-copy${copied ? ' copied' : ''}`}
                   onClick={copyWebhook}
                   disabled={!webhookUrl}
                 >
-                  {copied ? '¡Copiado!' : 'Copiar URL'}
+                  {copied ? '✓' : 'Copy'}
                 </button>
               </div>
-              <p className="auth-helper" style={{ marginTop: 6 }}>
-                Pega esta URL en Meta App → WhatsApp → Configuration → Callback URL. El "verify token" debe ser
-                igual al que escribas más abajo. Después pulsa "Subscribe" en el campo <code>messages</code>.
+              <p style={{ marginTop: 8, fontSize: 12, color: 'var(--soft)', lineHeight: 1.55 }}>
+                El "Verify token" debe ser igual al que escribas más abajo. Luego pulsa <strong>Subscribe</strong>{' '}
+                en el campo <code style={{ background: 'rgba(255,255,255,0.04)', padding: '1px 5px', borderRadius: 4 }}>messages</code>.
               </p>
             </div>
 
-            {loading ? (
-              <p style={{ color: 'var(--muted)' }}>Cargando…</p>
-            ) : (
-              <div className="panel-wa-grid">
+            {/* 5 fields */}
+            <form onSubmit={onSubmit} autoComplete="off">
+              <div className="swa-grid">
                 {FIELDS.map((f) => {
-                  const saved =
+                  const savedSecret =
                     f.secret &&
                     ((f.key === 'meta_access_token' && server?.meta_access_token_set) ||
                       (f.key === 'meta_app_secret' && server?.meta_app_secret_set));
                   return (
-                    <div className="form-group" key={f.key}>
-                      <label className="form-label">
+                    <div className="swa-field" key={f.key}>
+                      <label>
                         {f.label}
-                        {f.required ? <span style={{ color: 'var(--em)' }}> *</span> : null}
+                        {f.required ? <span className="req">*</span> : null}
                       </label>
                       <input
-                        className="form-input"
+                        className="swa-input"
                         type={f.type}
                         value={draft[f.key]}
                         onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
-                        placeholder={saved ? '••••••• (guardado — escribe para reemplazar)' : f.placeholder}
-                        required={f.required && !saved}
+                        placeholder={savedSecret ? '••••••• (saved — type to replace)' : f.placeholder}
+                        required={f.required && !savedSecret}
                         autoComplete="off"
+                        spellCheck={false}
                       />
-                      <p className="auth-helper" style={{ marginTop: 4 }}>{f.hint}</p>
+                      <p className="hint">{f.hint}</p>
                     </div>
                   );
                 })}
               </div>
-            )}
 
-            {err ? <div className="auth-error show" style={{ marginTop: 12 }}>{err}</div> : null}
-            {info ? (
-              <div className="auth-helper" style={{ marginTop: 12, color: 'var(--em)' }}>{info}</div>
-            ) : null}
+              {err ? <div className="swa-err"><strong>Verification failed:</strong> {err}</div> : null}
+              {info ? <div className="swa-info">{info}</div> : null}
 
-            <button type="submit" className="btn-primary panel-plan-cta" disabled={saving || loading}>
-              {saving ? 'Guardando…' : 'Guardar y entrar al panel'}
-              <i className="fa-solid fa-check" style={{ marginLeft: 8 }} />
-            </button>
+              <button
+                type="submit"
+                className="swa-submit"
+                disabled={saving || verifying || loading || !allRequiredFilled}
+              >
+                {saving ? 'Saving credentials…' : verifying ? 'Verifying with Meta…' : 'Save & verify with Meta'}
+              </button>
 
-            <button
-              type="button"
-              className="btn-ghost"
-              style={{ width: '100%', marginTop: 8 }}
-              onClick={completeWhatsAppSetup}
-              disabled={saving}
-            >
-              Saltar por ahora · configurar más tarde
-            </button>
-          </form>
+              <button
+                type="button"
+                className="swa-skip"
+                onClick={completeWhatsAppSetup}
+                disabled={saving || verifying}
+              >
+                Skip for now — I'll connect WhatsApp later
+              </button>
+            </form>
+          </div>
         </div>
       </main>
     </div>

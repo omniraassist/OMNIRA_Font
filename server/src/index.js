@@ -12,7 +12,9 @@ import {
   handleMetaWhatsAppGet,
   handleMetaWhatsAppPost,
   getMetaWhatsAppDeployDiagnostics,
-  invalidateBotConfigCache
+  invalidateBotConfigCache,
+  sendWelcomeWhatsAppMessage,
+  findCustomerConfigByPhoneNumberId
 } from "./metaWhatsAppWebhook.js";
 
 const app = express();
@@ -956,6 +958,206 @@ app.patch("/api/customer/whatsapp-config", requireCustomer, async (req, res) => 
     return res.status(200).json({ ok: true });
   } catch (error) {
     return res.status(500).json({ ok: false, message: `Customer WhatsApp config update failed: ${error.message}` });
+  }
+});
+
+/**
+ * Verify the customer's just-saved Meta credentials by calling the Meta Graph
+ * API. If the phone_number_id + access_token combination works, we mark
+ * is_active=true, store the verified_name + display_phone_number Meta gave us,
+ * and send a welcome WhatsApp message to the customer's personal phone (if we
+ * have one). The customer can ONLY enter the dashboard after this check passes.
+ */
+app.post("/api/customer/whatsapp-config/verify", requireCustomer, async (req, res) => {
+  try {
+    const { data: cfg, error: cfgErr } = await supabaseAdmin
+      .from("customer_whatsapp_configs")
+      .select(
+        "customer_user_id, meta_access_token, meta_app_secret, meta_phone_number_id, meta_business_account_id, meta_verify_token, meta_graph_version, is_active"
+      )
+      .eq("customer_user_id", req.customerId)
+      .maybeSingle();
+    if (cfgErr) throw cfgErr;
+    if (!cfg) {
+      return res.status(400).json({
+        ok: false,
+        message: "Please save your Meta credentials first, then click Verify."
+      });
+    }
+
+    // Minimum required fields for the Graph check.
+    const missing = [];
+    if (!cfg.meta_access_token) missing.push("Meta access token");
+    if (!cfg.meta_phone_number_id) missing.push("Phone number ID");
+    if (!cfg.meta_app_secret) missing.push("App secret");
+    if (!cfg.meta_verify_token) missing.push("Webhook verify token");
+    if (missing.length) {
+      return res.status(400).json({
+        ok: false,
+        verified: false,
+        message: `Missing required fields: ${missing.join(", ")}.`
+      });
+    }
+
+    // Check that another customer hasn't claimed this phone_number_id already.
+    const otherOwner = await findCustomerConfigByPhoneNumberId(cfg.meta_phone_number_id);
+    if (otherOwner && otherOwner.customer_user_id !== req.customerId) {
+      return res.status(409).json({
+        ok: false,
+        verified: false,
+        message:
+          "This phone_number_id is already linked to another Omnira account. If this is a mistake, contact support."
+      });
+    }
+
+    const gv = String(cfg.meta_graph_version || "v21.0").trim();
+    const versionTag = gv.startsWith("v") ? gv : `v${gv}`;
+    const url = `https://graph.facebook.com/${versionTag}/${cfg.meta_phone_number_id}?fields=display_phone_number,verified_name,quality_rating,code_verification_status,platform_type`;
+
+    let graphRes;
+    try {
+      graphRes = await fetch(url, {
+        headers: { Authorization: `Bearer ${cfg.meta_access_token}` },
+        signal: AbortSignal.timeout(20000)
+      });
+    } catch (e) {
+      return res.status(502).json({
+        ok: false,
+        verified: false,
+        message: `Could not reach Meta Graph API (${e?.message || "network error"}).`
+      });
+    }
+
+    const raw = await graphRes.text();
+    let data = {};
+    try { data = raw ? JSON.parse(raw) : {}; } catch { data = {}; }
+
+    if (!graphRes.ok) {
+      let hint = "";
+      if (graphRes.status === 401) {
+        hint = " Your access token is invalid or expired. Generate a new long-lived system user token with `whatsapp_business_messaging`.";
+      } else if (graphRes.status === 400) {
+        hint = " The phone_number_id is likely wrong. Check Meta API Setup → Phone numbers.";
+      } else if (graphRes.status === 403) {
+        hint = " The token doesn't have permission for this phone. Make sure the system user is assigned to the WhatsApp Business Account.";
+      }
+      return res.status(200).json({
+        ok: false,
+        verified: false,
+        meta_status: graphRes.status,
+        meta_error: data?.error?.message || raw.slice(0, 240),
+        message: `Verification failed (HTTP ${graphRes.status}).${hint}`
+      });
+    }
+
+    // Success — persist the verified state.
+    const now = new Date().toISOString();
+    const display = String(data?.display_phone_number || "").trim() || null;
+    const verifiedName = String(data?.verified_name || "").trim() || null;
+    await supabaseAdmin
+      .from("customer_whatsapp_configs")
+      .update({
+        is_active: true,
+        meta_display_phone_number: display,
+        meta_verified_name: verifiedName,
+        setup_completed_at: now,
+        updated_at: now
+      })
+      .eq("customer_user_id", req.customerId);
+
+    // Fire-and-forget welcome message to the customer's personal phone.
+    let welcome = { sent: false };
+    try {
+      const { data: u } = await supabaseAdmin
+        .from("customer_users")
+        .select("phone, first_name, email")
+        .eq("id", req.customerId)
+        .maybeSingle();
+      const phoneDigits = String(u?.phone || "").replace(/\D/g, "");
+      if (phoneDigits.length >= 8) {
+        const sendRes = await sendWelcomeWhatsAppMessage(
+          {
+            meta_access_token: cfg.meta_access_token,
+            meta_phone_number_id: cfg.meta_phone_number_id,
+            meta_graph_version: cfg.meta_graph_version
+          },
+          phoneDigits
+        );
+        welcome = { sent: !!sendRes?.ok, to: phoneDigits, error: sendRes?.snippet || null };
+      }
+    } catch (e) {
+      welcome = { sent: false, error: e?.message || "welcome send failed" };
+    }
+
+    return res.status(200).json({
+      ok: true,
+      verified: true,
+      display_phone_number: display,
+      verified_name: verifiedName,
+      quality_rating: data?.quality_rating || null,
+      platform_type: data?.platform_type || null,
+      welcome
+    });
+  } catch (error) {
+    return res.status(500).json({ ok: false, verified: false, message: `Verify failed: ${error.message}` });
+  }
+});
+
+/**
+ * Returns a copy-paste website widget snippet for the customer. The snippet is
+ * a floating WhatsApp button (pure HTML/CSS/JS, no external deps) that opens
+ * wa.me with the customer's verified display number. Also returns the wa.me
+ * link by itself and the platform webhook URL for reference.
+ */
+app.get("/api/customer/widget-snippet", requireCustomer, async (req, res) => {
+  try {
+    const { data: cfg } = await supabaseAdmin
+      .from("customer_whatsapp_configs")
+      .select("meta_display_phone_number, meta_phone_number_id, meta_verified_name, is_active")
+      .eq("customer_user_id", req.customerId)
+      .maybeSingle();
+    const { data: user } = await supabaseAdmin
+      .from("customer_users")
+      .select("phone, first_name, last_name")
+      .eq("id", req.customerId)
+      .maybeSingle();
+
+    const displayRaw = cfg?.meta_display_phone_number || user?.phone || "";
+    const digits = String(displayRaw).replace(/\D/g, "");
+    const waMe = digits ? `https://wa.me/${digits}` : "";
+    const businessName =
+      cfg?.meta_verified_name ||
+      `${user?.first_name || ""} ${user?.last_name || ""}`.trim() ||
+      "your business";
+    const greetingMsg = encodeURIComponent(`Hola, vengo desde tu sitio web — quiero información.`);
+    const waMeWithMsg = digits ? `${waMe}?text=${greetingMsg}` : "";
+
+    const snippet = digits
+      ? `<!-- Omnira WhatsApp widget — paste before </body> -->
+<a id="omnira-wa" href="${waMeWithMsg}" target="_blank" rel="noopener noreferrer"
+   aria-label="Chat on WhatsApp with ${businessName}"
+   style="position:fixed;right:20px;bottom:20px;width:60px;height:60px;border-radius:50%;background:#25D366;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,0.25);z-index:9999;text-decoration:none;transition:transform .15s ease;">
+  <svg viewBox="0 0 24 24" width="32" height="32" fill="#fff" aria-hidden="true">
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/>
+  </svg>
+</a>
+<script>(function(){var b=document.getElementById('omnira-wa');if(!b)return;b.addEventListener('mouseover',function(){b.style.transform='scale(1.08)';});b.addEventListener('mouseout',function(){b.style.transform='scale(1)';});})();</script>
+<!-- /Omnira WhatsApp widget -->`
+      : "";
+
+    return res.status(200).json({
+      ok: true,
+      is_active: !!cfg?.is_active,
+      display_phone_number: cfg?.meta_display_phone_number || null,
+      digits,
+      wa_me_url: waMe,
+      wa_me_url_with_message: waMeWithMsg,
+      business_name: businessName,
+      webhook_url: canonicalWebhookUrl(),
+      snippet
+    });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Widget snippet failed: ${error.message}` });
   }
 });
 
