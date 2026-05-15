@@ -25,6 +25,16 @@ function InnerPayForm({ clientSecret, fallbackPaymentIntentId, onPaid, onError }
     setBusy(true);
     setMsg('');
     try {
+      // Stripe requires elements.submit() to run synchronously on click,
+      // before confirmPayment() and before any other async work.
+      const { error: submitError } = await elements.submit();
+      if (submitError) {
+        const m = submitError.message || 'Revisa los datos de la tarjeta';
+        setMsg(m);
+        onError?.(m);
+        return;
+      }
+
       const returnUrl = `${window.location.origin}${window.location.pathname}${window.location.search}`;
       const { error } = await stripe.confirmPayment({
         elements,
