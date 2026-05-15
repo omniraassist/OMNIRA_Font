@@ -1,7 +1,30 @@
 import { usePricing } from '../../hooks/usePricing.js';
+import { usePanel } from '../../context/PanelContext.jsx';
+import { PLAN_STORAGE_KEY } from '../../constants/plans.js';
 
 export function PricingSection() {
   const { plansByCheapest } = usePricing();
+  const { openClientPanel } = usePanel();
+
+  /** Pre-select the plan, then open the auth panel → login → payment. */
+  function choosePlan(plan) {
+    try {
+      localStorage.setItem(
+        PLAN_STORAGE_KEY,
+        JSON.stringify({
+          id: plan.id,
+          name: plan.name,
+          priceNum: plan.priceNum,
+          period: plan.period,
+          totalRow: plan.totalRow,
+          chosenAt: new Date().toISOString(),
+        })
+      );
+    } catch {
+      /* ignore */
+    }
+    openClientPanel('login');
+  }
 
   return (
     <section id="precios" className="section">
@@ -58,9 +81,13 @@ export function PricingSection() {
                       </div>
                     ))}
                   </div>
-                  <a href="#cta-final" className={`plan-cta${plan.featured ? ' primary-cta' : ''}`}>
+                  <button
+                    type="button"
+                    className={`plan-cta${plan.featured ? ' primary-cta' : ''}`}
+                    onClick={() => choosePlan(plan)}
+                  >
                     Empezar ahora →
-                  </a>
+                  </button>
                   <p className="plan-note">{noteByLen[months] || '🔒 Pago seguro'}</p>
                 </div>
               </div>
