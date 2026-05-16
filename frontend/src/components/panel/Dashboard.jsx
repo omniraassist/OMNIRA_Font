@@ -102,8 +102,6 @@ export function Dashboard() {
   const [upcomingBookings, setUpcomingBookings] = useState([]);
   const [latestPayment, setLatestPayment] = useState(null);
   const [recentConversations, setRecentConversations] = useState([]);
-  const [widget, setWidget] = useState(null);
-  const [widgetCopied, setWidgetCopied] = useState('');
   const [allEvents, setAllEvents] = useState([]);
   const [calDate, setCalDate] = useState(() => {
     const d = new Date();
@@ -196,22 +194,7 @@ export function Dashboard() {
     } catch {
       /* ignore */
     }
-    // Widget snippet (wa.me + floating button HTML for embedding on customer's site)
-    try {
-      const w = await apiCall('/api/customer/widget-snippet');
-      setWidget(w || null);
-    } catch {
-      /* ignore */
-    }
   }, [user?.email]);
-
-  const copyWidgetPiece = async (kind, value) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setWidgetCopied(kind);
-      setTimeout(() => setWidgetCopied(''), 1800);
-    } catch { /* ignore */ }
-  };
 
   useEffect(() => {
     loadData();
@@ -361,22 +344,6 @@ export function Dashboard() {
     }
   };
 
-  const saveBotCfg = async (e) => {
-    e.preventDefault();
-    try {
-      await apiCall('/api/customer/bot-config', {
-        method: 'PATCH',
-        body: JSON.stringify({
-          greeting: bot.greeting || '',
-          system_prompt: bot.instructions || bot.instr || '',
-        }),
-      });
-      showToast('Configuración guardada', 'success');
-    } catch (ex) {
-      showToast('Error: ' + ex.message, 'error');
-    }
-  };
-
   async function handleKbUpload(e) {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
@@ -436,7 +403,7 @@ export function Dashboard() {
           knowledge_base: bot.knowledgeBaseText || '',
         }),
       });
-      showToast('Knowledge Base guardada', 'success');
+      showToast('Entrenamiento guardado', 'success');
     } catch (ex) {
       showToast('Error: ' + ex.message, 'error');
     }
@@ -533,20 +500,14 @@ export function Dashboard() {
               <button type="button" className={`p-nav-item${page === 'negocio' ? ' active' : ''}`} onClick={() => openNavPage('negocio')}>
                 <i className="fa-solid fa-building" /> Mi Negocio
               </button>
-              <button type="button" className={`p-nav-item${page === 'bot' ? ' active' : ''}`} onClick={() => openNavPage('bot')}>
-                <i className="fa-solid fa-robot" /> Bot
+              <button type="button" className={`p-nav-item${page === 'whatsapp' ? ' active' : ''}`} onClick={() => openNavPage('whatsapp')}>
+                <i className="fa-brands fa-whatsapp" /> WhatsApp
+              </button>
+              <button type="button" className={`p-nav-item${page === 'knowledge' ? ' active' : ''}`} onClick={() => openNavPage('knowledge')}>
+                <i className="fa-solid fa-robot" /> Entrenar Chatbot
               </button>
               <button type="button" className={`p-nav-item${page === 'factura' ? ' active' : ''}`} onClick={() => openNavPage('factura')}>
                 <i className="fa-solid fa-credit-card" /> Facturación
-              </button>
-              <button type="button" className={`p-nav-item${page === 'knowledge' ? ' active' : ''}`} onClick={() => openNavPage('knowledge')}>
-                <i className="fa-solid fa-brain" /> Knowledge Training
-              </button>
-              <button type="button" className={`p-nav-item${page === 'widget' ? ' active' : ''}`} onClick={() => openNavPage('widget')}>
-                <i className="fa-solid fa-code" /> Widget
-              </button>
-              <button type="button" className={`p-nav-item${page === 'whatsapp' ? ' active' : ''}`} onClick={() => openNavPage('whatsapp')}>
-                <i className="fa-brands fa-whatsapp" /> WhatsApp
               </button>
             </div>
           </nav>
@@ -1165,43 +1126,6 @@ export function Dashboard() {
             </div>
           </div>
 
-          <div id="page-bot" className={`p-page${page === 'bot' ? ' active' : ''}`}>
-            <h1 className="p-page-title">Configuración del Bot</h1>
-            <p className="p-page-sub">Ajusta el comportamiento de tu asistente Omnira.</p>
-            <div className="p-card" style={{ marginBottom: 20 }}>
-              <div className="p-card-header">
-                <span className="p-card-title">Estado del bot</span>
-                <div className="bot-live-badge">
-                  <div className="bot-live-dot" />
-                  Activo
-                </div>
-              </div>
-              <p style={{ fontSize: 13, color: 'var(--soft)', lineHeight: 1.7 }}>
-                Tu bot está respondiendo automáticamente a los mensajes de WhatsApp Business. Contacta con soporte para pausarlo.
-              </p>
-            </div>
-            <div className="p-card">
-              <div className="p-card-header">
-                <span className="p-card-title">Personalidad del bot</span>
-              </div>
-              <form onSubmit={saveBotCfg}>
-                <div className="form-group">
-                  <label className="form-label">Mensaje de bienvenida</label>
-                  <textarea className="form-input" rows={2} value={bot.greeting || ''} onChange={(e) => setBot({ ...bot, greeting: e.target.value })} style={{ resize: 'vertical', fontFamily: "'Outfit',sans-serif" }} placeholder="¡Hola! Soy el asistente de [Negocio]. ¿En qué puedo ayudarte?" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Instrucciones especiales</label>
-                  <textarea className="form-input" rows={4} value={bot.instructions || bot.instr || ''} onChange={(e) => setBot({ ...bot, instructions: e.target.value })} style={{ resize: 'vertical', fontFamily: "'Outfit',sans-serif" }} placeholder="Información adicional para el bot..." />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <button type="submit" className="btn-save-form">
-                    <i className="fa-solid fa-floppy-disk" /> Guardar cambios
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-
           <div id="page-factura" className={`p-page${page === 'factura' ? ' active' : ''}`}>
             <h1 className="p-page-title">Facturación</h1>
             <p className="p-page-sub">
@@ -1265,16 +1189,43 @@ export function Dashboard() {
             </div>
           </div>
 
+          {/* Single chatbot training page — greeting + instructions + knowledge base, one save */}
           <div id="page-knowledge" className={`p-page${page === 'knowledge' ? ' active' : ''}`}>
-            <h1 className="p-page-title">Knowledge Training</h1>
-            <p className="p-page-sub">Sube documentos o escribe texto para entrenar el contexto de tu chatbot.</p>
+            <h1 className="p-page-title">Entrenar Chatbot</h1>
+            <p className="p-page-sub">
+              Todo el entrenamiento de tu agente en un solo sitio: mensaje de bienvenida, instrucciones y base
+              de conocimiento. Rellena lo que quieras y pulsa <strong>Guardar entrenamiento</strong>.
+            </p>
             <div className="p-card">
-              <div className="panel-kb-wrap" style={{ marginTop: 0 }}>
+              <div className="form-group">
+                <label className="form-label">Mensaje de bienvenida</label>
+                <textarea
+                  className="form-input"
+                  rows={2}
+                  value={bot.greeting || ''}
+                  onChange={(e) => setBot({ ...bot, greeting: e.target.value })}
+                  style={{ resize: 'vertical', fontFamily: "'Outfit',sans-serif" }}
+                  placeholder="¡Hola! Soy el asistente de [Negocio]. ¿En qué puedo ayudarte?"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Instrucciones especiales</label>
+                <textarea
+                  className="form-input"
+                  rows={4}
+                  value={bot.instructions || bot.instr || ''}
+                  onChange={(e) => setBot({ ...bot, instructions: e.target.value })}
+                  style={{ resize: 'vertical', fontFamily: "'Outfit',sans-serif" }}
+                  placeholder="Tono, reglas, qué debe y qué no debe decir el agente..."
+                />
+              </div>
+
+              <div className="panel-kb-wrap" style={{ marginTop: 4 }}>
                 <div className="panel-kb-head">
                   <h3>Base de conocimiento</h3>
                   <p>
-                    Puedes subir `txt`, `docx`, `pdf`, `xlsx` o escribir manualmente el contexto de negocio sobre el que
-                    trabajará tu agente.
+                    Sube `txt`, `docx`, `pdf`, `xlsx` o escribe manualmente FAQs, servicios, precios y políticas
+                    sobre los que responderá tu agente.
                   </p>
                 </div>
 
@@ -1295,9 +1246,6 @@ export function Dashboard() {
                     onClick={() => setBot((prev) => ({ ...prev, knowledgeBaseText: '' }))}
                   >
                     <i className="fa-solid fa-eraser" /> Limpiar texto
-                  </button>
-                  <button type="button" className="btn-save-form" onClick={saveKnowledgeBase}>
-                    <i className="fa-solid fa-floppy-disk" /> Guardar KB
                   </button>
                 </div>
 
@@ -1326,121 +1274,13 @@ export function Dashboard() {
                   </div>
                 ) : null}
               </div>
-            </div>
-          </div>
 
-          {/* Widget page — paste-ready WhatsApp button for the customer's site */}
-          <div id="page-widget" className={`p-page${page === 'widget' ? ' active' : ''}`}>
-            <h1 className="p-page-title">Widget · 24/7 WhatsApp button</h1>
-            <p className="p-page-sub">
-              Pega este código en tu sitio web justo antes de <code style={{ background: 'rgba(255,255,255,0.04)', padding: '1px 5px', borderRadius: 4 }}>&lt;/body&gt;</code>{' '}
-              y aparecerá un botón flotante de WhatsApp. Cuando alguien lo pulse, se abrirá WhatsApp directamente con tu
-              número y un mensaje inicial — y tu agente Omnira responderá automáticamente.
-            </p>
-
-            {!widget?.is_active ? (
-              <div className="p-card" style={{ borderColor: 'rgba(251,191,36,0.35)', background: 'rgba(251,191,36,0.05)' }}>
-                <div className="p-card-header">
-                  <span className="p-card-title" style={{ color: '#fde68a' }}>⏳ Aún no verificado</span>
-                </div>
-                <p style={{ fontSize: 13, color: 'var(--soft)', lineHeight: 1.6, margin: '8px 0' }}>
-                  Primero conecta tu cuenta de WhatsApp Business (paso 3 del onboarding). Una vez verificada,
-                  podrás copiar el snippet del widget desde aquí.
-                </p>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
+                <button type="button" className="btn-save-form" onClick={saveKnowledgeBase}>
+                  <i className="fa-solid fa-floppy-disk" /> Guardar entrenamiento
+                </button>
               </div>
-            ) : (
-              <>
-                <div className="p-content-grid">
-                  <div className="p-card">
-                    <div className="p-card-header">
-                      <span className="p-card-title">Tu número verificado</span>
-                    </div>
-                    <div style={{ padding: '14px 0', fontFamily: 'monospace', fontSize: 16, color: 'var(--em)' }}>
-                      {widget.display_phone_number || `+${widget.digits}`}
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                      Negocio: <strong style={{ color: 'var(--text)' }}>{widget.business_name}</strong>
-                    </div>
-                  </div>
-                  <div className="p-card">
-                    <div className="p-card-header">
-                      <span className="p-card-title">Enlace wa.me directo</span>
-                      <button
-                        type="button"
-                        className="p-card-link"
-                        onClick={() => copyWidgetPiece('wa', widget.wa_me_url_with_message)}
-                      >
-                        {widgetCopied === 'wa' ? '✓ Copiado' : 'Copiar'}
-                      </button>
-                    </div>
-                    <input
-                      readOnly
-                      value={widget.wa_me_url_with_message}
-                      className="form-input"
-                      style={{ fontFamily: 'monospace', fontSize: 12, marginTop: 10 }}
-                    />
-                    <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>
-                      Úsalo en un botón "Contactar" o en redes sociales.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="p-card" style={{ marginTop: 18 }}>
-                  <div className="p-card-header">
-                    <span className="p-card-title">Snippet HTML (pega antes de &lt;/body&gt;)</span>
-                    <button
-                      type="button"
-                      className="p-card-link"
-                      onClick={() => copyWidgetPiece('snippet', widget.snippet)}
-                    >
-                      {widgetCopied === 'snippet' ? '✓ Copiado' : 'Copiar snippet'}
-                    </button>
-                  </div>
-                  <pre style={{
-                    background: 'rgba(0,0,0,0.40)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 10,
-                    padding: 14,
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: 11,
-                    lineHeight: 1.55,
-                    color: 'var(--soft)',
-                    overflow: 'auto',
-                    maxHeight: 360,
-                    margin: '10px 0 0',
-                    whiteSpace: 'pre',
-                  }}>
-                    {widget.snippet}
-                  </pre>
-                  <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10 }}>
-                    Sin dependencias externas, sin CSS extra. El botón es accesible (aria-label), abre WhatsApp
-                    en pestaña nueva y funciona en escritorio + móvil.
-                  </p>
-                </div>
-
-                <div className="p-card" style={{ marginTop: 18 }}>
-                  <div className="p-card-header">
-                    <span className="p-card-title">Webhook de Meta (para referencia)</span>
-                    <button
-                      type="button"
-                      className="p-card-link"
-                      onClick={() => copyWidgetPiece('webhook', widget.webhook_url)}
-                    >
-                      {widgetCopied === 'webhook' ? '✓ Copiado' : 'Copiar'}
-                    </button>
-                  </div>
-                  <input
-                    readOnly
-                    value={widget.webhook_url || ''}
-                    className="form-input"
-                    style={{ fontFamily: 'monospace', fontSize: 12, marginTop: 10 }}
-                  />
-                  <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>
-                    Ya está pegado en Meta App → WhatsApp → Configuration → Callback URL. No necesitas tocarlo de nuevo.
-                  </p>
-                </div>
-              </>
-            )}
+            </div>
           </div>
 
           {/* WhatsApp page — Meta Business credentials + activation (paid customers only) */}
