@@ -524,15 +524,8 @@ export function Dashboard() {
               <button type="button" className={`p-nav-item${page === 'convs' ? ' active' : ''}`} onClick={() => openNavPage('convs')}>
                 <i className="fa-brands fa-whatsapp" /> Conversaciones
               </button>
-              <button
-                type="button"
-                className={`p-nav-item${page === 'stats' ? ' active' : ''}${!canAccessDashboardPage(user?.subscription_plan_id, 'stats') ? ' p-nav-locked' : ''}`}
-                onClick={() => openNavPage('stats')}
-              >
+              <button type="button" className={`p-nav-item${page === 'stats' ? ' active' : ''}`} onClick={() => openNavPage('stats')}>
                 <i className="fa-solid fa-chart-line" /> Estadísticas
-                {!canAccessDashboardPage(user?.subscription_plan_id, 'stats') ? (
-                  <i className="fa-solid fa-lock" style={{ marginLeft: 'auto', opacity: 0.45, fontSize: 11 }} />
-                ) : null}
               </button>
             </div>
             <div className="p-nav-section">
@@ -543,32 +536,17 @@ export function Dashboard() {
               <button type="button" className={`p-nav-item${page === 'bot' ? ' active' : ''}`} onClick={() => openNavPage('bot')}>
                 <i className="fa-solid fa-robot" /> Bot
               </button>
-              <button
-                type="button"
-                className={`p-nav-item${page === 'factura' ? ' active' : ''}${!canAccessDashboardPage(user?.subscription_plan_id, 'factura') ? ' p-nav-locked' : ''}`}
-                onClick={() => openNavPage('factura')}
-              >
+              <button type="button" className={`p-nav-item${page === 'factura' ? ' active' : ''}`} onClick={() => openNavPage('factura')}>
                 <i className="fa-solid fa-credit-card" /> Facturación
-                {!canAccessDashboardPage(user?.subscription_plan_id, 'factura') ? (
-                  <i className="fa-solid fa-lock" style={{ marginLeft: 'auto', opacity: 0.45, fontSize: 11 }} />
-                ) : null}
               </button>
-              <button
-                type="button"
-                className={`p-nav-item${page === 'knowledge' ? ' active' : ''}${!canAccessDashboardPage(user?.subscription_plan_id, 'knowledge') ? ' p-nav-locked' : ''}`}
-                onClick={() => openNavPage('knowledge')}
-              >
+              <button type="button" className={`p-nav-item${page === 'knowledge' ? ' active' : ''}`} onClick={() => openNavPage('knowledge')}>
                 <i className="fa-solid fa-brain" /> Knowledge Training
-                {!canAccessDashboardPage(user?.subscription_plan_id, 'knowledge') ? (
-                  <i className="fa-solid fa-lock" style={{ marginLeft: 'auto', opacity: 0.45, fontSize: 11 }} />
-                ) : null}
               </button>
-              <button
-                type="button"
-                className={`p-nav-item${page === 'widget' ? ' active' : ''}`}
-                onClick={() => openNavPage('widget')}
-              >
+              <button type="button" className={`p-nav-item${page === 'widget' ? ' active' : ''}`} onClick={() => openNavPage('widget')}>
                 <i className="fa-solid fa-code" /> Widget
+              </button>
+              <button type="button" className={`p-nav-item${page === 'whatsapp' ? ' active' : ''}`} onClick={() => openNavPage('whatsapp')}>
+                <i className="fa-brands fa-whatsapp" /> WhatsApp
               </button>
             </div>
           </nav>
@@ -1222,9 +1200,6 @@ export function Dashboard() {
                 </div>
               </form>
             </div>
-            <div style={{ marginTop: 20 }}>
-              <WhatsAppConfigCard showToast={showToast} />
-            </div>
           </div>
 
           <div id="page-factura" className={`p-page${page === 'factura' ? ' active' : ''}`}>
@@ -1466,6 +1441,17 @@ export function Dashboard() {
                 </div>
               </>
             )}
+          </div>
+
+          {/* WhatsApp page — Meta Business credentials + activation (paid customers only) */}
+          <div id="page-whatsapp" className={`p-page${page === 'whatsapp' ? ' active' : ''}`}>
+            <h1 className="p-page-title">WhatsApp Business</h1>
+            <p className="p-page-sub">
+              Conecta tu número de WhatsApp Business pegando tus credenciales de Meta. Al guardar las
+              verificamos con Meta y, si son correctas, tu agente Omnira queda activo 24/7. Después,
+              entrena al agente con tu información en <strong>Knowledge Training</strong>.
+            </p>
+            <WhatsAppConfigCard showToast={showToast} />
           </div>
         </main>
       </div>
