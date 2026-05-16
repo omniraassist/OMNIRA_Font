@@ -894,18 +894,57 @@ app.get("/api/customer/leads", requireCustomer, async (req, res) => {
  *
  * Secrets are masked on GET. PATCH lets the customer overwrite any field.
  */
+/**
+ * The webhook verify token is just a shared random string — there is no
+ * reason to make the customer invent one. We generate it server-side so the
+ * customer only has to copy it into Meta (never type it). Format is a long
+ * unguessable token namespaced with `omnira_`.
+ */
+function generateVerifyToken() {
+  return `omnira_${crypto.randomBytes(24).toString("hex")}`;
+}
+
 async function ensureCustomerWhatsAppConfig(customerId) {
   const { data } = await supabaseAdmin
     .from("customer_whatsapp_configs")
-    .select("customer_user_id")
+    .select("customer_user_id, meta_verify_token")
     .eq("customer_user_id", customerId)
     .maybeSingle();
-  if (data) return data;
+  if (data) {
+    // Backfill an auto-generated verify token for rows created before this
+    // was server-managed, so every customer always has one ready.
+    if (!data.meta_verify_token) {
+      const token = generateVerifyToken();
+      await supabaseAdmin
+        .from("customer_whatsapp_configs")
+        .update({ meta_verify_token: token })
+        .eq("customer_user_id", customerId);
+      return { ...data, meta_verify_token: token };
+    }
+    return data;
+  }
   const { error } = await supabaseAdmin
     .from("customer_whatsapp_configs")
-    .insert({ customer_user_id: customerId });
+    .insert({ customer_user_id: customerId, meta_verify_token: generateVerifyToken() });
   if (error) throw error;
   return { customer_user_id: customerId };
+}
+
+/**
+ * Ask the Meta Graph API for the phone numbers under a WABA. Lets us derive
+ * the customer's `phone_number_id` automatically instead of making them copy
+ * it by hand — they only give us the WABA id + access token.
+ */
+async function fetchWabaPhoneNumbers(accessToken, wabaId, versionTag) {
+  const url = `https://graph.facebook.com/${versionTag}/${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(20000)
+  });
+  const raw = await res.text();
+  let data = {};
+  try { data = raw ? JSON.parse(raw) : {}; } catch { data = {}; }
+  return { ok: res.ok, status: res.status, data, raw };
 }
 
 app.get("/api/customer/whatsapp-config", requireCustomer, async (req, res) => {
@@ -947,12 +986,13 @@ app.patch("/api/customer/whatsapp-config", requireCustomer, async (req, res) => 
   try {
     await ensureCustomerWhatsAppConfig(req.customerId);
     const patch = { updated_at: new Date().toISOString() };
+    // meta_verify_token is intentionally NOT customer-editable — it is
+    // generated and owned server-side (see generateVerifyToken).
     const STRING_FIELDS = [
       "meta_access_token",
       "meta_phone_number_id",
       "meta_business_account_id",
       "meta_app_secret",
-      "meta_verify_token",
       "meta_graph_version",
       "meta_display_phone_number",
       "meta_verified_name"
@@ -1005,12 +1045,13 @@ app.post("/api/customer/whatsapp-config/verify", requireCustomer, async (req, re
       });
     }
 
-    // Minimum required fields for the Graph check.
+    // Minimum required fields the customer must supply. The verify token is
+    // auto-generated server-side, and the phone_number_id is auto-fetched
+    // from the WABA below — so the customer only provides these three.
     const missing = [];
     if (!cfg.meta_access_token) missing.push("Meta access token");
-    if (!cfg.meta_phone_number_id) missing.push("Phone number ID");
     if (!cfg.meta_app_secret) missing.push("App secret");
-    if (!cfg.meta_verify_token) missing.push("Webhook verify token");
+    if (!cfg.meta_business_account_id) missing.push("WABA business account ID");
     if (missing.length) {
       return res.status(400).json({
         ok: false,
@@ -1019,8 +1060,55 @@ app.post("/api/customer/whatsapp-config/verify", requireCustomer, async (req, re
       });
     }
 
+    const gv = String(cfg.meta_graph_version || "v21.0").trim();
+    const versionTag = gv.startsWith("v") ? gv : `v${gv}`;
+
+    // Auto-resolve the phone_number_id from the WABA when the customer
+    // hasn't provided one (the normal case — they only give the WABA id).
+    let phoneNumberId = String(cfg.meta_phone_number_id || "").trim();
+    if (!phoneNumberId) {
+      let pn;
+      try {
+        pn = await fetchWabaPhoneNumbers(cfg.meta_access_token, cfg.meta_business_account_id, versionTag);
+      } catch (e) {
+        return res.status(502).json({
+          ok: false,
+          verified: false,
+          message: `No se pudo contactar con Meta para leer los números del WABA (${e?.message || "network error"}).`
+        });
+      }
+      if (!pn.ok) {
+        let hint = "";
+        if (pn.status === 401) hint = " El access token no es válido o ha caducado.";
+        else if (pn.status === 400 || pn.status === 404) hint = " El WABA business account ID es incorrecto.";
+        else if (pn.status === 403) hint = " El token no tiene permiso sobre este WABA. Asigna el usuario de sistema a la cuenta de WhatsApp.";
+        return res.status(200).json({
+          ok: false,
+          verified: false,
+          meta_status: pn.status,
+          meta_error: pn.data?.error?.message || pn.raw.slice(0, 240),
+          message: `No se pudieron leer los números del WABA (HTTP ${pn.status}).${hint}`
+        });
+      }
+      const numbers = Array.isArray(pn.data?.data) ? pn.data.data : [];
+      const first = numbers[0];
+      if (!first?.id) {
+        return res.status(200).json({
+          ok: false,
+          verified: false,
+          message:
+            "Este WABA no tiene ningún número de WhatsApp asociado. Añade un número en Meta y vuelve a verificar."
+        });
+      }
+      phoneNumberId = String(first.id);
+      await supabaseAdmin
+        .from("customer_whatsapp_configs")
+        .update({ meta_phone_number_id: phoneNumberId, updated_at: new Date().toISOString() })
+        .eq("customer_user_id", req.customerId);
+    }
+
     // Check that another customer hasn't claimed this phone_number_id already.
-    const otherOwner = await findCustomerConfigByPhoneNumberId(cfg.meta_phone_number_id);
+    const otherOwner = await findCustomerConfigByPhoneNumberId(phoneNumberId);
     if (otherOwner && otherOwner.customer_user_id !== req.customerId) {
       return res.status(409).json({
         ok: false,
@@ -1030,9 +1118,7 @@ app.post("/api/customer/whatsapp-config/verify", requireCustomer, async (req, re
       });
     }
 
-    const gv = String(cfg.meta_graph_version || "v21.0").trim();
-    const versionTag = gv.startsWith("v") ? gv : `v${gv}`;
-    const url = `https://graph.facebook.com/${versionTag}/${cfg.meta_phone_number_id}?fields=display_phone_number,verified_name,quality_rating,code_verification_status,platform_type`;
+    const url = `https://graph.facebook.com/${versionTag}/${phoneNumberId}?fields=display_phone_number,verified_name,quality_rating,code_verification_status,platform_type`;
 
     let graphRes;
     try {
@@ -1098,7 +1184,7 @@ app.post("/api/customer/whatsapp-config/verify", requireCustomer, async (req, re
         const sendRes = await sendWelcomeWhatsAppMessage(
           {
             meta_access_token: cfg.meta_access_token,
-            meta_phone_number_id: cfg.meta_phone_number_id,
+            meta_phone_number_id: phoneNumberId,
             meta_graph_version: cfg.meta_graph_version
           },
           phoneDigits

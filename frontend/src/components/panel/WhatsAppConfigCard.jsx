@@ -3,11 +3,14 @@ import { apiCall } from '../../api/client.js';
 
 /**
  * Meta WhatsApp Business credentials card for the customer dashboard
- * settings page. Mirrors the 5 fields from the post-payment onboarding
- * (PostLoginWhatsAppSetup) so a paying customer can update them at any
- * time. On save we PATCH the credentials, then verify them against the
- * Meta Graph API — a valid set shows a success message, an invalid set
- * shows the exact error returned by Meta.
+ * settings page. The customer only supplies the 3 values that are
+ * genuinely theirs and cannot be derived — access token, WABA id and
+ * app secret. The webhook verify token is generated server-side and the
+ * phone_number_id is auto-fetched from the WABA during verification, so
+ * the customer never has to type or invent those.
+ *
+ * On save we PATCH the 3 credentials, then verify against Meta: a valid
+ * set shows a success message, an invalid set shows Meta's exact error.
  */
 const WA_FIELDS = [
   {
@@ -19,24 +22,10 @@ const WA_FIELDS = [
     secret: true,
   },
   {
-    key: 'meta_phone_number_id',
-    label: 'Phone number ID',
-    placeholder: 'ej. 1124674670733081',
-    hint: 'Meta Business Suite → API Setup → Números de teléfono → columna ID.',
-    type: 'text',
-  },
-  {
     key: 'meta_business_account_id',
     label: 'WABA business account ID',
     placeholder: 'ej. 1936173473732174',
-    hint: 'Meta Business Suite → Cuentas de WhatsApp → ID en la parte superior.',
-    type: 'text',
-  },
-  {
-    key: 'meta_verify_token',
-    label: 'Webhook verify token',
-    placeholder: 'Cadena aleatoria — la misma que pones en Meta',
-    hint: 'Elige cualquier cadena larga aleatoria. Pega este mismo valor en Meta → Configuración → Verify token.',
+    hint: 'Meta Business Suite → Cuentas de WhatsApp → ID en la parte superior. De aquí detectamos tu número automáticamente.',
     type: 'text',
   },
   {
@@ -53,10 +42,12 @@ export function WhatsAppConfigCard({ showToast }) {
   const [draft, setDraft] = useState(() => Object.fromEntries(WA_FIELDS.map((f) => [f.key, ''])));
   const [server, setServer] = useState(null);
   const [webhookUrl, setWebhookUrl] = useState('');
+  const [verifyToken, setVerifyToken] = useState('');
+  const [phoneNumberId, setPhoneNumberId] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null); // { ok: boolean, msg: string }
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState(''); // 'url' | 'token' | ''
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,11 +55,11 @@ export function WhatsAppConfigCard({ showToast }) {
       const res = await apiCall('/api/customer/whatsapp-config');
       setServer(res.config || null);
       setWebhookUrl(res.webhook_url || '');
+      setVerifyToken(res.config?.meta_verify_token || '');
+      setPhoneNumberId(res.config?.meta_phone_number_id || '');
       setDraft((d) => ({
         ...d,
-        meta_phone_number_id: res.config?.meta_phone_number_id || '',
         meta_business_account_id: res.config?.meta_business_account_id || '',
-        meta_verify_token: res.config?.meta_verify_token || '',
       }));
     } catch (e) {
       setResult({ ok: false, msg: e?.message || 'No se pudo cargar la configuración de WhatsApp.' });
@@ -81,11 +72,11 @@ export function WhatsAppConfigCard({ showToast }) {
     load();
   }, [load]);
 
-  const copyWebhook = async () => {
+  const copy = async (kind, value) => {
     try {
-      await navigator.clipboard.writeText(webhookUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
+      await navigator.clipboard.writeText(value);
+      setCopied(kind);
+      setTimeout(() => setCopied(''), 1800);
     } catch {
       /* ignore */
     }
@@ -96,7 +87,7 @@ export function WhatsAppConfigCard({ showToast }) {
     setResult(null);
     setBusy(true);
 
-    // 1. Save credentials — skip empty secrets so a saved token isn't wiped.
+    // 1. Save the 3 credentials — skip empty secrets so a saved token isn't wiped.
     const payload = { meta_graph_version: 'v21.0' };
     for (const f of WA_FIELDS) {
       if (f.secret && !draft[f.key]) continue;
@@ -115,7 +106,7 @@ export function WhatsAppConfigCard({ showToast }) {
       return;
     }
 
-    // 2. Verify the saved credentials against Meta.
+    // 2. Verify — the server auto-fetches the phone number from the WABA.
     try {
       const r = await apiCall('/api/customer/whatsapp-config/verify', { method: 'POST' });
       if (r.verified) {
@@ -140,6 +131,20 @@ export function WhatsAppConfigCard({ showToast }) {
     }
   }
 
+  const readOnlyRow = (kind, value) => (
+    <div style={{ display: 'flex', gap: 8 }}>
+      <input
+        className="form-input"
+        readOnly
+        value={value}
+        style={{ fontFamily: 'monospace', fontSize: 12 }}
+      />
+      <button type="button" className="btn-save-form" onClick={() => copy(kind, value)} style={{ flexShrink: 0 }}>
+        <i className={`fa-solid ${copied === kind ? 'fa-check' : 'fa-copy'}`} /> {copied === kind ? 'Copiado' : 'Copiar'}
+      </button>
+    </div>
+  );
+
   return (
     <div className="p-card">
       <div className="p-card-header">
@@ -151,26 +156,27 @@ export function WhatsAppConfigCard({ showToast }) {
         ) : null}
       </div>
       <p style={{ fontSize: 13, color: 'var(--soft)', lineHeight: 1.7, marginBottom: 14 }}>
-        Pega o actualiza tus 5 credenciales de Meta. Al guardar, las verificamos con Meta: si son válidas
-        verás un mensaje de éxito; si no, te mostraremos el error exacto.
+        Solo necesitas <strong>3 datos</strong> de Meta. El número de teléfono lo detectamos solos desde tu
+        WABA, y el verify token lo generamos nosotros — tú solo lo copias en Meta. Al guardar, verificamos
+        con Meta: si todo es válido verás un mensaje de éxito; si no, el error exacto.
       </p>
 
+      {/* Server-managed values — read-only, customer just copies them into Meta. */}
       {webhookUrl ? (
+        <div className="form-group full" style={{ marginBottom: 14 }}>
+          <label className="form-label">
+            1. URL del webhook — pégala en Meta → WhatsApp → Configuración → Callback URL
+          </label>
+          {readOnlyRow('url', webhookUrl)}
+        </div>
+      ) : null}
+
+      {verifyToken ? (
         <div className="form-group full" style={{ marginBottom: 16 }}>
           <label className="form-label">
-            URL del webhook — pégala en Meta → WhatsApp → Configuración → Callback URL
+            2. Verify token — pégalo en Meta → WhatsApp → Configuración → Verify token (lo generamos nosotros)
           </label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              className="form-input"
-              readOnly
-              value={webhookUrl}
-              style={{ fontFamily: 'monospace', fontSize: 12 }}
-            />
-            <button type="button" className="btn-save-form" onClick={copyWebhook} style={{ flexShrink: 0 }}>
-              <i className={`fa-solid ${copied ? 'fa-check' : 'fa-copy'}`} /> {copied ? 'Copiado' : 'Copiar'}
-            </button>
-          </div>
+          {readOnlyRow('token', verifyToken)}
         </div>
       ) : null}
 
@@ -208,6 +214,13 @@ export function WhatsAppConfigCard({ showToast }) {
             );
           })}
         </div>
+
+        {phoneNumberId ? (
+          <p style={{ fontSize: 12, color: 'var(--soft)', marginTop: 10 }}>
+            <i className="fa-solid fa-circle-check" style={{ color: 'var(--em)', marginRight: 6 }} />
+            Número detectado automáticamente — Phone number ID: <code>{phoneNumberId}</code>
+          </p>
+        ) : null}
 
         {result ? (
           <div

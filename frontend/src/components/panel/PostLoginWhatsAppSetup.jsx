@@ -29,26 +29,10 @@ const FIELDS = [
     secret: true,
   },
   {
-    key: 'meta_phone_number_id',
-    label: 'Phone number ID',
-    placeholder: 'e.g. 1124674670733081',
-    hint: 'Meta Business Suite → API Setup → Phone numbers → ID column.',
-    type: 'text',
-    required: true,
-  },
-  {
     key: 'meta_business_account_id',
     label: 'WABA business account ID',
     placeholder: 'e.g. 1936173473732174',
-    hint: 'Meta Business Suite → WhatsApp Accounts → ID at the top.',
-    type: 'text',
-    required: true,
-  },
-  {
-    key: 'meta_verify_token',
-    label: 'Webhook verify token',
-    placeholder: 'A random string — you also paste this same value in Meta',
-    hint: 'Choose any long random string. Paste this exact value into Meta → Configuration → Verify token.',
+    hint: 'Meta Business Suite → WhatsApp Accounts → ID at the top. We auto-detect your phone number from this.',
     type: 'text',
     required: true,
   },
@@ -264,12 +248,13 @@ export function PostLoginWhatsAppSetup() {
   const [draft, setDraft] = useState(() => Object.fromEntries(FIELDS.map((f) => [f.key, ''])));
   const [server, setServer] = useState(null);
   const [webhookUrl, setWebhookUrl] = useState('');
+  const [verifyToken, setVerifyToken] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [err, setErr] = useState('');
   const [info, setInfo] = useState('');
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState(''); // 'url' | 'token' | ''
   const [verified, setVerified] = useState(null); // { display_phone_number, verified_name, welcome }
 
   const load = useCallback(async () => {
@@ -278,11 +263,10 @@ export function PostLoginWhatsAppSetup() {
       const res = await apiCall('/api/customer/whatsapp-config');
       setServer(res.config || null);
       setWebhookUrl(res.webhook_url || '');
+      setVerifyToken(res.config?.meta_verify_token || '');
       setDraft((d) => ({
         ...d,
-        meta_phone_number_id: res.config?.meta_phone_number_id || '',
         meta_business_account_id: res.config?.meta_business_account_id || '',
-        meta_verify_token: res.config?.meta_verify_token || '',
       }));
       if (res.config?.is_active && res.config?.setup_completed_at) {
         setVerified({
@@ -300,11 +284,11 @@ export function PostLoginWhatsAppSetup() {
 
   useEffect(() => { load(); }, [load]);
 
-  const copyWebhook = async () => {
+  const copyValue = async (kind, value) => {
     try {
-      await navigator.clipboard.writeText(webhookUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
+      await navigator.clipboard.writeText(value);
+      setCopied(kind);
+      setTimeout(() => setCopied(''), 1800);
     } catch { /* ignore */ }
   };
 
@@ -446,27 +430,43 @@ export function PostLoginWhatsAppSetup() {
           <div className="swa-card">
             <h1 className="swa-title">Conecta tu <span className="grad">WhatsApp Business</span></h1>
             <p className="swa-sub">
-              Pega las 5 credenciales que te da Meta. Verificaremos con Meta automáticamente y, si todo está
-              correcto, tu agente se activa en este momento — no necesitas tocar nada más.
+              Solo necesitas 3 datos de Meta. El número de teléfono lo detectamos automáticamente desde tu
+              WABA y el verify token lo generamos nosotros. Al guardar verificamos con Meta y, si todo está
+              correcto, tu agente se activa en este momento.
             </p>
 
-            {/* Webhook URL */}
+            {/* Webhook URL + verify token — both server-managed; the customer only copies them into Meta */}
             <div className="swa-webhook-card">
               <label>1️⃣ Pega esta URL en Meta App → WhatsApp → Configuration → Callback URL</label>
               <div className="swa-webhook-row">
                 <input readOnly value={webhookUrl} />
                 <button
                   type="button"
-                  className={`swa-copy${copied ? ' copied' : ''}`}
-                  onClick={copyWebhook}
+                  className={`swa-copy${copied === 'url' ? ' copied' : ''}`}
+                  onClick={() => copyValue('url', webhookUrl)}
                   disabled={!webhookUrl}
                 >
-                  {copied ? '✓' : 'Copy'}
+                  {copied === 'url' ? '✓' : 'Copy'}
+                </button>
+              </div>
+            </div>
+
+            <div className="swa-webhook-card">
+              <label>2️⃣ Verify token — pégalo en Meta → Configuration → Verify token (lo generamos por ti)</label>
+              <div className="swa-webhook-row">
+                <input readOnly value={verifyToken} />
+                <button
+                  type="button"
+                  className={`swa-copy${copied === 'token' ? ' copied' : ''}`}
+                  onClick={() => copyValue('token', verifyToken)}
+                  disabled={!verifyToken}
+                >
+                  {copied === 'token' ? '✓' : 'Copy'}
                 </button>
               </div>
               <p style={{ marginTop: 8, fontSize: 12, color: 'var(--soft)', lineHeight: 1.55 }}>
-                El "Verify token" debe ser igual al que escribas más abajo. Luego pulsa <strong>Subscribe</strong>{' '}
-                en el campo <code style={{ background: 'rgba(255,255,255,0.04)', padding: '1px 5px', borderRadius: 4 }}>messages</code>.
+                Después pulsa <strong>Subscribe</strong> en el campo{' '}
+                <code style={{ background: 'rgba(255,255,255,0.04)', padding: '1px 5px', borderRadius: 4 }}>messages</code>.
               </p>
             </div>
 
