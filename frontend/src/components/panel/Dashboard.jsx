@@ -6,6 +6,7 @@ import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { apiCall } from '../../api/client.js';
 import { canAccessDashboardPage } from '../../constants/plans.js';
 import { LogoMark } from '../brand/LogoMark.jsx';
+import { WhatsAppConfigCard } from './WhatsAppConfigCard.jsx';
 import { usePanel } from '../../context/PanelContext.jsx';
 import { usePricing } from '../../hooks/usePricing.js';
 
@@ -1220,6 +1221,9 @@ export function Dashboard() {
                   </button>
                 </div>
               </form>
+            </div>
+            <div style={{ marginTop: 20 }}>
+              <WhatsAppConfigCard showToast={showToast} />
             </div>
           </div>
 

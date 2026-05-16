@@ -165,10 +165,13 @@ const PAGE_MIN_TIER = {
   knowledge: 3,
 };
 
-export function canAccessDashboardPage(planId, page) {
-  const need = PAGE_MIN_TIER[page] ?? 1;
-  if (!planId) return need <= 1;
-  return planTier(planId) >= need;
+/**
+ * Dashboard access. Every paying customer — regardless of which package
+ * they bought — gets the COMPLETE dashboard with no section locks. The
+ * tier tables above are kept only for legacy/admin reference.
+ */
+export function canAccessDashboardPage() {
+  return true;
 }
 
 export const PLAN_STORAGE_KEY = 'omnira_selected_plan';
