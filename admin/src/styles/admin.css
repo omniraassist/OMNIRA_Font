@@ -231,10 +231,12 @@ h4 {
   justify-content: center;
   box-shadow: 0 0 32px rgba(0, 229, 160, 0.12);
 }
-.adm-brand-mark svg {
-  width: 22px;
-  height: 22px;
+.adm-brand-mark svg,
+.adm-brand-mark img {
+  width: 28px;
+  height: 28px;
   color: var(--em);
+  object-fit: contain;
 }
 
 .adm-brand-text {

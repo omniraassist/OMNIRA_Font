@@ -1,6 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  IconBot,
   IconBrain,
   IconChart,
   IconChats,
@@ -90,7 +89,7 @@ export function Sidebar({ onNavigate, mobileOpen, collapsed, onToggleCollapse })
 
       <div className="adm-brand">
         <div className="adm-brand-mark" aria-hidden>
-          <IconBot />
+          <img src="/logo.png" alt="" width="32" height="32" decoding="async" />
         </div>
         <div className="adm-brand-text">
           <strong>Omnira</strong>

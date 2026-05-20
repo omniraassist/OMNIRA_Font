@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../context/AdminAuthContext.jsx';
-import { IconBot } from '../components/icons.jsx';
 
 const STYLES = `
   .lg-wrap {
@@ -52,7 +51,9 @@ const STYLES = `
     color: #00120a;
     margin-bottom: 18px;
     box-shadow: 0 10px 30px rgba(0,229,160,0.30);
+    overflow: hidden;
   }
+  .lg-logo img { width: 44px; height: 44px; object-fit: contain; display: block; }
   .lg-title { margin: 0 0 6px; font-family: var(--font-display); font-size: 28px; color: var(--text); }
   .lg-lead { margin: 0 0 24px; color: var(--soft); font-size: 13px; line-height: 1.6; }
 
@@ -144,7 +145,7 @@ export function LoginPage() {
       <style>{STYLES}</style>
       <div className="lg-card">
         <div className="lg-logo">
-          <IconBot style={{ width: 30, height: 30 }} />
+          <img src="/logo.png" alt="" width="34" height="34" decoding="async" style={{ display: 'block' }} />
         </div>
         <h1 className="lg-title">Omnira · administración</h1>
         <p className="lg-lead">

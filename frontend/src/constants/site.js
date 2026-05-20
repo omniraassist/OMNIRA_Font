@@ -1,5 +1,5 @@
-/** Public logo URL (favicon + navbar) */
-export const SITE_LOGO_URL = 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png';
+/** Public logo URL (favicon + navbar). Served from frontend/public/logo.png. */
+export const SITE_LOGO_URL = '/logo.png';
 
 /** Deployed Express API (Vercel). Empty `VITE_API_BASE` falls back here — never rely on localhost in production builds. */
 const DEFAULT_BACKEND = 'https://omnira-backend.vercel.app';
