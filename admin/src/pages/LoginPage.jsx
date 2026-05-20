@@ -44,16 +44,16 @@ const STYLES = `
     pointer-events: none;
   }
   .lg-logo {
-    width: 64px; height: 64px;
-    border-radius: 18px;
+    width: 88px; height: 88px;
+    border-radius: 22px;
     background: linear-gradient(135deg, var(--em) 0%, #60a5fa 100%);
     display: inline-flex; align-items: center; justify-content: center;
     color: #00120a;
-    margin-bottom: 18px;
-    box-shadow: 0 10px 30px rgba(0,229,160,0.30);
+    margin-bottom: 20px;
+    box-shadow: 0 14px 36px rgba(0,229,160,0.32);
     overflow: hidden;
   }
-  .lg-logo img { width: 44px; height: 44px; object-fit: contain; display: block; }
+  .lg-logo img { width: 66px; height: 66px; object-fit: contain; display: block; }
   .lg-title { margin: 0 0 6px; font-family: var(--font-display); font-size: 28px; color: var(--text); }
   .lg-lead { margin: 0 0 24px; color: var(--soft); font-size: 13px; line-height: 1.6; }
 
@@ -145,7 +145,7 @@ export function LoginPage() {
       <style>{STYLES}</style>
       <div className="lg-card">
         <div className="lg-logo">
-          <img src="/logo.png" alt="" width="34" height="34" decoding="async" style={{ display: 'block' }} />
+          <img src="/logo.png" alt="" width="66" height="66" decoding="async" style={{ display: 'block' }} />
         </div>
         <h1 className="lg-title">Omnira · administración</h1>
         <p className="lg-lead">

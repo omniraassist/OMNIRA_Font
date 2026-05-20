@@ -17,7 +17,7 @@ export function Navbar() {
         <div className="nav-inner">
           <a href="#" className="nav-logo" onClick={(e) => e.preventDefault()}>
             <div className="nav-logo-icon">
-              <LogoMark size={34} alt="" />
+              <LogoMark size={52} alt="" />
             </div>
             <span className="nav-logo-text">
               Omni<span>ra</span>

@@ -9,16 +9,18 @@
   background: transparent;
   padding: 0;
   overflow: visible;
+  width: 52px;
+  height: 52px;
 }
 .nav-logo .nav-logo-icon .logo-mark {
-  width: 36px;
-  height: 36px;
+  width: 52px;
+  height: 52px;
   display: block;
 }
 
 .footer-brand .logo-mark {
-  width: 36px;
-  height: 36px;
+  width: 52px;
+  height: 52px;
 }
 
 .auth-header-mini-icon {
@@ -30,10 +32,10 @@
   box-shadow: none !important;
 }
 .auth-header-mini-icon .logo-mark {
-  width: 26px;
-  height: 26px;
+  width: 38px;
+  height: 38px;
   box-shadow: 0 2px 12px rgba(0, 229, 160, 0.35);
-  border-radius: 8px;
+  border-radius: 9px;
 }
 .auth-logo-icon {
   display: flex;
@@ -41,16 +43,16 @@
   justify-content: center;
 }
 .auth-logo-icon .logo-mark {
-  width: 40px;
-  height: 40px;
+  width: 60px;
+  height: 60px;
 }
 .p-sidebar-logo-icon {
   background: transparent !important;
   box-shadow: none !important;
 }
 .p-sidebar-logo-icon .logo-mark {
-  width: 28px;
-  height: 28px;
+  width: 42px;
+  height: 42px;
   box-shadow: 0 2px 14px rgba(0, 229, 160, 0.25);
-  border-radius: 10px;
+  border-radius: 11px;
 }

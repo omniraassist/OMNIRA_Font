@@ -98,7 +98,7 @@ export function PostLoginPaymentStep() {
         <div className="auth-header-inner">
           <button type="button" className="auth-header-brand" onClick={closeClientPanel}>
             <span className="auth-header-mini-icon">
-              <LogoMark size={22} alt="" />
+              <LogoMark size={38} alt="" />
             </span>
             Omni<span>ra</span>
           </button>

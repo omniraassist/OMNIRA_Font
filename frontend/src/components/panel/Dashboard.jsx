@@ -471,7 +471,7 @@ export function Dashboard() {
           <div className="p-sidebar-header">
             <div className="p-sidebar-logo">
               <div className="p-sidebar-logo-icon">
-                <LogoMark size={22} alt="" />
+                <LogoMark size={38} alt="" />
               </div>
               <span className="p-sidebar-logo-text">Omnira</span>
             </div>

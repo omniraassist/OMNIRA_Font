@@ -221,9 +221,9 @@ h4 {
 }
 
 .adm-brand-mark {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
   background: linear-gradient(145deg, rgba(0, 229, 160, 0.2), rgba(0, 200, 122, 0.06));
   border: 1px solid var(--border-em);
   display: flex;
@@ -233,8 +233,8 @@ h4 {
 }
 .adm-brand-mark svg,
 .adm-brand-mark img {
-  width: 28px;
-  height: 28px;
+  width: 42px;
+  height: 42px;
   color: var(--em);
   object-fit: contain;
 }

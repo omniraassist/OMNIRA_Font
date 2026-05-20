@@ -34,7 +34,7 @@ export function AuthLogin() {
         <div className="auth-header-inner">
           <button type="button" className="auth-header-brand" onClick={closeClientPanel}>
             <span className="auth-header-mini-icon">
-              <LogoMark size={22} alt="" />
+              <LogoMark size={38} alt="" />
             </span>
             Omni<span>ra</span>
           </button>
@@ -53,7 +53,7 @@ export function AuthLogin() {
               <div className="auth-card">
                 <div className="auth-logo-row">
                   <div className="auth-logo-icon">
-                    <LogoMark size={36} alt="" />
+                    <LogoMark size={60} alt="" />
                   </div>
                   <span className="auth-logo-text">Omnira</span>
                 </div>

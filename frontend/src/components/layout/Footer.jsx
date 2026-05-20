@@ -8,7 +8,7 @@ export function Footer() {
           <div className="footer-brand">
             <a href="#" className="nav-logo" style={{ marginBottom: '16px', display: 'inline-flex' }} onClick={(e) => e.preventDefault()}>
               <div className="nav-logo-icon">
-                <LogoMark size={36} alt="" />
+                <LogoMark size={52} alt="" />
               </div>
               <span className="nav-logo-text">
                 Omni<span>ra</span>

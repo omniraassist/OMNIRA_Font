@@ -89,7 +89,7 @@ export function Sidebar({ onNavigate, mobileOpen, collapsed, onToggleCollapse })
 
       <div className="adm-brand">
         <div className="adm-brand-mark" aria-hidden>
-          <img src="/logo.png" alt="" width="32" height="32" decoding="async" />
+          <img src="/logo.png" alt="" width="42" height="42" decoding="async" />
         </div>
         <div className="adm-brand-text">
           <strong>Omnira</strong>
