@@ -205,7 +205,7 @@ export function Hero() {
                   <div className="phone-body" ref={bodyRef} id="chat-body">
                     {nodes.map((n) =>
                       n.type === 'typing' ? (
-                        <div key={n.id} className="msg-wrap">
+                        <div key={n.id} className="msg-wrap msg-enter">
                           <div className="typing-indicator">
                             <div className="typing-dot" />
                             <div className="typing-dot" />
@@ -213,7 +213,7 @@ export function Hero() {
                           </div>
                         </div>
                       ) : (
-                        <div key={n.id} className={`msg-wrap${n.isBot ? '' : ' right'}`}>
+                        <div key={n.id} className={`msg-wrap msg-enter${n.isBot ? '' : ' right'}`}>
                           <div className={n.isBot ? 'msg msg-bot' : 'msg msg-client'}>{n.text}</div>
                         </div>
                       )
@@ -225,6 +225,12 @@ export function Hero() {
                       <i className="fa-solid fa-paper-plane" />
                     </div>
                   </div>
+                </div>
+
+                {/* Mobile-only live chip — replaces the desktop float cards on small screens */}
+                <div className="phone-live-chip" aria-hidden="true">
+                  <span className="phone-live-chip-dot" />
+                  Respondiendo en vivo · <strong>24/7</strong>
                 </div>
 
                 <div className="float-card float-card-1">
