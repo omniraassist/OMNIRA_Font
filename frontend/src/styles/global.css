@@ -2853,3 +2853,182 @@ footer {
     height: min(390px, 78vw);
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PHASE 2 — PREMIUM THEME & MOTION POLISH
+   (additive only — does not override structural sizing)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Smoother scroll + nicer text selection across the site */
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+::selection { background: rgba(0,229,160,0.32); color: #fff; }
+::-moz-selection { background: rgba(0,229,160,0.32); color: #fff; }
+
+/* Accessible focus ring (keyboard only) */
+:focus-visible {
+  outline: 2px solid var(--em);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* Reveal: stronger entrance with micro-scale */
+.reveal               { transform: translateY(34px) scale(0.985); transition: opacity 0.85s cubic-bezier(0.22, 1, 0.36, 1), transform 0.85s cubic-bezier(0.22, 1, 0.36, 1); }
+.reveal.visible       { transform: translateY(0) scale(1); }
+.reveal-left          { transform: translateX(-34px) scale(0.985); transition: opacity 0.85s cubic-bezier(0.22, 1, 0.36, 1), transform 0.85s cubic-bezier(0.22, 1, 0.36, 1); }
+.reveal-left.visible  { transform: translateX(0) scale(1); }
+.reveal-right         { transform: translateX(34px) scale(0.985); transition: opacity 0.85s cubic-bezier(0.22, 1, 0.36, 1), transform 0.85s cubic-bezier(0.22, 1, 0.36, 1); }
+.reveal-right.visible { transform: translateX(0) scale(1); }
+
+/* Glass cards — subtle lift + accent-aware border on hover */
+.glass, .glass-em {
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.45s ease,
+              box-shadow 0.45s ease,
+              background 0.45s ease;
+}
+.glass:hover {
+  border-color: rgba(0,229,160,0.28);
+  background: rgba(17,24,39,0.78);
+  box-shadow: 0 18px 50px rgba(0,0,0,0.45), 0 0 0 1px rgba(0,229,160,0.14) inset;
+  transform: translateY(-3px);
+}
+.glass-em:hover {
+  border-color: rgba(0,229,160,0.55);
+  box-shadow: 0 22px 58px rgba(0,0,0,0.50), 0 0 0 1px rgba(0,229,160,0.22) inset;
+  transform: translateY(-3px);
+}
+
+/* Eyebrow chip — gentle hover lift + clearer pulse */
+.eyebrow {
+  background: linear-gradient(135deg, rgba(0,229,160,0.10), rgba(0,229,160,0.04));
+  transition: transform 0.35s ease, border-color 0.35s ease, background 0.35s ease;
+}
+.eyebrow:hover { transform: translateY(-1px); border-color: rgba(0,229,160,0.40); }
+
+/* Buttons — shimmer sweep on hover */
+@keyframes btnShimmerSweep {
+  0%   { transform: translateX(-120%) skewX(-18deg); opacity: 0; }
+  20%  { opacity: 0.45; }
+  100% { transform: translateX(220%) skewX(-18deg); opacity: 0; }
+}
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 40%;
+  left: 0;
+  background: linear-gradient(120deg, transparent, rgba(255,255,255,0.55), transparent);
+  pointer-events: none;
+  transform: translateX(-120%) skewX(-18deg);
+  opacity: 0;
+}
+.btn-primary:hover::after { animation: btnShimmerSweep 950ms ease forwards; }
+.btn-primary:hover {
+  box-shadow: 0 14px 32px rgba(0,229,160,0.42), 0 0 0 1px rgba(255,255,255,0.18) inset;
+}
+
+/* Ghost buttons — slight inner halo on hover */
+.btn-ghost:hover {
+  box-shadow: 0 0 0 1px rgba(0,229,160,0.30) inset, 0 10px 26px rgba(0,0,0,0.35);
+}
+
+/* Stat numbers — gradient text + soft glow */
+.stat-num {
+  background: linear-gradient(135deg, #fff 0%, var(--em) 55%, var(--em2) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 24px rgba(0,229,160,0.18));
+}
+
+/* Section header h2 — gentle gradient-line accent above (decorative) */
+.section-header { position: relative; }
+.section-header h2 {
+  text-shadow: 0 2px 30px rgba(0,0,0,0.4);
+}
+
+/* Pain cards — softer inner glow on hover (additive) */
+.pain-card {
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.45s ease,
+              box-shadow 0.45s ease;
+}
+.pain-card:hover {
+  box-shadow: 0 22px 50px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,71,87,0.16) inset;
+}
+
+/* Plan card subtle hover lift (works alongside the existing styles) */
+.plan-card {
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.5s ease,
+              box-shadow 0.5s ease;
+}
+.plan-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 28px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,229,160,0.20) inset;
+}
+.plan-card.featured:hover {
+  box-shadow: 0 30px 70px rgba(0,229,160,0.30), 0 0 0 1px rgba(0,229,160,0.55) inset;
+}
+
+/* Floating cards (desktop) — gentle glow + hover focus */
+.float-card {
+  transition: transform 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease;
+}
+.float-card:hover {
+  border-color: rgba(0,229,160,0.45);
+  box-shadow: 0 24px 50px rgba(0,0,0,0.55), 0 0 28px rgba(0,229,160,0.22);
+}
+
+/* Navbar links — animated underline (replaces simple hover-color) */
+.nav-links a::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: -6px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--em), var(--em2));
+  border-radius: 2px;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.nav-links a:hover::after { transform: scaleX(1); }
+
+/* Hero CTAs — give a slight glow halo at idle to draw the eye */
+#hero .btn-primary {
+  box-shadow: 0 14px 30px rgba(0,229,160,0.28);
+}
+
+/* Trust badges in hero — softer hover */
+.trust-badge {
+  transition: color 0.25s ease, transform 0.25s ease;
+}
+.trust-badge:hover { color: var(--em); transform: translateY(-1px); }
+
+/* FAQ row — accent underline on hover (if used) */
+.faq-item { transition: border-color 0.35s ease, background 0.35s ease; }
+.faq-item:hover { border-color: rgba(0,229,160,0.35); }
+
+/* Footer links subtle hover */
+footer a, .footer a {
+  transition: color 0.25s ease, transform 0.25s ease;
+}
+footer a:hover, .footer a:hover { color: var(--em); }
+
+/* Background ambient — slow gradient drift utility (opt-in via class) */
+@keyframes ambientDrift {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+.ambient-grad {
+  background-size: 200% 200%;
+  animation: ambientDrift 18s ease-in-out infinite;
+}
