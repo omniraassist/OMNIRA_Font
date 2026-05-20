@@ -3178,3 +3178,83 @@ details[open] .faq-icon {
 
 /* ── Hero background mesh: very slow drift for "alive" feel (already animated via heroMeshShift; just verify ease) ── */
 .hero-bg-mesh { animation: heroMeshShift 16s ease-in-out infinite; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PHASE 4 — MOBILE / TOUCH FINE-TUNING
+   (cancel stuck-hover transforms on touch devices, ensure tap targets
+   meet 44px guideline, polish remaining mobile breakpoints)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* On touch devices :hover triggers on tap and stays sticky — kill the lift
+   transforms so cards don't appear stuck. Base styles remain intact. */
+@media (hover: none) {
+  .glass:hover,
+  .glass-em:hover,
+  .plan-card:hover,
+  .step-card:hover,
+  .pain-card:hover,
+  .faq-item:hover,
+  .dash-mockup:hover,
+  .float-card:hover,
+  .feature-item:hover,
+  .btn-primary:hover,
+  .btn-ghost:hover,
+  .trust-badge:hover,
+  .marquee-item:hover {
+    transform: none !important;
+  }
+  /* Keep gentle :active feedback for tap responsiveness */
+  .btn-primary:active { transform: scale(0.97); }
+  .btn-ghost:active   { transform: scale(0.97); }
+  .plan-card:active   { transform: translateY(-2px); }
+  .step-card:active   { transform: translateY(-2px); }
+}
+
+/* Tap target minimums (≥44px) on every interactive surface on phones */
+@media (max-width: 600px) {
+  .btn-primary,
+  .btn-ghost,
+  .btn-sm,
+  .nav-links a,
+  .faq-item summary {
+    min-height: 44px;
+  }
+  /* Section header tightened typography */
+  .section-header h2 {
+    letter-spacing: -0.01em;
+  }
+  /* Cards: a touch more breathable */
+  .pain-card,
+  .step-card,
+  .plan-card,
+  .feature-item {
+    border-radius: 18px;
+  }
+  /* Float cards (kept hidden ≤768px) — reaffirm */
+  .float-card { display: none; }
+  /* Phone frame: enable accent inner border on phones for a "premium glass" feel */
+  .phone-frame {
+    border-color: rgba(255,255,255,0.14);
+  }
+  /* CTA Final on phones: orbs smaller and less aggressive motion */
+  .cta-orb-1, .cta-orb-2 {
+    filter: blur(40px);
+    opacity: 0.55;
+  }
+}
+
+/* Very narrow phones (≤380px) — guarantee primary CTAs are full-width and bigger */
+@media (max-width: 380px) {
+  .hero-actions { width: 100%; }
+  .hero-actions .btn-primary,
+  .hero-actions .btn-ghost {
+    width: 100%;
+    justify-content: center;
+  }
+  .cta-btns { width: 100%; }
+  .cta-btns .btn-primary,
+  .cta-btns .btn-ghost {
+    width: 100%;
+    justify-content: center;
+  }
+}
