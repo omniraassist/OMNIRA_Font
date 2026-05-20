@@ -223,20 +223,24 @@ h4 {
 .adm-brand-mark {
   width: 56px;
   height: 56px;
-  border-radius: 14px;
-  background: linear-gradient(145deg, rgba(0, 229, 160, 0.2), rgba(0, 200, 122, 0.06));
-  border: 1px solid var(--border-em);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 32px rgba(0, 229, 160, 0.12);
 }
 .adm-brand-mark svg,
 .adm-brand-mark img {
-  width: 42px;
-  height: 42px;
+  width: 56px;
+  height: 56px;
   color: var(--em);
   object-fit: contain;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .adm-brand-text {

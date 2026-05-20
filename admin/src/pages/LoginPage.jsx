@@ -45,15 +45,14 @@ const STYLES = `
   }
   .lg-logo {
     width: 88px; height: 88px;
-    border-radius: 22px;
-    background: linear-gradient(135deg, var(--em) 0%, #60a5fa 100%);
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
     display: inline-flex; align-items: center; justify-content: center;
-    color: #00120a;
     margin-bottom: 20px;
-    box-shadow: 0 14px 36px rgba(0,229,160,0.32);
-    overflow: hidden;
   }
-  .lg-logo img { width: 66px; height: 66px; object-fit: contain; display: block; }
+  .lg-logo img { width: 88px; height: 88px; object-fit: contain; display: block; background: transparent; }
   .lg-title { margin: 0 0 6px; font-family: var(--font-display); font-size: 28px; color: var(--text); }
   .lg-lead { margin: 0 0 24px; color: var(--soft); font-size: 13px; line-height: 1.6; }
 
