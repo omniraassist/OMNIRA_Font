@@ -3032,3 +3032,149 @@ footer a:hover, .footer a:hover { color: var(--em); }
   background-size: 200% 200%;
   animation: ambientDrift 18s ease-in-out infinite;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PHASE 3 — SECTION-SPECIFIC CINEMATIC POLISH
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── How It Works: step cards lift, number badge glow ── */
+.step-card {
+  position: relative;
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.5s ease, box-shadow 0.5s ease;
+}
+.step-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(0,229,160,0.10), transparent 50%);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+.step-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(0,229,160,0.36);
+  box-shadow: 0 28px 60px rgba(0,0,0,0.50), 0 0 0 1px rgba(0,229,160,0.18) inset;
+}
+.step-card:hover::before { opacity: 1; }
+.step-num-wrap, .step-num {
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.45s ease;
+}
+.step-card:hover .step-num-wrap,
+.step-card:hover .step-num {
+  transform: scale(1.08) rotate(-3deg);
+  box-shadow: 0 0 0 6px rgba(0,229,160,0.12), 0 14px 28px rgba(0,229,160,0.25);
+}
+
+/* Steps connector line — subtle traveling pulse */
+@keyframes connectorPulse {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.steps-connector {
+  background: linear-gradient(90deg, transparent 0%, rgba(0,229,160,0.45) 50%, transparent 100%) !important;
+  background-size: 200% 100% !important;
+  animation: connectorPulse 4.5s linear infinite;
+}
+
+/* ── Solution: feature items ── */
+.feature-item {
+  transition: transform 0.4s ease, background 0.4s ease;
+}
+.feature-item:hover { transform: translateX(4px); }
+.feature-icon {
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s ease;
+}
+.feature-item:hover .feature-icon {
+  transform: scale(1.10) rotate(-4deg);
+  box-shadow: 0 0 0 5px rgba(0,229,160,0.10);
+}
+
+/* ── FAQ: nicer hover, smooth icon rotation when open ── */
+.faq-item {
+  transition: transform 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+}
+.faq-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 40px rgba(0,0,0,0.35);
+}
+.faq-icon {
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), color 0.3s ease;
+}
+.faq-item.open .faq-icon,
+.faq-item[open] .faq-icon,
+details[open] .faq-icon {
+  transform: rotate(45deg);
+  color: var(--em);
+}
+
+/* ── CTA Final: orbs drift slower with stronger gradient ── */
+@keyframes ctaOrbDrift1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(20px, -25px) scale(1.06); }
+  66%      { transform: translate(-15px, 18px) scale(0.96); }
+}
+@keyframes ctaOrbDrift2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(-22px, 18px) scale(0.95); }
+  66%      { transform: translate(16px, -22px) scale(1.05); }
+}
+.cta-orb-1 { animation: ctaOrbDrift1 14s ease-in-out infinite; }
+.cta-orb-2 { animation: ctaOrbDrift2 16s ease-in-out infinite; }
+
+#cta-final .btn-primary {
+  box-shadow: 0 20px 50px rgba(0,229,160,0.36), 0 0 0 1px rgba(0,229,160,0.25);
+}
+#cta-final .btn-primary:hover {
+  box-shadow: 0 26px 60px rgba(0,229,160,0.55), 0 0 0 1px rgba(255,255,255,0.20) inset;
+}
+
+/* ── Pricing: featured plan ring pulse + best-value ribbon glow ── */
+@keyframes featuredRing {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0,229,160,0.30), 0 22px 50px rgba(0,0,0,0.40); }
+  50%      { box-shadow: 0 0 0 8px rgba(0,229,160,0), 0 22px 50px rgba(0,0,0,0.40); }
+}
+.plan-card.featured {
+  animation: featuredRing 3.6s ease-in-out infinite;
+}
+.plan-ribbon {
+  background-size: 200% 100% !important;
+  animation: connectorPulse 5s linear infinite;
+}
+
+/* ── Logos marquee: smoother edge fade ── */
+.marquee-wrap::before, .marquee-wrap::after {
+  background: linear-gradient(90deg, var(--ink2), transparent) !important;
+}
+.marquee-wrap::after {
+  background: linear-gradient(270deg, var(--ink2), transparent) !important;
+}
+
+/* ── Navbar mobile menu slide-in (already exists, just smoother) ── */
+.mobile-menu { transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease; }
+
+/* ── Pricing plan hover: more refined depth ── */
+.plan-saving {
+  transition: transform 0.3s ease;
+}
+.plan-card:hover .plan-saving { transform: translateY(-1px) scale(1.04); }
+
+/* ── Generic .glass:has(.eyebrow) — small touch: cards opening with eyebrow get a subtle accent left-edge ── */
+
+/* ── Logos marquee items soft tint on hover (if anchors) ── */
+.marquee-item { transition: transform 0.3s ease, filter 0.3s ease; }
+.marquee-item:hover { transform: scale(1.05); filter: brightness(1.15); }
+
+/* ── Dashboard mockup (used in case studies / how it works) ── */
+.dash-mockup {
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.6s ease;
+}
+.dash-mockup:hover {
+  transform: translateY(-4px) rotateX(2deg) rotateY(-2deg);
+  box-shadow: 0 40px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,229,160,0.18) inset;
+}
+
+/* ── Hero background mesh: very slow drift for "alive" feel (already animated via heroMeshShift; just verify ease) ── */
+.hero-bg-mesh { animation: heroMeshShift 16s ease-in-out infinite; }
