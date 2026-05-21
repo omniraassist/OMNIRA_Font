@@ -138,7 +138,7 @@ export function PrivacyPage() {
             <strong>Omnira</strong>
           </p>
           <p>
-            Correo: <a href="mailto:omniraassist@gmail.com">omniraassist@gmail.com</a>
+            Correo: <a href="mailto:ayuda@omnira.chat">ayuda@omnira.chat</a>
           </p>
           <p>
             Sitio web:{' '}

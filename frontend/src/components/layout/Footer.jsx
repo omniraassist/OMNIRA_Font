@@ -45,7 +45,7 @@ export function Footer() {
               <a href="#">Sobre nosotros</a>
               <a href="#">Blog</a>
               <a href="#">Casos de éxito</a>
-              <a href="mailto:omniraassist@gmail.com">Contacto</a>
+              <a href="mailto:ayuda@omnira.chat">Contacto</a>
             </div>
           </div>
           <div className="footer-col">

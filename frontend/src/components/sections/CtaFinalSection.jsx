@@ -63,9 +63,9 @@ export function CtaFinalSection() {
               <i className="fa-brands fa-whatsapp" style={{ color: '#25D366', fontSize: '18px' }} />
               Demo por WhatsApp
             </a>
-            <a href="mailto:omniraassist@gmail.com" className="btn-ghost btn-lg">
+            <a href="mailto:ayuda@omnira.chat" className="btn-ghost btn-lg">
               <i className="fa-solid fa-envelope" />
-              omniraassist@gmail.com
+              ayuda@omnira.chat
             </a>
           </div>
           <div className="cta-trust reveal">

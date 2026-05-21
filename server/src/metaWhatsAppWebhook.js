@@ -288,7 +288,7 @@ export async function sendWelcomeWhatsAppMessage(customerConfig, customerPersona
     "🎉 ¡Bienvenido a Omnira! Tu agente de WhatsApp está ACTIVO 24/7. " +
     "Tus credenciales de Meta están verificadas y todo está listo. " +
     "Cuando un cliente te escriba, Omnira responderá automáticamente con tu prompt y base de conocimiento. " +
-    "Si necesitas ayuda: omniraassist@gmail.com.";
+    "Si necesitas ayuda: ayuda@omnira.chat.";
   return await sendCustomerWhatsAppMessage(customerConfig, phone, body);
 }
 
@@ -299,7 +299,7 @@ export async function sendWelcomeWhatsAppMessage(customerConfig, customerPersona
  * row is missing — in production the seed migration creates it on first apply.
  */
 const FALLBACK_SYSTEM_PROMPT =
-  "You are Omnira's WhatsApp sales assistant. Reply in the user's language, concise and warm. Qualify softly: ask one natural question per turn to learn name, business, email, and intent. Plans from 49€/month; packs 3/6/12 months at 129€/229€/399€. Activation requires registration on the website + payment. Support: omniraassist@gmail.com. Never invent features.";
+  "You are Omnira's WhatsApp sales assistant. Reply in the user's language, concise and warm. Qualify softly: ask one natural question per turn to learn name, business, email, and intent. Plans from 49€/month; packs 3/6/12 months at 129€/229€/399€. Activation requires registration on the website + payment. Support: ayuda@omnira.chat. Never invent features.";
 
 const FALLBACK_LEAD_EXTRACTION_PROMPT =
   'You are an information extractor for a WhatsApp sales conversation. Output ONE JSON object with keys: name, email, phone, business_name, intent ("pricing"|"booking"|"support"|"demo"|"integration"|"info"|"other"), language (ISO 639-1), confidence (0..1), notes (≤200 chars). Use null for missing fields. Output ONLY JSON.';
@@ -630,7 +630,7 @@ export async function openAiReplyToInbound(userMessage, history = []) {
   const cfg = await loadPlatformBotConfig();
   const systemFromDb = String(process.env.META_WABA_OPENAI_SYSTEM || cfg.systemPrompt).slice(0, 16000);
   const knowledgeBlock = cfg.knowledgeBase
-    ? `\n\n# Knowledge base (admin-curated). Use as the source of truth for facts. If a user question is not answered by this, say you'll check and offer omniraassist@gmail.com.\n${cfg.knowledgeBase}`
+    ? `\n\n# Knowledge base (admin-curated). Use as the source of truth for facts. If a user question is not answered by this, say you'll check and offer ayuda@omnira.chat.\n${cfg.knowledgeBase}`
     : "";
   const system = `${systemFromDb}${knowledgeBlock}`.slice(0, 24000);
   const model = String(await getPlatformSetting("OPENAI_CHAT_MODEL", "gpt-4o-mini")).trim() || "gpt-4o-mini";
@@ -823,7 +823,7 @@ async function sendReplyForInbound(inbound) {
   const ai = await openAiReplyToInbound(inbound.body, history);
   const fallback =
     String(process.env.META_WABA_OPENAI_FALLBACK_REPLY || "").trim() ||
-    "¡Hola! Gracias por escribir a Omnira. Ahora mismo no puedo generar la respuesta automática; prueba en unos minutos o escribe a omniraassist@gmail.com. Planes desde 49€/mes y packs en omnira.";
+    "¡Hola! Gracias por escribir a Omnira. Ahora mismo no puedo generar la respuesta automática; prueba en unos minutos o escribe a ayuda@omnira.chat. Planes desde 49€/mes y packs en omnira.";
   const textToSend = ai || fallback;
   if (!ai) {
     console.warn("[meta whatsapp] OpenAI returned empty - sending fallback WhatsApp message");
