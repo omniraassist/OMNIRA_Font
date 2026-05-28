@@ -5,7 +5,7 @@ import { apiCall } from '../api/client.js';
 function formatDate(iso) {
   if (!iso) return '—';
   try {
-    return new Date(iso).toLocaleString();
+    return new Date(iso).toLocaleString('es-ES');
   } catch {
     return '—';
   }

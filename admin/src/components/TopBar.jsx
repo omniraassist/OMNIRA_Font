@@ -146,10 +146,10 @@ function useClickOutside(ref, onClose) {
 function formatRelative(iso) {
   if (!iso) return '—';
   const diff = Date.now() - new Date(iso).getTime();
-  if (diff < 60_000) return 'just now';
-  if (diff < 3600_000) return `${Math.round(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.round(diff / 3600_000)}h ago`;
-  return new Date(iso).toLocaleDateString();
+  if (diff < 60_000) return 'ahora mismo';
+  if (diff < 3600_000) return `hace ${Math.round(diff / 60_000)} min`;
+  if (diff < 86_400_000) return `hace ${Math.round(diff / 3600_000)} h`;
+  return new Date(iso).toLocaleDateString('es-ES');
 }
 
 export function TopBar({ onMenuClick }) {

@@ -365,7 +365,7 @@ function Funnel({ funnel }) {
               {row.pct.toFixed(0)}%
             </div>
           </div>
-          <div className="a-funnel-count">{row.count.toLocaleString()}</div>
+          <div className="a-funnel-count">{row.count.toLocaleString('es-ES')}</div>
         </div>
       ))}
     </div>
@@ -561,12 +561,12 @@ export function AnalyticsPage() {
               </div>
               <div className="a-health">
                 <div className="a-health-label">Llamadas con éxito</div>
-                <div className="a-health-value" style={{ color: 'var(--em)' }}>{data.openaiHealth.total_successes.toLocaleString()}</div>
+                <div className="a-health-value" style={{ color: 'var(--em)' }}>{data.openaiHealth.total_successes.toLocaleString('es-ES')}</div>
               </div>
               <div className="a-health">
                 <div className="a-health-label">Llamadas fallidas</div>
                 <div className="a-health-value" style={{ color: data.openaiHealth.total_failures > 0 ? '#fca5a5' : 'var(--text)' }}>
-                  {data.openaiHealth.total_failures.toLocaleString()}
+                  {data.openaiHealth.total_failures.toLocaleString('es-ES')}
                 </div>
               </div>
               <div className="a-health">

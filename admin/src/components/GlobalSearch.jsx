@@ -3,6 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { apiCall } from '../api/client.js';
 import { IconSearch } from './icons.jsx';
 
+const LEAD_STATUS_ES = {
+  new: 'Nuevo',
+  contacted: 'Contactado',
+  qualified: 'Cualificado',
+  converted: 'Convertido',
+  lost: 'Perdido',
+};
+
 // ---------------------------------------------------------------------------
 // Static page index. This is the spine of the search — admin can always jump
 // to any screen even when the backend search is empty/slow.
@@ -301,7 +309,7 @@ export function GlobalSearch() {
       path = '/leads';
       sub = item.name || `+${item.wa_from}`;
     }
-    pushRecent({ path, title: item.title || item.name || item.email || `+${item.wa_from}` || 'Open', sub });
+    pushRecent({ path, title: item.title || item.name || item.email || `+${item.wa_from}` || 'Abrir', sub });
     navigate(path);
     setOpen(false);
     setQuery('');
@@ -478,7 +486,7 @@ export function GlobalSearch() {
                           <div className="gs-row-title">{name}</div>
                           <div className="gs-row-sub">+{l.wa_from}{l.email ? ` · ${l.email}` : ''}{l.intent ? ` · ${l.intent}` : ''}</div>
                         </div>
-                        <div className="gs-row-hint">{l.status}</div>
+                        <div className="gs-row-hint">{LEAD_STATUS_ES[l.status] || l.status}</div>
                       </div>
                     );
                   })}

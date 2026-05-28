@@ -133,7 +133,7 @@ export function LoginPage() {
       await login(email.trim().toLowerCase(), password);
       navigate('/', { replace: true });
     } catch (err) {
-      setError(err.message || 'Login failed');
+      setError(err.message || 'Error al iniciar sesión');
     } finally {
       setLoading(false);
     }

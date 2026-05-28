@@ -187,7 +187,7 @@ const STYLES = `
 
 function formatDate(iso) {
   if (!iso) return '—';
-  try { return new Date(iso).toLocaleString(); } catch { return '—'; }
+  try { return new Date(iso).toLocaleString('es-ES'); } catch { return '—'; }
 }
 
 export function ProfilePage() {
