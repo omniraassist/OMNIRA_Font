@@ -2264,7 +2264,7 @@ app.get("/api/admin/invoices", async (_req, res) => {
     if (userIds.length) {
       const { data: users } = await supabaseAdmin
         .from("customer_users")
-        .select("id, email, first_name, last_name")
+        .select("id, email, first_name, last_name, phone, subscription_ends_at")
         .in("id", userIds);
       for (const u of users || []) usersById.set(u.id, u);
     }
@@ -2273,12 +2273,15 @@ app.get("/api/admin/invoices", async (_req, res) => {
       const u = usersById.get(p.customer_user_id) || {};
       const months = Math.max(1, Math.round((p.period_days || 30) / 30));
       const planLabel = planMap?.[p.plan_id]?.label || p.plan_id;
+      const subActive = Boolean(u.subscription_ends_at && new Date(u.subscription_ends_at) > new Date());
       return {
         id: p.id,
         number: invoiceNumberFor(p),
         customerId: p.customer_user_id,
         customerName: `${u.first_name || ""} ${u.last_name || ""}`.trim() || (u.email ? u.email.split("@")[0] : "Cliente"),
         email: u.email || "",
+        phone: u.phone || "",
+        subscriptionActive: subActive,
         planId: p.plan_id,
         planLabel,
         months,
