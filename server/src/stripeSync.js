@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { supabaseAdmin } from "./config/supabase.js";
 import { getCheckoutPlan, computeNewSubscriptionEnd } from "./billing.js";
+import { sendInvoiceForPayment } from "./invoice.js";
 
 /**
  * Drop a "purchase confirmed" notification into user_notifications targeting
@@ -123,6 +124,17 @@ export async function applyPaidCheckoutSession(session) {
     dedupKey: `system:purchase:checkout:${sessionId}`
   });
 
+  await sendInvoiceForPayment({
+    customerId: userId,
+    plan,
+    amountCents: plan.amountCents,
+    currency: "eur",
+    periodDays: plan.durationDays,
+    paymentRef: pi || sessionId,
+    createdAt: new Date().toISOString(),
+    subscriptionEnd: newEnd
+  });
+
   return { ok: true, planId, subscription_ends_at: newEnd };
 }
 
@@ -207,6 +219,17 @@ export async function applyPaidPaymentIntent(pi) {
     planLabel: plan.label,
     newEnd,
     dedupKey: `system:purchase:pi:${piId}`
+  });
+
+  await sendInvoiceForPayment({
+    customerId: userId,
+    plan,
+    amountCents: plan.amountCents,
+    currency: "eur",
+    periodDays: plan.durationDays,
+    paymentRef: piId,
+    createdAt: new Date().toISOString(),
+    subscriptionEnd: newEnd
   });
 
   return { ok: true, planId, subscription_ends_at: newEnd };

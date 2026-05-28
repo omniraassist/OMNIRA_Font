@@ -8,6 +8,8 @@ import { signCustomerToken, requireCustomer, verifyCustomerToken } from "./custo
 import { getCheckoutPlans, getCheckoutPlan, computeNewSubscriptionEnd, invalidatePricingCache } from "./billing.js";
 import { getPlatformSetting, invalidatePlatformSettingsCache, maskSecret } from "./platformSettings.js";
 import { getStripe, applyPaidCheckoutSession, applyPaidPaymentIntent, OMNIRA_PAYMENT_INTENT_FLOW } from "./stripeSync.js";
+import { invoiceNumberFor, getInvoiceById } from "./invoice.js";
+import { verifyEmailTransport, isEmailConfigured, sendEmail } from "./email.js";
 import {
   handleMetaWhatsAppGet,
   handleMetaWhatsAppPost,
@@ -2217,6 +2219,105 @@ app.get("/api/admin/clients/:clientId", async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ ok: false, message: `Admin client detail failed: ${error.message}` });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────────────────
+   INVOICES — every customer_payments row is an invoice. The admin can list
+   them, preview the A4 document, and re-send the email. New payments email
+   the invoice automatically (see stripeSync → sendInvoiceForPayment).
+   ───────────────────────────────────────────────────────────────────────── */
+
+app.get("/api/admin/email/health", async (_req, res) => {
+  try {
+    const health = await verifyEmailTransport();
+    return res.status(200).json({ ok: true, configured: isEmailConfigured(), ...health });
+  } catch (e) {
+    return res.status(500).json({ ok: false, message: e?.message || "email health failed" });
+  }
+});
+
+app.get("/api/admin/invoices", async (_req, res) => {
+  try {
+    const [{ data: pays, error }, planMap] = await Promise.all([
+      supabaseAdmin
+        .from("customer_payments")
+        .select(
+          "id, customer_user_id, plan_id, stripe_payment_intent_id, stripe_checkout_session_id, amount_cents, currency, period_days, subscription_end_after, created_at"
+        )
+        .order("created_at", { ascending: false }),
+      getCheckoutPlans()
+    ]);
+    if (error) throw error;
+
+    const userIds = [...new Set((pays || []).map((p) => p.customer_user_id))];
+    const usersById = new Map();
+    if (userIds.length) {
+      const { data: users } = await supabaseAdmin
+        .from("customer_users")
+        .select("id, email, first_name, last_name")
+        .in("id", userIds);
+      for (const u of users || []) usersById.set(u.id, u);
+    }
+
+    const invoices = (pays || []).map((p) => {
+      const u = usersById.get(p.customer_user_id) || {};
+      const months = Math.max(1, Math.round((p.period_days || 30) / 30));
+      const planLabel = planMap?.[p.plan_id]?.label || p.plan_id;
+      return {
+        id: p.id,
+        number: invoiceNumberFor(p),
+        customerId: p.customer_user_id,
+        customerName: `${u.first_name || ""} ${u.last_name || ""}`.trim() || (u.email ? u.email.split("@")[0] : "Cliente"),
+        email: u.email || "",
+        planId: p.plan_id,
+        planLabel,
+        months,
+        amountEuro: Number((Number(p.amount_cents || 0) / 100).toFixed(2)),
+        currency: p.currency || "eur",
+        createdAt: p.created_at,
+        subscriptionEnd: p.subscription_end_after,
+        paymentRef: p.stripe_payment_intent_id || p.stripe_checkout_session_id || ""
+      };
+    });
+
+    return res.status(200).json({ ok: true, invoices, email_configured: isEmailConfigured() });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Admin invoices failed: ${error.message}` });
+  }
+});
+
+app.get("/api/admin/invoices/:id", async (req, res) => {
+  try {
+    const result = await getInvoiceById(String(req.params.id || ""));
+    if (!result) return res.status(404).json({ ok: false, message: "Factura no encontrada." });
+    return res.status(200).json({ ok: true, invoice: result.inv, html: result.html });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Invoice load failed: ${error.message}` });
+  }
+});
+
+app.post("/api/admin/invoices/:id/resend", async (req, res) => {
+  try {
+    if (!isEmailConfigured()) {
+      return res.status(503).json({ ok: false, message: "El email no está configurado en el servidor (variables SMTP_*)." });
+    }
+    const result = await getInvoiceById(String(req.params.id || ""));
+    if (!result) return res.status(404).json({ ok: false, message: "Factura no encontrada." });
+    const to = String(req.body?.to || result.user?.email || "").trim();
+    if (!to) return res.status(400).json({ ok: false, message: "El cliente no tiene email." });
+
+    await sendEmail({
+      to,
+      subject: `Tu factura de Omnira · ${result.inv.number}`,
+      html: result.html,
+      text:
+        `Factura ${result.inv.number}\nPlan: ${result.inv.planLabel} (${result.inv.periodText})\n` +
+        `Total: €${(result.inv.amountCents / 100).toFixed(2)}\nSoporte: ayuda@omnira.chat`
+    });
+    return res.status(200).json({ ok: true, sentTo: to });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Resend failed: ${error.message}` });
   }
 });
 
