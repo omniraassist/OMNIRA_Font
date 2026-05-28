@@ -9,7 +9,7 @@ import { getCheckoutPlans, getCheckoutPlan, computeNewSubscriptionEnd, invalidat
 import { getPlatformSetting, invalidatePlatformSettingsCache, maskSecret } from "./platformSettings.js";
 import { getStripe, applyPaidCheckoutSession, applyPaidPaymentIntent, OMNIRA_PAYMENT_INTENT_FLOW } from "./stripeSync.js";
 import { invoiceNumberFor, getInvoiceById } from "./invoice.js";
-import { verifyEmailTransport, isEmailConfigured, sendEmail } from "./email.js";
+import { verifyEmailTransport, isEmailConfigured, sendEmail, emailConfigDiagnostics } from "./email.js";
 import {
   handleMetaWhatsAppGet,
   handleMetaWhatsAppPost,
@@ -2230,8 +2230,17 @@ app.get("/api/admin/clients/:clientId", async (req, res) => {
 
 app.get("/api/admin/email/health", async (_req, res) => {
   try {
+    const present = emailConfigDiagnostics();
+    if (!isEmailConfigured()) {
+      return res.status(200).json({
+        ok: false,
+        configured: false,
+        present,
+        message: "SMTP no configurado. Revisa qué variable falta en 'present' (Vercel → backend → Environment Variables → Production, luego Redeploy)."
+      });
+    }
     const health = await verifyEmailTransport();
-    return res.status(200).json({ ok: true, configured: isEmailConfigured(), ...health });
+    return res.status(200).json({ ok: health.ok, configured: true, present, message: health.message });
   } catch (e) {
     return res.status(500).json({ ok: false, message: e?.message || "email health failed" });
   }

@@ -19,6 +19,21 @@ export function isEmailConfigured() {
   return Boolean(HOST && USER && PASS);
 }
 
+/**
+ * Per-variable presence (booleans only — never the secret values). Used by the
+ * health endpoint so we can pinpoint exactly which SMTP_* var Vercel is missing.
+ */
+export function emailConfigDiagnostics() {
+  return {
+    SMTP_HOST: Boolean(HOST),
+    SMTP_PORT: PORT || null,
+    SMTP_USER: Boolean(USER),
+    SMTP_PASS: Boolean(PASS),
+    SMTP_FROM: Boolean(FROM),
+    user_hint: USER ? `${USER.slice(0, 2)}***@${USER.split("@")[1] || ""}` : null,
+  };
+}
+
 function getTransporter() {
   if (!isEmailConfigured()) return null;
   if (_transporter) return _transporter;
