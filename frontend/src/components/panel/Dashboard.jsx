@@ -366,13 +366,13 @@ export function Dashboard() {
         } else if (['xlsx', 'xls'].includes(ext)) {
           text = await readXlsx(file);
         } else if (ext === 'doc') {
-          throw new Error('.doc legacy format is not readable in browser. Please upload .docx');
+          throw new Error('El formato .doc antiguo no se puede leer en el navegador. Sube un archivo .docx.');
         } else {
-          throw new Error('Unsupported format');
+          throw new Error('Formato no compatible');
         }
 
         const normalized = (text || '').trim();
-        if (!normalized) throw new Error('No readable text found in file');
+        if (!normalized) throw new Error('No se encontró texto legible en el archivo');
 
         merged = `${merged}${merged ? '\n\n' : ''}----- ${file.name} -----\n${normalized}`;
         imported.push({ name: file.name, size: file.size, at: new Date().toISOString() });
@@ -486,7 +486,7 @@ export function Dashboard() {
                 <i className="fa-solid fa-calendar-days" /> Calendario
               </button>
               <button type="button" className={`p-nav-item${page === 'booking' ? ' active' : ''}`} onClick={() => openNavPage('booking')}>
-                <i className="fa-solid fa-calendar-check" /> Booking
+                <i className="fa-solid fa-calendar-check" /> Reservas
               </button>
               <button type="button" className={`p-nav-item${page === 'convs' ? ' active' : ''}`} onClick={() => openNavPage('convs')}>
                 <i className="fa-brands fa-whatsapp" /> Conversaciones
@@ -625,7 +625,7 @@ export function Dashboard() {
               type="button"
               className="p-tb-bell"
               onClick={() => setNotifOpen((v) => !v)}
-              aria-label="Notifications"
+              aria-label="Notificaciones"
               aria-expanded={notifOpen}
             >
               <i className="fa-solid fa-bell" />
@@ -634,7 +634,7 @@ export function Dashboard() {
               ) : null}
             </button>
             {notifOpen ? (
-              <div className="p-tb-panel" role="dialog" aria-label="Notifications">
+              <div className="p-tb-panel" role="dialog" aria-label="Notificaciones">
                 <div className="p-tb-panel-head">
                   <strong>Notificaciones</strong>
                   <span>{notifications.length} total</span>
@@ -805,7 +805,7 @@ export function Dashboard() {
             {notifOpen && (
               <div className="p-card" style={{ marginBottom: 16 }}>
                 <div className="p-card-header">
-                  <span className="p-card-title">Notifications</span>
+                  <span className="p-card-title">Notificaciones</span>
                 </div>
                 {notifications.length ? (
                   notifications.slice(0, 8).map((n) => (
@@ -820,7 +820,7 @@ export function Dashboard() {
                 ) : (
                   <div className="p-empty">
                     <i className="fa-solid fa-bell-slash" />
-                    <p>No notifications</p>
+                    <p>Sin notificaciones</p>
                   </div>
                 )}
               </div>
@@ -959,18 +959,18 @@ export function Dashboard() {
           <div id="page-booking" className={`p-page${page === 'booking' ? ' active' : ''}`}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', marginBottom: '32px' }}>
               <div>
-                <h1 className="p-page-title">Booking</h1>
+                <h1 className="p-page-title">Reservas</h1>
                 <p className="p-page-sub" style={{ marginBottom: 0 }}>
-                  Manage all your appointments from one place.
+                  Gestiona todas tus citas desde un solo lugar.
                 </p>
               </div>
               <button type="button" className="cal-add-btn" onClick={() => openAddModal()}>
-                <i className="fa-solid fa-plus" /> New booking
+                <i className="fa-solid fa-plus" /> Nueva reserva
               </button>
             </div>
             <div className="p-card">
               <div className="p-card-header">
-                <span className="p-card-title">All bookings</span>
+                <span className="p-card-title">Todas las reservas</span>
               </div>
               <div id="allResList">
                 {allEvents?.length ? (
@@ -1267,7 +1267,7 @@ export function Dashboard() {
                           <span>{Math.max(1, Math.round((f.size || 0) / 1024))} KB</span>
                         </div>
                         <button type="button" onClick={() => removeKbFile(idx)}>
-                          Remove
+                          Eliminar
                         </button>
                       </div>
                     ))}
@@ -1289,7 +1289,7 @@ export function Dashboard() {
             <p className="p-page-sub">
               Conecta tu número de WhatsApp Business pegando tus credenciales de Meta. Al guardar las
               verificamos con Meta y, si son correctas, tu agente Omnira queda activo 24/7. Después,
-              entrena al agente con tu información en <strong>Knowledge Training</strong>.
+              entrena al agente con tu información en <strong>Entrenar Chatbot</strong>.
             </p>
             <WhatsAppConfigCard showToast={showToast} />
           </div>

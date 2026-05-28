@@ -15,7 +15,7 @@ import { apiCall } from '../../api/client.js';
 const WA_FIELDS = [
   {
     key: 'meta_access_token',
-    label: 'Meta access token',
+    label: 'Token de acceso de Meta',
     placeholder: 'EAAB… token de usuario de sistema',
     hint: 'Meta Business Suite → Usuarios del sistema → Generar token con whatsapp_business_messaging.',
     type: 'password',
@@ -23,15 +23,15 @@ const WA_FIELDS = [
   },
   {
     key: 'meta_business_account_id',
-    label: 'WABA business account ID',
+    label: 'ID de cuenta de empresa (WABA)',
     placeholder: 'ej. 1936173473732174',
     hint: 'Meta Business Suite → Cuentas de WhatsApp → ID en la parte superior. De aquí detectamos tu número automáticamente.',
     type: 'text',
   },
   {
     key: 'meta_app_secret',
-    label: 'Meta App secret',
-    placeholder: 'App Dashboard → Configuración → Básica → Clave secreta',
+    label: 'Clave secreta de la app de Meta',
+    placeholder: 'Panel de la app → Configuración → Básica → Clave secreta',
     hint: 'Se usa para verificar la firma X-Hub-Signature de cada webhook entrante.',
     type: 'password',
     secret: true,

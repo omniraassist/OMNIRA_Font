@@ -37,19 +37,19 @@ export function AuthForgot() {
       const newPassword = String(form.get('newPassword') || '');
       const confirmPassword = String(form.get('confirmPassword') || '');
       if (newPassword.length < 8) {
-        throw new Error('New password must be at least 8 characters.');
+        throw new Error('La nueva contraseña debe tener al menos 8 caracteres.');
       }
       if (newPassword !== confirmPassword) {
-        throw new Error('Confirm password does not match.');
+        throw new Error('Las contraseñas no coinciden.');
       }
       if (!resetToken) {
-        throw new Error('Reset session expired. Verify email again.');
+        throw new Error('La sesión de restablecimiento ha caducado. Verifica el correo de nuevo.');
       }
       await apiCall('/api/customer/reset/confirm', {
         method: 'POST',
         body: JSON.stringify({ token: resetToken, newPassword }),
       });
-      setOk('Password reset successful. Redirecting to login...');
+      setOk('Contraseña restablecida correctamente. Redirigiendo al inicio de sesión…');
       setTimeout(() => {
         showLogin();
       }, 600);
@@ -96,8 +96,8 @@ export function AuthForgot() {
                 <h1 className="auth-title">Recuperar contraseña</h1>
                 <p className="auth-subtitle">
                   {step === 'verify'
-                    ? 'Enter your email to verify your account.'
-                    : `Account verified (${email}). Create your new password.`}
+                    ? 'Introduce tu correo para verificar tu cuenta.'
+                    : `Cuenta verificada (${email}). Crea tu nueva contraseña.`}
                 </p>
                 <div className={`auth-error ${err ? 'show' : ''}`}>{err}</div>
                 <div className={`auth-msg-success ${ok ? 'show' : ''}`}>{ok}</div>
@@ -113,7 +113,7 @@ export function AuthForgot() {
                     <>
                       <div className="form-group">
                         <label className="form-label" htmlFor="newPassword">
-                          Create new password
+                          Crear nueva contraseña
                         </label>
                         <div style={{ position: 'relative' }}>
                           <input
@@ -121,7 +121,7 @@ export function AuthForgot() {
                             type={showNewPassword ? 'text' : 'password'}
                             id="newPassword"
                             name="newPassword"
-                            placeholder="Minimum 8 characters"
+                            placeholder="Mínimo 8 caracteres"
                             minLength={8}
                             required
                             style={{ paddingRight: 44 }}
@@ -129,7 +129,7 @@ export function AuthForgot() {
                           <button
                             type="button"
                             onClick={() => setShowNewPassword((v) => !v)}
-                            aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                            aria-label={showNewPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                             style={{ position: 'absolute', right: 10, top: 10, background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}
                           >
                             <i className={`fa-solid ${showNewPassword ? 'fa-eye-slash' : 'fa-eye'}`} />
@@ -138,7 +138,7 @@ export function AuthForgot() {
                       </div>
                       <div className="form-group">
                         <label className="form-label" htmlFor="confirmPassword">
-                          Confirm password
+                          Confirmar contraseña
                         </label>
                         <div style={{ position: 'relative' }}>
                           <input
@@ -146,7 +146,7 @@ export function AuthForgot() {
                             type={showConfirmPassword ? 'text' : 'password'}
                             id="confirmPassword"
                             name="confirmPassword"
-                            placeholder="Re-enter password"
+                            placeholder="Vuelve a escribir la contraseña"
                             minLength={8}
                             required
                             style={{ paddingRight: 44 }}
@@ -154,7 +154,7 @@ export function AuthForgot() {
                           <button
                             type="button"
                             onClick={() => setShowConfirmPassword((v) => !v)}
-                            aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                            aria-label={showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                             style={{ position: 'absolute', right: 10, top: 10, background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}
                           >
                             <i className={`fa-solid ${showConfirmPassword ? 'fa-eye-slash' : 'fa-eye'}`} />
@@ -168,7 +168,7 @@ export function AuthForgot() {
                       <div className="p-spinner" style={{ width: 20, height: 20 }} />
                     ) : (
                       <span className="panel-btn-primary-inner">
-                        <span>{step === 'verify' ? 'Verify email' : 'Reset password'}</span>
+                        <span>{step === 'verify' ? 'Verificar correo' : 'Restablecer contraseña'}</span>
                         <i className="fa-solid fa-paper-plane" aria-hidden />
                       </span>
                     )}
@@ -186,7 +186,7 @@ export function AuthForgot() {
                       }}
                       style={{ background: 'none', border: 'none', color: 'var(--em)', cursor: 'pointer', font: 'inherit', fontWeight: 600 }}
                     >
-                      Use different email
+                      Usar otro correo
                     </button>
                   </p>
                 )}

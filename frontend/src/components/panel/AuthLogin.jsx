@@ -93,7 +93,7 @@ export function AuthLogin() {
                       <button
                         type="button"
                         onClick={() => setShowPassword((v) => !v)}
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                         style={{ position: 'absolute', right: 10, top: 10, background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}
                       >
                         <i className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`} />

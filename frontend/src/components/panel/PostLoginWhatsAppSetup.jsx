@@ -21,26 +21,26 @@ import { apiCall } from '../../api/client.js';
 const FIELDS = [
   {
     key: 'meta_access_token',
-    label: 'Meta access token',
-    placeholder: 'EAAB… long-lived system user token',
-    hint: 'Meta Business Suite → System Users → Generate token with whatsapp_business_messaging.',
+    label: 'Token de acceso de Meta',
+    placeholder: 'EAAB… token de usuario de sistema de larga duración',
+    hint: 'Meta Business Suite → Usuarios del sistema → Generar token con whatsapp_business_messaging.',
     type: 'password',
     required: true,
     secret: true,
   },
   {
     key: 'meta_business_account_id',
-    label: 'WABA business account ID',
-    placeholder: 'e.g. 1936173473732174',
-    hint: 'Meta Business Suite → WhatsApp Accounts → ID at the top. We auto-detect your phone number from this.',
+    label: 'ID de cuenta de empresa (WABA)',
+    placeholder: 'ej. 1936173473732174',
+    hint: 'Meta Business Suite → Cuentas de WhatsApp → ID en la parte superior. De aquí detectamos tu número automáticamente.',
     type: 'text',
     required: true,
   },
   {
     key: 'meta_app_secret',
-    label: 'Meta App secret',
-    placeholder: 'From App Dashboard → Settings → Basic → App secret',
-    hint: 'Used to verify the X-Hub-Signature on every inbound webhook POST.',
+    label: 'Clave secreta de la app de Meta',
+    placeholder: 'App Dashboard → Configuración → Básica → Clave secreta',
+    hint: 'Se usa para verificar la firma X-Hub-Signature de cada webhook entrante.',
     type: 'password',
     required: true,
     secret: true,
@@ -312,7 +312,7 @@ export function PostLoginWhatsAppSetup() {
       });
     } catch (ex) {
       setSaving(false);
-      setErr(`Could not save credentials: ${ex?.message || ex}`);
+      setErr(`No se pudieron guardar las credenciales: ${ex?.message || ex}`);
       return;
     }
     setSaving(false);
@@ -329,10 +329,10 @@ export function PostLoginWhatsAppSetup() {
           welcome: r.welcome,
         });
       } else {
-        setErr(r.message || `Verification failed${r.meta_status ? ` (HTTP ${r.meta_status})` : ''}.`);
+        setErr(r.message || `La verificación falló${r.meta_status ? ` (HTTP ${r.meta_status})` : ''}.`);
       }
     } catch (ex) {
-      setErr(`Verification failed: ${ex?.message || ex}`);
+      setErr(`La verificación falló: ${ex?.message || ex}`);
     } finally {
       setVerifying(false);
     }
@@ -437,7 +437,7 @@ export function PostLoginWhatsAppSetup() {
 
             {/* Webhook URL + verify token — both server-managed; the customer only copies them into Meta */}
             <div className="swa-webhook-card">
-              <label>1️⃣ Pega esta URL en Meta App → WhatsApp → Configuration → Callback URL</label>
+              <label>1️⃣ Pega esta URL en Meta App → WhatsApp → Configuración → Callback URL</label>
               <div className="swa-webhook-row">
                 <input readOnly value={webhookUrl} />
                 <button
@@ -446,13 +446,13 @@ export function PostLoginWhatsAppSetup() {
                   onClick={() => copyValue('url', webhookUrl)}
                   disabled={!webhookUrl}
                 >
-                  {copied === 'url' ? '✓' : 'Copy'}
+                  {copied === 'url' ? '✓' : 'Copiar'}
                 </button>
               </div>
             </div>
 
             <div className="swa-webhook-card">
-              <label>2️⃣ Verify token — pégalo en Meta → Configuration → Verify token (lo generamos por ti)</label>
+              <label>2️⃣ Verify token — pégalo en Meta → Configuración → Verify token (lo generamos por ti)</label>
               <div className="swa-webhook-row">
                 <input readOnly value={verifyToken} />
                 <button
@@ -461,7 +461,7 @@ export function PostLoginWhatsAppSetup() {
                   onClick={() => copyValue('token', verifyToken)}
                   disabled={!verifyToken}
                 >
-                  {copied === 'token' ? '✓' : 'Copy'}
+                  {copied === 'token' ? '✓' : 'Copiar'}
                 </button>
               </div>
               <p style={{ marginTop: 8, fontSize: 12, color: 'var(--soft)', lineHeight: 1.55 }}>
@@ -489,7 +489,7 @@ export function PostLoginWhatsAppSetup() {
                         type={f.type}
                         value={draft[f.key]}
                         onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
-                        placeholder={savedSecret ? '••••••• (saved — type to replace)' : f.placeholder}
+                        placeholder={savedSecret ? '••••••• (guardado — escribe para reemplazar)' : f.placeholder}
                         required={f.required && !savedSecret}
                         autoComplete="off"
                         spellCheck={false}
@@ -500,7 +500,7 @@ export function PostLoginWhatsAppSetup() {
                 })}
               </div>
 
-              {err ? <div className="swa-err"><strong>Verification failed:</strong> {err}</div> : null}
+              {err ? <div className="swa-err"><strong>La verificación falló:</strong> {err}</div> : null}
               {info ? <div className="swa-info">{info}</div> : null}
 
               <button
@@ -508,7 +508,7 @@ export function PostLoginWhatsAppSetup() {
                 className="swa-submit"
                 disabled={saving || verifying || loading || !allRequiredFilled}
               >
-                {saving ? 'Saving credentials…' : verifying ? 'Verifying with Meta…' : 'Save & verify with Meta'}
+                {saving ? 'Guardando credenciales…' : verifying ? 'Verificando con Meta…' : 'Guardar y verificar con Meta'}
               </button>
 
               <button
@@ -517,7 +517,7 @@ export function PostLoginWhatsAppSetup() {
                 onClick={completeWhatsAppSetup}
                 disabled={saving || verifying}
               >
-                Skip for now — I'll connect WhatsApp later
+                Omitir por ahora — conectaré WhatsApp más tarde
               </button>
             </form>
           </div>

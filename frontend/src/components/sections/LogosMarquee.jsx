@@ -8,7 +8,7 @@ const ITEMS = [
   ['fa-solid fa-eye', 'Clínicas Ópticas'],
   ['fa-solid fa-stethoscope', 'Consultas Médicas'],
   ['fa-solid fa-paw', 'Veterinarios'],
-  ['fa-solid fa-hand-sparkles', 'Nail Studios'],
+  ['fa-solid fa-hand-sparkles', 'Centros de Uñas'],
 ];
 
 export function LogosMarquee() {
