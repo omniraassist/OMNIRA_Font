@@ -78,19 +78,19 @@ const STYLES = `
   .inv-act:disabled { opacity: .5; cursor: not-allowed; }
   .inv-empty { padding: 40px; text-align: center; color: var(--muted); font-size: 14px; }
 
-  .inv-modal-overlay { position: fixed; inset: 0; z-index: 2000; background: rgba(2,6,12,0.72); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; padding: 24px; }
-  .inv-modal { background: #fff; border-radius: 14px; width: min(880px, 100%); max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,0.6); }
-  .inv-modal-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; background: #0b1220; flex-shrink: 0; flex-wrap: wrap; }
-  .inv-modal-bar .t { color: #fff; font-size: 14px; font-weight: 700; font-family: var(--font-display); }
+  .inv-modal-overlay { position: fixed; inset: 0; z-index: 2000; background: rgba(2,6,12,0.92); display: flex; flex-direction: column; padding: 0; }
+  .inv-modal { background: #eef2f7; width: 100vw; height: 100dvh; max-height: none; border-radius: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .inv-modal-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; background: #0b1220; flex-shrink: 0; flex-wrap: wrap; box-shadow: 0 2px 14px rgba(0,0,0,0.4); }
+  .inv-modal-bar .t { color: #fff; font-size: 15px; font-weight: 700; font-family: var(--font-display); }
   .inv-modal-bar .acts { display: flex; gap: 8px; flex-wrap: wrap; }
-  .inv-modal-btn { border: 0; border-radius: 8px; padding: 8px 13px; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  .inv-modal-btn { border: 0; border-radius: 8px; padding: 9px 15px; font-size: 13px; font-weight: 700; cursor: pointer; }
   .inv-modal-btn.print { background: linear-gradient(135deg, var(--em), var(--em2)); color: #04201a; }
   .inv-modal-btn.send { background: #1f6feb; color: #fff; }
   .inv-modal-btn.alt { background: rgba(255,255,255,0.16); color: #fff; }
   .inv-modal-btn.close { background: rgba(255,255,255,0.10); color: #fff; }
   .inv-modal-btn:hover { filter: brightness(1.1); }
   .inv-modal-btn:disabled { opacity: .5; cursor: not-allowed; }
-  .inv-modal iframe { width: 100%; height: 70vh; border: 0; background: #eef2f7; flex: 1; }
+  .inv-modal iframe { width: 100%; flex: 1; min-height: 0; border: 0; background: #eef2f7; }
 `;
 
 function fmtDateTime(iso) {
