@@ -123,7 +123,12 @@ export async function listFolders() {
 export async function resolveFolderPath(keyOrPath) {
   const v = String(keyOrPath || "").trim() || "inbox";
   if (v === "inbox") return "INBOX";
-  if (!["sent", "drafts", "spam", "trash", "archive", "starred"].includes(v)) {
+  // "starred" is a VIRTUAL view, not a server-side folder — flagged messages
+  // live wherever they were originally received. We anchor the view to INBOX
+  // so list/move/flag operations all target a real mailbox; the actual
+  // \Flagged filter is layered on top inside listMessages().
+  if (v === "starred") return "INBOX";
+  if (!["sent", "drafts", "spam", "trash", "archive"].includes(v)) {
     // Treat as raw path
     return v;
   }
@@ -157,6 +162,7 @@ function envelopeAddrs(arr) {
  * `limit` messages (offset = page * limit) in descending UID order.
  */
 export async function listMessages({ folder = "inbox", page = 0, limit = 50, search = "" } = {}) {
+  const isStarredView = String(folder).trim() === "starred";
   const path = await resolveFolderPath(folder);
   return withClient(async (client) => {
     const lock = await client.getMailboxLock(path);
@@ -165,11 +171,15 @@ export async function listMessages({ folder = "inbox", page = 0, limit = 50, sea
       const total = box?.exists ?? 0;
       if (total === 0) return { folder: path, total: 0, messages: [] };
 
-      // Search if requested — falls back to "all" when search is empty.
+      // Build the search criteria. "Starred" is a virtual view, so we always
+      // filter by \Flagged. Free-text search OR-combines from/subject/body.
       let uids;
       const q = String(search || "").trim();
-      if (q) {
-        // Combine TEXT + FROM + SUBJECT — most IMAP servers accept these as separate criteria; OR-combine.
+      if (isStarredView && q) {
+        uids = await client.search({ flagged: true, or: [{ from: q }, { subject: q }, { body: q }] }, { uid: true });
+      } else if (isStarredView) {
+        uids = await client.search({ flagged: true }, { uid: true });
+      } else if (q) {
         uids = await client.search({ or: [{ from: q }, { subject: q }, { body: q }] }, { uid: true });
       } else {
         // Fast path: ask for the whole mailbox UID set.

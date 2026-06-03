@@ -15,7 +15,7 @@ import { BotConfigPage } from './pages/BotConfigPage.jsx';
 import { ProfilePage } from './pages/ProfilePage.jsx';
 import { NotificationsPage } from './pages/NotificationsPage.jsx';
 import { InvoicesPage } from './pages/InvoicesPage.jsx';
-import { EmailPage } from './pages/EmailPage.jsx';
+import { EmailFullScreen } from './layouts/EmailFullScreen.jsx';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAdminAuth();
@@ -27,6 +27,17 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      {/* Emails runs in its OWN full-viewport layout — no admin sidebar.
+          A "Volver al panel" back button in its top bar returns the admin
+          to the standard dashboard with the sidebar restored. */}
+      <Route
+        path="/emails"
+        element={
+          <ProtectedRoute>
+            <EmailFullScreen />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/"
         element={
@@ -40,7 +51,6 @@ export default function App() {
         <Route path="clients" element={<PaidUsersPage />} />
         <Route path="clients/:clientId" element={<ClientDetailPage />} />
         <Route path="invoices" element={<InvoicesPage />} />
-        <Route path="emails" element={<EmailPage />} />
         <Route path="leads" element={<LeadsPage />} />
         <Route path="chats" element={<ChatsPage />} />
         <Route path="pricing" element={<PricingPage />} />

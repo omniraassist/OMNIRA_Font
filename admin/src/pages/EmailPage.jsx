@@ -19,18 +19,29 @@ import { apiCall } from '../api/client.js';
  * narrow widths the secondary actions collapse into a "Más" menu.
  */
 const STYLES = `
-  /* Container query target: every size below reacts to .em-app's own width,
-     not the viewport. Lets the layout adapt cleanly when the outer admin
-     sidebar is collapsed. */
-  .em-app {
+  /* The container is the SHELL — not .em-app itself. CSS container queries
+     only apply to a container's descendants, never to the container element,
+     so we need a wrapper that declares container-type and lets the inner
+     .em-app respond to its parent's width. Without this wrapper every
+     min-width rule below silently no-ops. */
+  .em-shell {
     container-type: inline-size;
     container-name: emapp;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    padding: 12px;
+    display: flex;
+  }
+  .em-app {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
     display: grid;
     grid-template-columns: 1fr;
     grid-template-areas: "rail" "main";
+    grid-template-rows: auto 1fr;
     gap: 12px;
-    height: calc(100dvh - 200px);
-    min-height: 540px;
   }
 
   /* ─── Folder rail ────────────────────────────────────────────── */
@@ -430,25 +441,37 @@ const STYLES = `
   }
   .em-att small { color: var(--muted); }
 
-  /* ─── Banners ────────────────────────────────────────────────── */
-  .em-banner { padding: 10px 14px; border-radius: 10px; font-size: 12.5px; margin-bottom: 12px; }
-  .em-banner.err { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.30); color: #fecaca; }
-  .em-banner.ok { background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.30); color: #bbf7d0; }
-  .em-banner.warn { background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.30); color: #fde68a; }
-
-  /* ─── Setup banner ───────────────────────────────────────────── */
-  .em-setup {
-    padding: 32px 28px;
-    background: linear-gradient(180deg, var(--surf2) 0%, var(--surf) 100%);
-    border: 1px solid var(--border);
-    border-radius: var(--r-md);
-    text-align: center;
+  /* ─── Banners — float at top-right of stage, don't push layout ── */
+  .em-banner {
+    position: fixed;
+    top: 70px;
+    right: 18px;
+    z-index: 200;
+    padding: 11px 16px;
+    border-radius: 12px;
+    font-size: 12.5px;
+    max-width: 420px;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+    animation: em-banner-in .25s ease-out;
   }
-  .em-setup h3 { margin: 0 0 8px; font-family: var(--font-display); color: var(--text); font-size: 18px; }
-  .em-setup p { color: var(--soft); margin: 0 0 14px; }
-  .em-setup code {
+  @keyframes em-banner-in { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+  .em-banner.err { background: rgba(40,12,12,0.96); border: 1px solid rgba(239,68,68,0.40); color: #fecaca; }
+  .em-banner.ok { background: rgba(12,40,20,0.96); border: 1px solid rgba(34,197,94,0.40); color: #bbf7d0; }
+  .em-banner.warn { background: rgba(40,30,12,0.96); border: 1px solid rgba(251,191,36,0.40); color: #fde68a; }
+
+  .em-setup-bar {
+    padding: 10px 16px;
+    background: rgba(251,191,36,0.10);
+    border-bottom: 1px solid rgba(251,191,36,0.25);
+    color: #fde68a;
+    font-size: 12.5px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .em-setup-bar code {
     background: rgba(0,0,0,0.30); padding: 2px 7px; border-radius: 6px;
-    font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--em);
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--em);
+    margin: 0 2px;
   }
 
   /* ─── Container query breakpoints ────────────────────────────── */
@@ -456,6 +479,7 @@ const STYLES = `
   @container emapp (min-width: 720px) {
     .em-app {
       grid-template-columns: 76px 1fr;
+      grid-template-rows: 1fr;
       grid-template-areas: "rail main";
     }
     .em-rail {
@@ -464,6 +488,7 @@ const STYLES = `
       overflow-y: auto;
       overflow-x: hidden;
       padding: 14px 10px;
+      height: 100%;
     }
     .em-rail-item { padding: 11px 12px; justify-content: flex-start; }
     .em-rail-item .lbl { display: none; }
@@ -1115,29 +1140,18 @@ export function EmailPage() {
     <>
       <style>{STYLES}</style>
 
-      <header className="adm-page-head" style={{ marginBottom: 18 }}>
-        <h1>Correos</h1>
-        <p>
-          Cliente de correo conectado a la cuenta de Omnira: lee la bandeja de entrada, responde, reenvía y compone
-          mensajes con <strong>Para</strong> / <strong>CC</strong> / <strong>CCO</strong>. Los mensajes enviados se
-          guardan en <strong>Enviados</strong> y los borradores se sincronizan automáticamente.
-        </p>
-      </header>
-
       {needSetup ? (
-        <div className="em-setup">
-          <h3>Configura las credenciales de correo</h3>
-          <p>
-            Para activar este panel, define las variables <code>SMTP_HOST</code> / <code>SMTP_USER</code> /{' '}
-            <code>SMTP_PASS</code> en el servidor. IMAP reusa las mismas credenciales por defecto.
-          </p>
+        <div className="em-setup-bar">
+          <strong>Configura las credenciales de correo:</strong>{' '}
+          define <code>SMTP_HOST</code> / <code>SMTP_USER</code> / <code>SMTP_PASS</code> en el servidor.
+          IMAP reusa las mismas credenciales por defecto.
         </div>
       ) : null}
-
       {error ? <div className="em-banner err"><strong>Error:</strong> {error}</div> : null}
       {info ? <div className="em-banner ok"><strong>OK:</strong> {info}</div> : null}
 
-      <div className={`em-app${railCompact ? ' rail-compact' : ''}`}>
+      <div className="em-shell">
+        <div className={`em-app${railCompact ? ' rail-compact' : ''}`}>
         {/* Folder rail */}
         <aside className="em-rail">
           <button type="button" className="em-compose-btn" onClick={() => openCompose()} title="Componer">
@@ -1431,6 +1445,7 @@ export function EmailPage() {
             )}
           </div>
         </section>
+        </div>
       </div>
 
       {/* Compose modal */}
