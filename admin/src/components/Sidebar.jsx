@@ -141,7 +141,7 @@ export function Sidebar({ onNavigate, mobileOpen, collapsed, onToggleCollapse })
             <path d="M3 7l9 6 9-6M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <span>Correos</span>
-          <span className="adm-nav-tip">Correos · Facturas por cliente</span>
+          <span className="adm-nav-tip">Correos · Bandeja de entrada</span>
         </NavLink>
         <NavLink to="/leads" className={linkClass} onClick={wrap}>
           <IconLeads />

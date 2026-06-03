@@ -11,6 +11,16 @@ import { getStripe, applyPaidCheckoutSession, applyPaidPaymentIntent, OMNIRA_PAY
 import { invoiceNumberFor, getInvoiceById } from "./invoice.js";
 import { verifyEmailTransport, isEmailConfigured, sendEmail, emailConfigDiagnostics } from "./email.js";
 import {
+  listFolders as imapListFolders,
+  listMessages as imapListMessages,
+  fetchMessage as imapFetchMessage,
+  setFlags as imapSetFlags,
+  moveMessage as imapMoveMessage,
+  appendToSent as imapAppendToSent,
+  isImapConfigured,
+  imapConfigDiagnostics,
+} from "./emailInbox.js";
+import {
   handleMetaWhatsAppGet,
   handleMetaWhatsAppPost,
   getMetaWhatsAppDeployDiagnostics,
@@ -2348,6 +2358,229 @@ app.post("/api/admin/invoices/:id/resend", async (req, res) => {
     return res.status(200).json({ ok: true, sentTo: to });
   } catch (error) {
     return res.status(500).json({ ok: false, message: `Resend failed: ${error.message}` });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────────────────
+   EMAIL CLIENT — full Inbox/Sent/Drafts/Spam/Trash. IMAP for read+mutate,
+   SMTP (via email.js) for send. Drafts persist in Supabase so a reload
+   never loses the half-typed message.
+   ───────────────────────────────────────────────────────────────────────── */
+
+app.get("/api/admin/email/config", async (_req, res) => {
+  return res.status(200).json({
+    ok: true,
+    smtp_configured: isEmailConfigured(),
+    imap_configured: isImapConfigured(),
+    smtp: emailConfigDiagnostics(),
+    imap: imapConfigDiagnostics(),
+  });
+});
+
+app.get("/api/admin/email/folders", async (_req, res) => {
+  try {
+    if (!isImapConfigured()) {
+      return res.status(503).json({ ok: false, message: "IMAP no configurado (define IMAP_USER/IMAP_PASS o reusa SMTP_USER/SMTP_PASS)." });
+    }
+    const folders = await imapListFolders();
+    return res.status(200).json({ ok: true, folders });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message || "Folders failed" });
+  }
+});
+
+app.get("/api/admin/email/messages", async (req, res) => {
+  try {
+    if (!isImapConfigured()) {
+      return res.status(503).json({ ok: false, message: "IMAP no configurado." });
+    }
+    const folder = String(req.query.folder || "inbox").slice(0, 200);
+    const page = Math.max(0, Number(req.query.page) || 0);
+    const limit = Math.min(100, Math.max(5, Number(req.query.limit) || 30));
+    const search = String(req.query.q || "").slice(0, 300);
+    const out = await imapListMessages({ folder, page, limit, search });
+    return res.status(200).json({ ok: true, ...out });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message || "List failed" });
+  }
+});
+
+app.get("/api/admin/email/messages/:uid", async (req, res) => {
+  try {
+    if (!isImapConfigured()) {
+      return res.status(503).json({ ok: false, message: "IMAP no configurado." });
+    }
+    const folder = String(req.query.folder || "inbox").slice(0, 200);
+    const uid = Number(req.params.uid);
+    if (!uid || !Number.isFinite(uid)) {
+      return res.status(400).json({ ok: false, message: "uid inválido" });
+    }
+    const msg = await imapFetchMessage({ folder, uid });
+    if (!msg) return res.status(404).json({ ok: false, message: "Mensaje no encontrado" });
+    return res.status(200).json({ ok: true, message: msg });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message || "Fetch failed" });
+  }
+});
+
+app.post("/api/admin/email/messages/:uid/flag", async (req, res) => {
+  try {
+    if (!isImapConfigured()) {
+      return res.status(503).json({ ok: false, message: "IMAP no configurado." });
+    }
+    const folder = String(req.body?.folder || req.query.folder || "inbox").slice(0, 200);
+    const uid = Number(req.params.uid);
+    const add = Array.isArray(req.body?.add) ? req.body.add.slice(0, 5) : [];
+    const remove = Array.isArray(req.body?.remove) ? req.body.remove.slice(0, 5) : [];
+    if (!add.length && !remove.length) {
+      return res.status(400).json({ ok: false, message: "Nada que modificar (envía add[] o remove[])." });
+    }
+    const r = await imapSetFlags({ folder, uid, add, remove });
+    return res.status(200).json(r);
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message || "Flag failed" });
+  }
+});
+
+app.post("/api/admin/email/messages/:uid/move", async (req, res) => {
+  try {
+    if (!isImapConfigured()) {
+      return res.status(503).json({ ok: false, message: "IMAP no configurado." });
+    }
+    const uid = Number(req.params.uid);
+    const fromFolder = String(req.body?.from || "inbox").slice(0, 200);
+    const toFolder = String(req.body?.to || "").slice(0, 200);
+    if (!toFolder) return res.status(400).json({ ok: false, message: "Falta el destino (to)." });
+    const r = await imapMoveMessage({ uid, fromFolder, toFolder });
+    return res.status(200).json(r);
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message || "Move failed" });
+  }
+});
+
+app.post("/api/admin/email/send", async (req, res) => {
+  try {
+    if (!isEmailConfigured()) {
+      return res.status(503).json({ ok: false, message: "SMTP no configurado." });
+    }
+    const to = String(req.body?.to || "").trim();
+    if (!to) return res.status(400).json({ ok: false, message: "Falta el destinatario (to)." });
+    const cc = String(req.body?.cc || "").trim() || undefined;
+    const bcc = String(req.body?.bcc || "").trim() || undefined;
+    const subject = String(req.body?.subject || "").trim();
+    const text = String(req.body?.text || "");
+    const html = req.body?.html ? String(req.body.html) : undefined;
+    const replyTo = String(req.body?.replyTo || "").trim() || undefined;
+    const draftId = String(req.body?.draft_id || "").trim();
+
+    const info = await sendEmail({ to, cc, bcc, subject, text, html, replyTo });
+
+    // Best-effort: copy the sent message into the Sent folder so it shows up
+    // in the UI on next refresh. Build a minimal RFC822 ourselves rather than
+    // re-encoding through nodemailer — keeps the payload predictable.
+    const headers = [
+      `From: ${process.env.SMTP_FROM || process.env.SMTP_USER}`,
+      `To: ${to}`,
+      cc ? `Cc: ${cc}` : null,
+      `Subject: ${subject || "(sin asunto)"}`,
+      `Date: ${new Date().toUTCString()}`,
+      `Message-Id: ${info.messageId || `<${Date.now()}@omnira.local>`}`,
+      `MIME-Version: 1.0`,
+      html ? `Content-Type: text/html; charset=utf-8` : `Content-Type: text/plain; charset=utf-8`,
+      ``,
+      html || text || "",
+    ].filter(Boolean).join("\r\n");
+    await imapAppendToSent(headers).catch(() => null);
+
+    // Delete the draft if this send was tied to one.
+    if (draftId) {
+      await supabaseAdmin.from("email_drafts").delete().eq("id", draftId).catch(() => null);
+    }
+
+    return res.status(200).json({ ok: true, messageId: info.messageId, sentTo: to });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message || "Send failed" });
+  }
+});
+
+/* Drafts — Supabase-backed. Endpoints fail soft if the email_drafts table
+   hasn't been created yet (phase11 migration). */
+
+app.get("/api/admin/email/drafts", async (_req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("email_drafts")
+      .select("*")
+      .order("updated_at", { ascending: false })
+      .limit(200);
+    if (error) {
+      return res.status(200).json({ ok: false, drafts: [], message: `Aplica server/sql/phase11-email-drafts.sql para activar borradores (${error.message}).` });
+    }
+    return res.status(200).json({ ok: true, drafts: data || [] });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+app.post("/api/admin/email/drafts", async (req, res) => {
+  try {
+    const payload = {
+      to_addr: String(req.body?.to || "").slice(0, 4000),
+      cc_addr: String(req.body?.cc || "").slice(0, 4000),
+      bcc_addr: String(req.body?.bcc || "").slice(0, 4000),
+      subject: String(req.body?.subject || "").slice(0, 4000),
+      body_text: String(req.body?.text || "").slice(0, 200000),
+      body_html: String(req.body?.html || "").slice(0, 400000),
+      in_reply_to: String(req.body?.in_reply_to || "").slice(0, 200) || null,
+      reply_folder: String(req.body?.reply_folder || "").slice(0, 200) || null,
+      updated_by: String(req.body?.updated_by || "admin").slice(0, 200),
+      updated_at: new Date().toISOString(),
+    };
+    const { data, error } = await supabaseAdmin
+      .from("email_drafts")
+      .insert(payload)
+      .select("*")
+      .single();
+    if (error) {
+      return res.status(503).json({ ok: false, message: `Aplica server/sql/phase11-email-drafts.sql primero (${error.message}).` });
+    }
+    return res.status(201).json({ ok: true, draft: data });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+app.patch("/api/admin/email/drafts/:id", async (req, res) => {
+  try {
+    const patch = { updated_at: new Date().toISOString() };
+    if ("to" in (req.body || {})) patch.to_addr = String(req.body.to).slice(0, 4000);
+    if ("cc" in (req.body || {})) patch.cc_addr = String(req.body.cc).slice(0, 4000);
+    if ("bcc" in (req.body || {})) patch.bcc_addr = String(req.body.bcc).slice(0, 4000);
+    if ("subject" in (req.body || {})) patch.subject = String(req.body.subject).slice(0, 4000);
+    if ("text" in (req.body || {})) patch.body_text = String(req.body.text).slice(0, 200000);
+    if ("html" in (req.body || {})) patch.body_html = String(req.body.html).slice(0, 400000);
+    if ("updated_by" in (req.body || {})) patch.updated_by = String(req.body.updated_by).slice(0, 200);
+    const { data, error } = await supabaseAdmin
+      .from("email_drafts")
+      .update(patch)
+      .eq("id", req.params.id)
+      .select("*")
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ ok: false, message: "Draft not found" });
+    return res.status(200).json({ ok: true, draft: data });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+app.delete("/api/admin/email/drafts/:id", async (req, res) => {
+  try {
+    const { error } = await supabaseAdmin.from("email_drafts").delete().eq("id", req.params.id);
+    if (error) throw error;
+    return res.status(200).json({ ok: true });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
   }
 });
 
