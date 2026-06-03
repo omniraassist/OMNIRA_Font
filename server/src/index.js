@@ -310,6 +310,24 @@ app.get("/api/public/pricing", async (_req, res) => {
   }
 });
 
+/**
+ * Public site-wide widget settings — read by the landing page on every load to
+ * decide whether to render the floating WhatsApp button. Admin toggles the
+ * underlying platform_settings row from /admin/whatsapp; the 30 s in-process
+ * cache in getPlatformSetting() makes the flip near-instant. Fails open (shows
+ * the widget) if the read crashes, so a Supabase blip never hides the CTA.
+ */
+app.get("/api/public/widget-settings", async (_req, res) => {
+  try {
+    const raw = await getPlatformSetting("OMNIRA_WIDGET_WHATSAPP_ENABLED", "true");
+    const enabled = String(raw || "").trim().toLowerCase() !== "false";
+    res.set("Cache-Control", "public, max-age=30, s-maxage=30");
+    return res.status(200).json({ ok: true, whatsapp_widget_enabled: enabled });
+  } catch (error) {
+    return res.status(200).json({ ok: false, whatsapp_widget_enabled: true, message: error.message });
+  }
+});
+
 /** Create PaymentIntent for embedded card pay (same plans as Checkout redirect). */
 app.post("/api/customer/stripe/payment-intent", requireCustomer, async (req, res) => {
   try {

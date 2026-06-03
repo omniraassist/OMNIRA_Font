@@ -236,6 +236,74 @@ const STYLES = `
     .w-savebar-actions { width: 100%; }
     .w-btn, .w-btn-ghost { flex: 1; }
   }
+
+  /* Widget toggle card — sits above the credentials grid. */
+  .w-widget-card {
+    background:
+      radial-gradient(120% 80% at 100% 0%, rgba(0,229,160,0.10), transparent 55%),
+      linear-gradient(180deg, var(--surf2) 0%, var(--surf) 100%);
+    border: 1px solid var(--border-em);
+    border-radius: var(--r-lg);
+    padding: 22px 24px;
+    margin-bottom: 18px;
+    display: flex; align-items: center; justify-content: space-between; gap: 18px;
+    flex-wrap: wrap;
+  }
+  .w-widget-card .info { min-width: 240px; flex: 1; }
+  .w-widget-card h2 {
+    display: flex; align-items: center; gap: 10px;
+    margin: 0 0 4px;
+    font-family: var(--font-display);
+    font-size: 17px;
+    color: var(--text);
+  }
+  .w-widget-card .status-dot {
+    width: 9px; height: 9px; border-radius: 999px;
+    background: #94a3b8;
+    box-shadow: 0 0 0 4px rgba(148,163,184,0.15);
+    transition: background .2s ease, box-shadow .2s ease;
+  }
+  .w-widget-card.on .status-dot {
+    background: var(--em);
+    box-shadow: 0 0 0 4px rgba(0,229,160,0.18), 0 0 12px rgba(0,229,160,0.45);
+  }
+  .w-widget-card p { margin: 0; font-size: 13px; color: var(--soft); line-height: 1.55; }
+  .w-widget-card .state-pill {
+    display: inline-block; margin-left: 8px;
+    font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 999px;
+    background: rgba(148,163,184,0.16); color: #cbd5e1;
+  }
+  .w-widget-card.on .state-pill { background: rgba(0,229,160,0.14); color: var(--em); }
+
+  /* iOS-style switch */
+  .w-switch { position: relative; width: 64px; height: 34px; flex-shrink: 0; }
+  .w-switch input { opacity: 0; width: 0; height: 0; }
+  .w-switch .track {
+    position: absolute; inset: 0;
+    background: rgba(255,255,255,0.10);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background .25s ease, border-color .25s ease;
+  }
+  .w-switch .thumb {
+    position: absolute; top: 3px; left: 3px;
+    width: 26px; height: 26px;
+    background: #cbd5e1;
+    border-radius: 50%;
+    transition: transform .25s cubic-bezier(.4,0,.2,1), background .25s ease;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  }
+  .w-switch input:checked + .track {
+    background: linear-gradient(135deg, var(--em) 0%, var(--em2) 100%);
+    border-color: var(--em);
+  }
+  .w-switch input:checked + .track .thumb {
+    transform: translateX(30px);
+    background: #04201a;
+  }
+  .w-switch input:disabled + .track { opacity: .55; cursor: not-allowed; }
 `;
 
 function sourceBadge(source) {
@@ -243,6 +311,8 @@ function sourceBadge(source) {
   if (source === 'env') return <span className="w-source env">Entorno Vercel</span>;
   return <span className="w-source unset">SIN DEFINIR</span>;
 }
+
+const WIDGET_KEY = 'OMNIRA_WIDGET_WHATSAPP_ENABLED';
 
 export function WhatsAppSettingsPage() {
   const [settings, setSettings] = useState([]);
@@ -253,6 +323,8 @@ export function WhatsAppSettingsPage() {
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [copied, setCopied] = useState(false);
+  const [widgetEnabled, setWidgetEnabled] = useState(true);
+  const [widgetBusy, setWidgetBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -263,12 +335,41 @@ export function WhatsAppSettingsPage() {
       setSettings(list);
       setWebhookUrl(res.webhook_url || '');
       setDrafts({}); // reset draft inputs after load
+      const widgetRow = list.find((s) => s.key === WIDGET_KEY);
+      // Default to enabled when row is missing or unset — matches server fallback.
+      const raw = widgetRow?.value_masked || '';
+      setWidgetEnabled(String(raw).trim().toLowerCase() !== 'false');
     } catch (e) {
       setError(e?.message || 'No se pudo cargar la configuración de la plataforma');
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const toggleWidget = async () => {
+    if (widgetBusy) return;
+    const next = !widgetEnabled;
+    setWidgetBusy(true);
+    setError(''); setInfo('');
+    // Optimistic flip — feels instant; revert on failure.
+    setWidgetEnabled(next);
+    const sess = JSON.parse(sessionStorage.getItem('omnira_admin_session') || '{}');
+    const updatedBy = sess.user?.email || 'admin';
+    try {
+      await apiCall(`/api/admin/platform-settings/${encodeURIComponent(WIDGET_KEY)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ value: next ? 'true' : 'false', updated_by: updatedBy }),
+      });
+      setInfo(next
+        ? 'Widget de WhatsApp activado en la landing. Visible en ~30 s.'
+        : 'Widget de WhatsApp oculto de la landing. Aplicado en ~30 s.');
+    } catch (e) {
+      setWidgetEnabled(!next);
+      setError(e?.message || 'No se pudo actualizar el widget');
+    } finally {
+      setWidgetBusy(false);
+    }
+  };
 
   useEffect(() => {
     load();
@@ -359,6 +460,34 @@ export function WhatsAppSettingsPage() {
             {copied ? '✓ Copiado' : 'Copiar URL'}
           </button>
         </div>
+      </section>
+
+      {/* Widget on/off — sits prominently above the credentials. */}
+      <section className={`w-widget-card${widgetEnabled ? ' on' : ''}`}>
+        <div className="info">
+          <h2>
+            <span className="status-dot" />
+            Widget de WhatsApp en la landing
+            <span className="state-pill">{widgetEnabled ? 'Activo' : 'Oculto'}</span>
+          </h2>
+          <p>
+            Cuando está activo, el botón flotante de WhatsApp aparece en la página pública para que los visitantes
+            puedan abrir una conversación con tu negocio en un toque. Apágalo cuando quieras esconder el widget sin
+            tocar el código — el cambio se aplica en unos 30 segundos sin redeploy.
+          </p>
+        </div>
+        <label className="w-switch" title={widgetEnabled ? 'Ocultar widget' : 'Mostrar widget'}>
+          <input
+            type="checkbox"
+            checked={widgetEnabled}
+            onChange={toggleWidget}
+            disabled={widgetBusy || loading}
+            aria-label="Activar o desactivar el widget de WhatsApp en la landing"
+          />
+          <span className="track">
+            <span className="thumb" />
+          </span>
+        </label>
       </section>
 
       {error ? <div className="w-banner err"><strong>Error:</strong> {error}</div> : null}

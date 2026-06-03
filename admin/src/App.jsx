@@ -15,6 +15,7 @@ import { BotConfigPage } from './pages/BotConfigPage.jsx';
 import { ProfilePage } from './pages/ProfilePage.jsx';
 import { NotificationsPage } from './pages/NotificationsPage.jsx';
 import { InvoicesPage } from './pages/InvoicesPage.jsx';
+import { EmailInvoicesPage } from './pages/EmailInvoicesPage.jsx';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAdminAuth();
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="clients" element={<PaidUsersPage />} />
         <Route path="clients/:clientId" element={<ClientDetailPage />} />
         <Route path="invoices" element={<InvoicesPage />} />
+        <Route path="emails" element={<EmailInvoicesPage />} />
         <Route path="leads" element={<LeadsPage />} />
         <Route path="chats" element={<ChatsPage />} />
         <Route path="pricing" element={<PricingPage />} />

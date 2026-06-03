@@ -136,6 +136,13 @@ export function Sidebar({ onNavigate, mobileOpen, collapsed, onToggleCollapse })
           <span>Facturas</span>
           <span className="adm-nav-tip">Facturas</span>
         </NavLink>
+        <NavLink to="/emails" className={linkClass} onClick={wrap}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+            <path d="M3 7l9 6 9-6M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span>Correos</span>
+          <span className="adm-nav-tip">Correos · Facturas por cliente</span>
+        </NavLink>
         <NavLink to="/leads" className={linkClass} onClick={wrap}>
           <IconLeads />
           <span>Leads de WhatsApp</span>
