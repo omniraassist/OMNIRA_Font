@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es" translate="no">
   <head>
     <meta charset="UTF-8" />
     <meta
@@ -7,6 +7,10 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <meta name="theme-color" content="#050810" media="(prefers-color-scheme: dark)" />
+    <!-- See frontend/index.html for the full rationale. Google Translate
+         mutating the DOM crashes React with a blank screen on mobile;
+         opt the admin out as well. -->
+    <meta name="google" content="notranslate" />
     <title>Omnira Admin</title>
     <link rel="icon" type="image/png" href="/logo.png" />
     <link rel="apple-touch-icon" href="/logo.png" />
@@ -17,8 +21,8 @@
       rel="stylesheet"
     />
   </head>
-  <body>
-    <div id="root"></div>
+  <body class="notranslate">
+    <div id="root" class="notranslate"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

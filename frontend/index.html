@@ -1,9 +1,18 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" translate="no">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="Omnira responde automáticamente a tus clientes, gestiona reservas y llena tu agenda 24/7." />
+    <!-- Tell Chrome / Google Translate NOT to translate the page. The whole
+         site is already in the customer's native language (Spanish); when
+         Chrome auto-translates Spanish→English on phones whose UI is set
+         to another language, it mutates the DOM out from under React and
+         the next re-render crashes with "Cannot read properties of null
+         (reading 'addEventListener')", leaving the user with a blank dark
+         screen. The defensive polyfill in main.jsx keeps React alive if a
+         user opts in to translate anyway. -->
+    <meta name="google" content="notranslate" />
     <title>Omnira — Automatiza tu WhatsApp y llena tu agenda</title>
     <link rel="icon" type="image/png" href="/logo.png" />
     <link rel="apple-touch-icon" href="/logo.png" />
@@ -12,8 +21,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   </head>
-  <body>
-    <div id="root"></div>
+  <body class="notranslate">
+    <div id="root" class="notranslate"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
