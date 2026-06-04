@@ -6,6 +6,15 @@ const API_TARGET = process.env.VITE_PROXY_API || 'http://localhost:5000';
 export default defineConfig({
   plugins: [react()],
   build: {
+    // Modern browsers ship native modulepreload — Vite injects the right
+    // <link rel="modulepreload"> tags for the initial chunks, which means
+    // the JS starts downloading in parallel with the CSS and fonts instead
+    // of after them. Massive first-paint win on mobile.
+    modulePreload: { polyfill: true },
+    // Target a modern baseline — drops legacy transforms Vite would
+    // otherwise emit for older browsers, shaving a few KB off the bundle.
+    target: 'es2020',
+    cssCodeSplit: true,
     // Split the heavy file-parsing libs out of the main bundle. They only
     // run inside the customer panel's knowledge-upload flow, so loading
     // them eagerly used to ship ~1.2 MB of code to every landing-page
@@ -15,6 +24,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
+          react: ['react', 'react-dom'],
           pdfjs: ['pdfjs-dist'],
           xlsx: ['xlsx'],
           mammoth: ['mammoth'],

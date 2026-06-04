@@ -5,6 +5,42 @@
   overflow-x: clip;
 }
 
+/* ─────────────────────────────────────────────────────────────────────
+   Mobile performance kill-switch
+   The desktop CSS leans on filter: blur(120px), backdrop-filter: blur(),
+   mix-blend-mode, infinite mesh animations, and stacked radial gradients
+   for the "luxury glow" look. Those are GPU-intensive — on phones they
+   can add hundreds of milliseconds to the first paint and cause the
+   site to feel slow even after JS has finished loading. Strip them on
+   small screens; the design still reads with the gradient scrim alone.
+   ───────────────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  /* Nuke the giant blurred orbs in the hero — biggest single GPU win. */
+  .hero-orb, .hero-orb-1, .hero-orb-2, .hero-orb-3 {
+    display: none !important;
+  }
+  /* Stop the looping mesh animation — keep the static gradient scrim. */
+  .hero-bg-mesh {
+    animation: none !important;
+    opacity: 0.32 !important;
+    mix-blend-mode: normal !important;
+  }
+  /* Reduce backdrop-filter intensity globally on mobile (or drop it
+     where Safari struggles). The visual loss is minimal; the perf gain
+     is huge on iPhones / mid-range Androids. */
+  .glass, .glass-em, .nav-inner, .panel-card, .navbar-inner {
+    backdrop-filter: blur(6px) !important;
+    -webkit-backdrop-filter: blur(6px) !important;
+  }
+  /* Hero grid pattern mask is decorative — its radial mask is expensive
+     to composite on mobile. Drop the mask, fade the pattern instead. */
+  .hero-grid-pattern {
+    mask-image: none !important;
+    -webkit-mask-image: none !important;
+    opacity: 0.25 !important;
+  }
+}
+
 /* Sections that use absolutely positioned glows */
 #solucion,
 #problema,

@@ -238,22 +238,28 @@ img { max-width: 100%; display: block; }
 }
 
 /* â”€â”€ SCROLL REVEAL â”€â”€ */
-/* Reveal animations. Each element starts hidden and animates in when JS marks
-   it .visible — but a defensive CSS-driven fallback also fires after ~1.8 s
-   so the page can never get permanently stuck invisible if IntersectionObserver
-   misfires (older mobile Safari occasionally drops the first batch of
-   observations when the main thread is busy parsing a large bundle, leaving
-   the entire landing page at opacity:0 — that's the "site loads then goes
-   dark" symptom users reported on iOS and Android). The animation is
-   removed when .visible lands so the proper transition still plays when JS
-   IS healthy. */
-.reveal       { opacity: 0; transform: translateY(28px);  transition: opacity 0.7s cubic-bezier(0.4,0,0.2,1), transform 0.7s cubic-bezier(0.4,0,0.2,1); animation: revealFallbackY 0.7s cubic-bezier(0.4,0,0.2,1) 1.8s forwards; }
-.reveal-left  { opacity: 0; transform: translateX(-28px); transition: opacity 0.7s cubic-bezier(0.4,0,0.2,1), transform 0.7s cubic-bezier(0.4,0,0.2,1); animation: revealFallbackXL 0.7s cubic-bezier(0.4,0,0.2,1) 1.8s forwards; }
-.reveal-right { opacity: 0; transform: translateX(28px);  transition: opacity 0.7s cubic-bezier(0.4,0,0.2,1), transform 0.7s cubic-bezier(0.4,0,0.2,1); animation: revealFallbackXR 0.7s cubic-bezier(0.4,0,0.2,1) 1.8s forwards; }
-.reveal.visible, .reveal-left.visible, .reveal-right.visible { opacity: 1; transform: none; animation: none; }
-@keyframes revealFallbackY  { to { opacity: 1; transform: translateY(0); } }
-@keyframes revealFallbackXL { to { opacity: 1; transform: translateX(0); } }
-@keyframes revealFallbackXR { to { opacity: 1; transform: translateX(0); } }
+/* Reveal animations. Desktop gets the fade-up entrance, but on phones we
+   show content INSTANTLY — the fade-in was adding ~1 s of "the page is
+   dark" perceived delay on top of every other mobile bottleneck (JS parse,
+   font load, etc.) and the client wanted a sub-second feel. The mobile
+   path simply ignores reveal markup; the .visible class still works for
+   the JS sweep but the styles never hide anything in the first place. */
+.reveal       { opacity: 0; transform: translateY(28px);  transition: opacity 0.6s cubic-bezier(0.4,0,0.2,1), transform 0.6s cubic-bezier(0.4,0,0.2,1); }
+.reveal-left  { opacity: 0; transform: translateX(-28px); transition: opacity 0.6s cubic-bezier(0.4,0,0.2,1), transform 0.6s cubic-bezier(0.4,0,0.2,1); }
+.reveal-right { opacity: 0; transform: translateX(28px);  transition: opacity 0.6s cubic-bezier(0.4,0,0.2,1), transform 0.6s cubic-bezier(0.4,0,0.2,1); }
+.reveal.visible, .reveal-left.visible, .reveal-right.visible { opacity: 1; transform: none; }
+
+/* Phone / small tablet: content is always visible. No animation, no fade,
+   no waiting for the observer or any fallback timer. This single rule
+   turns "site loads then goes dark for a beat" into "site shows up". */
+@media (max-width: 900px) {
+  .reveal, .reveal-left, .reveal-right {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}
 .reveal-d1 { transition-delay: 0.1s; }
 .reveal-d2 { transition-delay: 0.2s; }
 .reveal-d3 { transition-delay: 0.3s; }
