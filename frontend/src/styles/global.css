@@ -238,12 +238,22 @@ img { max-width: 100%; display: block; }
 }
 
 /* â”€â”€ SCROLL REVEAL â”€â”€ */
-.reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s cubic-bezier(0.4,0,0.2,1), transform 0.7s cubic-bezier(0.4,0,0.2,1); }
-.reveal.visible { opacity: 1; transform: translateY(0); }
-.reveal-left { opacity: 0; transform: translateX(-28px); transition: opacity 0.7s cubic-bezier(0.4,0,0.2,1), transform 0.7s cubic-bezier(0.4,0,0.2,1); }
-.reveal-left.visible { opacity: 1; transform: translateX(0); }
-.reveal-right { opacity: 0; transform: translateX(28px); transition: opacity 0.7s cubic-bezier(0.4,0,0.2,1), transform 0.7s cubic-bezier(0.4,0,0.2,1); }
-.reveal-right.visible { opacity: 1; transform: translateX(0); }
+/* Reveal animations. Each element starts hidden and animates in when JS marks
+   it .visible — but a defensive CSS-driven fallback also fires after ~1.8 s
+   so the page can never get permanently stuck invisible if IntersectionObserver
+   misfires (older mobile Safari occasionally drops the first batch of
+   observations when the main thread is busy parsing a large bundle, leaving
+   the entire landing page at opacity:0 — that's the "site loads then goes
+   dark" symptom users reported on iOS and Android). The animation is
+   removed when .visible lands so the proper transition still plays when JS
+   IS healthy. */
+.reveal       { opacity: 0; transform: translateY(28px);  transition: opacity 0.7s cubic-bezier(0.4,0,0.2,1), transform 0.7s cubic-bezier(0.4,0,0.2,1); animation: revealFallbackY 0.7s cubic-bezier(0.4,0,0.2,1) 1.8s forwards; }
+.reveal-left  { opacity: 0; transform: translateX(-28px); transition: opacity 0.7s cubic-bezier(0.4,0,0.2,1), transform 0.7s cubic-bezier(0.4,0,0.2,1); animation: revealFallbackXL 0.7s cubic-bezier(0.4,0,0.2,1) 1.8s forwards; }
+.reveal-right { opacity: 0; transform: translateX(28px);  transition: opacity 0.7s cubic-bezier(0.4,0,0.2,1), transform 0.7s cubic-bezier(0.4,0,0.2,1); animation: revealFallbackXR 0.7s cubic-bezier(0.4,0,0.2,1) 1.8s forwards; }
+.reveal.visible, .reveal-left.visible, .reveal-right.visible { opacity: 1; transform: none; animation: none; }
+@keyframes revealFallbackY  { to { opacity: 1; transform: translateY(0); } }
+@keyframes revealFallbackXL { to { opacity: 1; transform: translateX(0); } }
+@keyframes revealFallbackXR { to { opacity: 1; transform: translateX(0); } }
 .reveal-d1 { transition-delay: 0.1s; }
 .reveal-d2 { transition-delay: 0.2s; }
 .reveal-d3 { transition-delay: 0.3s; }
@@ -2879,13 +2889,14 @@ html { scroll-behavior: smooth; }
   border-radius: 6px;
 }
 
-/* Reveal: stronger entrance with micro-scale */
+/* Reveal: stronger entrance with micro-scale. Same defensive fallback as
+   the primary reveal block above — keep both in sync. */
 .reveal               { transform: translateY(34px) scale(0.985); transition: opacity 0.85s cubic-bezier(0.22, 1, 0.36, 1), transform 0.85s cubic-bezier(0.22, 1, 0.36, 1); }
-.reveal.visible       { transform: translateY(0) scale(1); }
+.reveal.visible       { transform: translateY(0) scale(1); animation: none; }
 .reveal-left          { transform: translateX(-34px) scale(0.985); transition: opacity 0.85s cubic-bezier(0.22, 1, 0.36, 1), transform 0.85s cubic-bezier(0.22, 1, 0.36, 1); }
-.reveal-left.visible  { transform: translateX(0) scale(1); }
+.reveal-left.visible  { transform: translateX(0) scale(1); animation: none; }
 .reveal-right         { transform: translateX(34px) scale(0.985); transition: opacity 0.85s cubic-bezier(0.22, 1, 0.36, 1), transform 0.85s cubic-bezier(0.22, 1, 0.36, 1); }
-.reveal-right.visible { transform: translateX(0) scale(1); }
+.reveal-right.visible { transform: translateX(0) scale(1); animation: none; }
 
 /* Glass cards — subtle lift + accent-aware border on hover */
 .glass, .glass-em {
