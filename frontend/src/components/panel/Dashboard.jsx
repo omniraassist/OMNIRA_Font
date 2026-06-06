@@ -7,6 +7,7 @@ import { apiCall } from '../../api/client.js';
 import { canAccessDashboardPage } from '../../constants/plans.js';
 import { LogoMark } from '../brand/LogoMark.jsx';
 import { WhatsAppConfigCard } from './WhatsAppConfigCard.jsx';
+import { ModernCalendar } from './ModernCalendar.jsx';
 import { usePanel } from '../../context/PanelContext.jsx';
 import { usePricing } from '../../hooks/usePricing.js';
 
@@ -257,12 +258,12 @@ export function Dashboard() {
     setCalDate(n);
   };
 
-  const openAddModal = (dateStr) => {
+  const openAddModal = (dateStr, timeStr) => {
     setEvForm({
       id: '',
       name: '',
       date: dateStr || new Date().toISOString().split('T')[0],
-      time: '10:00',
+      time: timeStr || '10:00',
       service: '',
       phone: '',
       notes: '',
@@ -910,50 +911,10 @@ export function Dashboard() {
 
           <div id="page-calendar" className={`p-page${page === 'calendar' ? ' active' : ''}`}>
             <h1 className="p-page-title">Calendario</h1>
-            <p className="p-page-sub">Visualiza y gestiona todas tus citas en un solo lugar.</p>
-            <div className="p-card">
-              <div className="cal-toolbar">
-                <div className="cal-nav">
-                  <button type="button" className="cal-btn-nav" onClick={() => changeMonth(-1)}>
-                    <i className="fa-solid fa-chevron-left" />
-                  </button>
-                  <div className="cal-month-label" id="calLabel">
-                    {calLabel}
-                  </div>
-                  <button type="button" className="cal-btn-nav" onClick={() => changeMonth(1)}>
-                    <i className="fa-solid fa-chevron-right" />
-                  </button>
-                  <button type="button" className="cal-btn-nav" onClick={goToToday} style={{ width: 'auto', padding: '0 14px', fontSize: 12, fontFamily: "'Outfit',sans-serif" }}>
-                    Hoy
-                  </button>
-                </div>
-                <button type="button" className="cal-add-btn" onClick={() => openAddModal()}>
-                  <i className="fa-solid fa-plus" /> Añadir cita
-                </button>
-              </div>
-              <div style={{ display: 'flex', gap: 16, marginBottom: 16, fontSize: 12, color: 'var(--muted)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--em)' }} />
-                  Por bot
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--gold)' }} />
-                  Manual
-                </div>
-              </div>
-              <div className="cal-grid">
-                <div className="cal-weekday">L</div>
-                <div className="cal-weekday">M</div>
-                <div className="cal-weekday">X</div>
-                <div className="cal-weekday">J</div>
-                <div className="cal-weekday">V</div>
-                <div className="cal-weekday">S</div>
-                <div className="cal-weekday">D</div>
-              </div>
-              <div className="cal-grid" id="calGrid" style={{ marginTop: 6 }}>
-                {renderCalCells()}
-              </div>
-            </div>
+            <p className="p-page-sub">
+              Visualiza tus reservas hora por hora. Cambia entre vista mes, semana y día.
+            </p>
+            <ModernCalendar events={events} onAdd={openAddModal} onEdit={openEditModal} />
           </div>
 
           <div id="page-booking" className={`p-page${page === 'booking' ? ' active' : ''}`}>
