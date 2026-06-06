@@ -529,16 +529,21 @@ export function Dashboard() {
         <main className="p-main">
           {/* Sticky top bar — always-visible notification bell + dropdown */}
           <style>{`
+            /* Sticky top bar — fully transparent so the page content reads
+               through it without the dark "shade" that was making the
+               welcome line + cards behind look dimmed on scroll. The bell
+               carries its own background, so it stays legible on its own. */
             .p-tb {
               position: sticky; top: 0; z-index: 50;
               display: flex; align-items: center; justify-content: flex-end;
               gap: 12px;
               padding: 12px 16px;
-              background: rgba(8,11,17,0.85);
-              backdrop-filter: blur(10px);
-              border-bottom: 1px solid var(--border, rgba(255,255,255,0.06));
+              background: transparent;
+              border-bottom: 0;
               margin: -16px -16px 18px;
+              pointer-events: none;
             }
+            .p-tb > * { pointer-events: auto; }
             @media (max-width: 720px) { .p-tb { margin: -12px -12px 14px; padding: 10px 12px; } }
             .p-tb-bell {
               position: relative;
@@ -569,8 +574,8 @@ export function Dashboard() {
             .p-tb-panel {
               position: absolute; right: 16px; top: 64px;
               width: 380px; max-width: calc(100vw - 32px);
-              background: linear-gradient(180deg, #111827 0%, #0c1220 100%);
-              border: 1px solid var(--border, rgba(255,255,255,0.10));
+              background: #0c1220;
+              border: 1px solid rgba(255,255,255,0.08);
               border-radius: 14px;
               box-shadow: 0 24px 60px rgba(0,0,0,0.55);
               overflow: hidden;
@@ -581,7 +586,7 @@ export function Dashboard() {
             .p-tb-panel-head {
               display: flex; justify-content: space-between; align-items: center;
               padding: 14px 16px;
-              border-bottom: 1px solid var(--border, rgba(255,255,255,0.08));
+              border-bottom: 1px solid rgba(255,255,255,0.06);
             }
             .p-tb-panel-head strong { color: var(--text, #e2eaf4); font-size: 14px; }
             .p-tb-panel-head span { color: var(--muted, #4d6080); font-size: 11px; font-family: monospace; }
