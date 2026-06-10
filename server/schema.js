@@ -103,6 +103,9 @@ async function cmdUp() {
 }
 
 const DROP_ORDER = [
+  "public.calendar_sync_jobs",
+  "public.customer_event_external_refs",
+  "public.customer_calendar_connections",
   "public.customer_payments",
   "public.customer_password_resets",
   "public.customer_users",

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { apiCall } from '../../api/client.js';
 
 /**
  * Google-Calendar-style booking calendar for the customer panel.
@@ -275,6 +276,120 @@ const STYLES = `
     min-width: 0;
     min-height: 0;
   }
+
+  /* ─── Integrations strip (Google Calendar + Cover Manager) ───── */
+  .gc-int {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .gc-int-card {
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 12px 14px;
+    transition: border-color .18s ease, background .18s ease;
+    min-width: 0;
+  }
+  .gc-int-card.connected {
+    border-color: rgba(0,229,160,0.30);
+    background: linear-gradient(90deg, rgba(0,229,160,0.08) 0%, rgba(0,229,160,0.02) 100%);
+  }
+  .gc-int-logo {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-weight: 800;
+    color: #fff;
+    font-size: 15px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.30);
+  }
+  .gc-int-logo.google {
+    background:
+      conic-gradient(from 0deg at 50% 50%, #4285f4 0deg, #4285f4 90deg, #ea4335 90deg, #ea4335 180deg, #fbbc05 180deg, #fbbc05 270deg, #34a853 270deg, #34a853 360deg);
+    color: #fff;
+    position: relative;
+  }
+  .gc-int-logo.google::after {
+    content: 'G';
+    position: absolute;
+    inset: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #0c1220;
+    border-radius: 8px;
+    margin: 4px;
+  }
+  .gc-int-logo.cm {
+    background: linear-gradient(135deg, #6b46c1 0%, #b794f4 100%);
+  }
+  .gc-int-meta { min-width: 0; flex: 1; }
+  .gc-int-meta .name {
+    display: block;
+    color: var(--text, #E2EAF4);
+    font-weight: 700;
+    font-size: 13.5px;
+    line-height: 1.25;
+  }
+  .gc-int-meta .sub {
+    display: block;
+    color: var(--soft, #8FA3C0);
+    font-size: 11.5px;
+    margin-top: 2px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .gc-int-card.connected .gc-int-meta .sub { color: var(--em, #00E5A0); }
+  .gc-int-action {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.10);
+    color: var(--soft, #8FA3C0);
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all .15s ease;
+    letter-spacing: 0.02em;
+  }
+  .gc-int-action.primary {
+    background: linear-gradient(135deg, var(--em, #00E5A0) 0%, var(--em2, #00C87A) 100%);
+    color: #04201a;
+    border-color: transparent;
+  }
+  .gc-int-action.primary:hover { filter: brightness(1.06); transform: translateY(-1px); }
+  .gc-int-action.danger:hover {
+    color: #fca5a5;
+    border-color: rgba(239,68,68,0.30);
+    background: rgba(239,68,68,0.06);
+  }
+  .gc-int-action:hover:not(.primary):not(.danger) {
+    color: var(--em, #00E5A0);
+    border-color: rgba(0,229,160,0.30);
+    background: rgba(0,229,160,0.05);
+  }
+  .gc-int-action:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .gc-int-toast {
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 12.5px;
+    border: 1px solid;
+  }
+  .gc-int-toast.ok {
+    background: rgba(34,197,94,0.08);
+    border-color: rgba(34,197,94,0.32);
+    color: #bbf7d0;
+  }
+  .gc-int-toast.err {
+    background: rgba(239,68,68,0.08);
+    border-color: rgba(239,68,68,0.32);
+    color: #fecaca;
+  }
+
   .gc-bar {
     display: flex; align-items: center; gap: 12px;
     padding: 0 0 14px;
@@ -700,6 +815,82 @@ export function ModernCalendar({ events = [], onAdd, onEdit }) {
   const [now, setNow] = useState(() => new Date());
   const weekBodyRef = useRef(null);
 
+  // ── Calendar-sync integrations (Google Calendar real, Cover Manager waitlist) ──
+  const [connections, setConnections] = useState([]);
+  const [connectBusy, setConnectBusy] = useState(false);
+  const [toast, setToast] = useState(null); // { kind: 'ok'|'err', msg }
+  const [cmModalOpen, setCmModalOpen] = useState(false);
+
+  const loadConnections = useCallback(async () => {
+    try {
+      const r = await apiCall('/api/customer/calendar/connections');
+      setConnections(Array.isArray(r?.connections) ? r.connections : []);
+    } catch {
+      /* swallow — UI just shows "Conectar" */
+    }
+  }, []);
+
+  useEffect(() => {
+    loadConnections();
+  }, [loadConnections]);
+
+  // Detect the OAuth callback redirect (?calendar=connected | error) and
+  // surface it as a soft toast inside this card. Strip the params so a
+  // refresh doesn't replay the toast.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('calendar');
+    if (!status) return;
+    const message = params.get('calendar_message') || '';
+    if (status === 'connected') {
+      setToast({ kind: 'ok', msg: '¡Conectado! Tus nuevas reservas se sincronizarán automáticamente con Google Calendar.' });
+      loadConnections();
+    } else if (status === 'error') {
+      setToast({ kind: 'err', msg: message
+        ? `No se pudo conectar Google Calendar: ${message.replace(/-/g, ' ')}`
+        : 'No se pudo conectar Google Calendar.' });
+    }
+    params.delete('calendar');
+    params.delete('calendar_message');
+    const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}${window.location.hash || ''}`;
+    window.history.replaceState({}, '', next);
+    const t = setTimeout(() => setToast(null), 7000);
+    return () => clearTimeout(t);
+  }, [loadConnections]);
+
+  const startGoogleConnect = async () => {
+    setConnectBusy(true);
+    try {
+      const r = await apiCall('/api/customer/calendar/google/connect', { method: 'POST' });
+      if (r?.authUrl) {
+        window.location.href = r.authUrl;
+        return;
+      }
+      setToast({ kind: 'err', msg: r?.message || 'No se pudo iniciar el flujo OAuth.' });
+    } catch (e) {
+      setToast({ kind: 'err', msg: e?.message || 'Error al iniciar el flujo OAuth.' });
+    } finally {
+      setConnectBusy(false);
+    }
+  };
+
+  const disconnectGoogle = async (id) => {
+    if (!window.confirm('¿Desconectar esta cuenta de Google Calendar? Las reservas dejarán de sincronizarse.')) return;
+    setConnectBusy(true);
+    try {
+      await apiCall(`/api/customer/calendar/connections/${id}`, { method: 'DELETE' });
+      setToast({ kind: 'ok', msg: 'Cuenta desconectada.' });
+      loadConnections();
+    } catch (e) {
+      setToast({ kind: 'err', msg: e?.message || 'No se pudo desconectar.' });
+    } finally {
+      setConnectBusy(false);
+    }
+  };
+
+  const googleConnection = connections.find((c) => c.provider === 'google' && c.status === 'active');
+
   // Tick the now-line forward every minute.
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);
@@ -965,6 +1156,61 @@ export function ModernCalendar({ events = [], onAdd, onEdit }) {
 
         {/* ── Main area ── */}
         <main className="gc-main">
+          {/* Integrations: real Google Calendar OAuth + Cover Manager waitlist */}
+          <div className="gc-int">
+            <div className={`gc-int-card${googleConnection ? ' connected' : ''}`}>
+              <span className="gc-int-logo google" aria-hidden />
+              <div className="gc-int-meta">
+                <span className="name">Google Calendar</span>
+                <span className="sub">
+                  {googleConnection
+                    ? `Conectado: ${googleConnection.account_email || 'cuenta de Google'}`
+                    : 'Sincroniza tus reservas con Google automáticamente'}
+                </span>
+              </div>
+              {googleConnection ? (
+                <button
+                  type="button"
+                  className="gc-int-action danger"
+                  onClick={() => disconnectGoogle(googleConnection.id)}
+                  disabled={connectBusy}
+                >
+                  Desconectar
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="gc-int-action primary"
+                  onClick={startGoogleConnect}
+                  disabled={connectBusy}
+                >
+                  {connectBusy ? 'Abriendo…' : 'Conectar'}
+                </button>
+              )}
+            </div>
+
+            <div className="gc-int-card">
+              <span className="gc-int-logo cm" aria-hidden>CM</span>
+              <div className="gc-int-meta">
+                <span className="name">Cover Manager</span>
+                <span className="sub">Envía reservas a tu sistema de mesas (próximamente)</span>
+              </div>
+              <button
+                type="button"
+                className="gc-int-action"
+                onClick={() => setCmModalOpen(true)}
+              >
+                Lista de espera
+              </button>
+            </div>
+          </div>
+
+          {toast ? (
+            <div className={`gc-int-toast ${toast.kind}`}>
+              <strong>{toast.kind === 'ok' ? '✓ ' : '⚠ '}</strong>{toast.msg}
+            </div>
+          ) : null}
+
           <div className="gc-bar">
             <div className="gc-bar-nav">
               <button type="button" onClick={() => stepCursor(-1)} aria-label="Anterior">
@@ -1130,6 +1376,93 @@ export function ModernCalendar({ events = [], onAdd, onEdit }) {
           ) : null}
         </main>
       </div>
+
+      {/* Cover Manager waitlist modal — public CM API isn't available yet,
+          so we collect interest and let the customer know when it lands. */}
+      {cmModalOpen ? (
+        <div
+          onClick={() => setCmModalOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 10010,
+            background: 'rgba(2,6,12,0.78)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 'min(460px, 100%)',
+              background: 'linear-gradient(180deg, #162032 0%, #111827 100%)',
+              border: '1px solid rgba(107,70,193,0.45)',
+              borderRadius: 22,
+              padding: '26px 26px 22px',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.5)',
+              textAlign: 'center',
+            }}
+          >
+            <div
+              style={{
+                width: 64, height: 64, borderRadius: 18,
+                margin: '0 auto 14px',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                background: 'linear-gradient(135deg, #6b46c1 0%, #b794f4 100%)',
+                color: '#fff', fontSize: 22, fontWeight: 900,
+                boxShadow: '0 14px 36px rgba(107,70,193,0.32)',
+              }}
+            >
+              CM
+            </div>
+            <h3 style={{ margin: '0 0 8px', fontFamily: 'Syne, sans-serif', color: 'var(--text)' }}>
+              Cover Manager — Lista de espera
+            </h3>
+            <p style={{ margin: '0 0 18px', fontSize: 13.5, lineHeight: 1.6, color: 'var(--soft, #8FA3C0)' }}>
+              La integración directa con <strong>Cover Manager</strong> está en negociación con su equipo
+                de partners. Mientras tanto, te avisaremos al email de tu cuenta en cuanto esté lista para
+                conectar — sin pasos manuales por tu parte.
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setCmModalOpen(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  color: 'var(--soft, #8FA3C0)',
+                  border: '1px solid rgba(255,255,255,0.10)',
+                  borderRadius: 11,
+                  padding: '11px 22px',
+                  fontWeight: 800,
+                  fontSize: 13.5,
+                  cursor: 'pointer',
+                }}
+              >
+                Cerrar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCmModalOpen(false);
+                  setToast({ kind: 'ok', msg: 'Te avisaremos en cuanto Cover Manager esté disponible.' });
+                  setTimeout(() => setToast(null), 5000);
+                }}
+                style={{
+                  background: 'linear-gradient(135deg, #b794f4 0%, #6b46c1 100%)',
+                  color: '#fff',
+                  border: 0,
+                  borderRadius: 11,
+                  padding: '11px 22px',
+                  fontWeight: 800,
+                  fontSize: 13.5,
+                  cursor: 'pointer',
+                }}
+              >
+                Avisarme cuando esté listo
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

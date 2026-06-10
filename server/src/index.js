@@ -28,6 +28,10 @@ import {
   sendWelcomeWhatsAppMessage,
   findCustomerConfigByPhoneNumberId
 } from "./metaWhatsAppWebhook.js";
+import { getAdapter, providerStatus } from "./calendar/registry.js";
+import { createOAuthState, verifyOAuthState } from "./calendar/oauthState.js";
+import { encryptCredentials, decryptCredentials, isCalendarCryptoConfigured } from "./calendar/crypto.js";
+import { syncEventOutbound, runCalendarSyncJobs } from "./calendar/sync.js";
 
 const app = express();
 const port = Number(process.env.PORT || 5000);
@@ -171,6 +175,20 @@ function publicAppUrl() {
     /\/$/,
     ""
   );
+}
+
+/**
+ * Public origin of THIS Express server. OAuth redirect URIs and provider
+ * webhooks need to be absolute, and Vercel never knows its own URL from
+ * inside the runtime — so we read `PUBLIC_API_URL` first and fall back to
+ * Vercel's auto-set VERCEL_URL before defaulting to localhost for dev.
+ */
+function publicApiUrl() {
+  const explicit = String(process.env.PUBLIC_API_URL || "").trim();
+  if (explicit) return explicit.replace(/\/$/, "");
+  const vercelHost = String(process.env.VERCEL_URL || "").trim();
+  if (vercelHost) return `https://${vercelHost}`.replace(/\/$/, "");
+  return `http://localhost:${port}`;
 }
 
 function buildCustomerUserPayload(row) {
@@ -1485,6 +1503,251 @@ app.get("/api/customer/dashboard", requireCustomer, async (req, res) => {
   }
 });
 
+/* ─────────────────────────────────────────────────────────────────────────
+   EXTERNAL CALENDAR SYNC — Google Calendar OAuth (Phase 1: outbound push).
+   Microsoft Graph and Apple CalDAV slot in here later behind the same
+   adapter contract. See server/src/calendar/* for the per-provider logic.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/** Health/diagnostics — never exposes secrets, just booleans. */
+app.get("/api/customer/calendar/providers", requireCustomer, async (_req, res) => {
+  try {
+    return res.status(200).json({
+      ok: true,
+      cryptoConfigured: isCalendarCryptoConfigured(),
+      providers: providerStatus(),
+    });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** Start the OAuth flow: return the authorization URL for the chosen provider. */
+app.post("/api/customer/calendar/:provider/connect", requireCustomer, async (req, res) => {
+  try {
+    const provider = String(req.params.provider || "").toLowerCase();
+    if (provider !== "google") {
+      return res.status(400).json({ ok: false, message: `Provider ${provider} aún no soportado.` });
+    }
+    const adapter = getAdapter(provider);
+    if (!adapter.isConfigured()) {
+      return res.status(503).json({
+        ok: false,
+        message: "El servidor no tiene credenciales OAuth de Google configuradas. Avisa al administrador.",
+      });
+    }
+    if (!isCalendarCryptoConfigured()) {
+      return res.status(503).json({
+        ok: false,
+        message: "CALENDAR_TOKEN_ENC_KEY no está configurado en el servidor.",
+      });
+    }
+    const state = createOAuthState({ customerId: req.customerId, provider });
+    const authUrl = adapter.getAuthUrl(state);
+    return res.status(200).json({ ok: true, authUrl });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/**
+ * OAuth callback. Google redirects the browser here after the user authorises;
+ * we exchange the code for tokens, encrypt them, store the connection, and
+ * 302 the user back to the customer panel with ?calendar=connected.
+ */
+app.get("/api/customer/calendar/:provider/callback", async (req, res) => {
+  const provider = String(req.params.provider || "").toLowerCase();
+  const appUrl = publicAppUrl();
+  const back = (status, message) => {
+    const params = new URLSearchParams({ calendar: status });
+    if (message) params.set("calendar_message", message);
+    return res.redirect(`${appUrl}/?panel=login&${params.toString()}`);
+  };
+  try {
+    const { code, state, error: errParam } = req.query || {};
+    if (errParam) return back("error", String(errParam));
+    if (!code || !state) return back("error", "missing-code-or-state");
+    const verified = verifyOAuthState(String(state), { provider });
+    if (!verified.ok) return back("error", `state-${verified.reason}`);
+    if (provider !== "google") return back("error", "unsupported-provider");
+
+    const adapter = getAdapter(provider);
+    const tokens = await adapter.exchangeCode(String(code));
+    if (!tokens.access_token) return back("error", "no-access-token");
+
+    const credsToStore = {
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      scope: tokens.scope,
+      token_type: tokens.token_type,
+      expiry: tokens.expiry,
+    };
+
+    // Upsert the connection. If the same customer reconnects the same Google
+    // account, we just overwrite — keeps target_calendar_id and sync cursors.
+    const { data: existing } = await supabaseAdmin
+      .from("customer_calendar_connections")
+      .select("id")
+      .eq("customer_user_id", verified.customerId)
+      .eq("provider", provider)
+      .eq("account_email", tokens.email || "")
+      .maybeSingle();
+
+    if (existing) {
+      await supabaseAdmin
+        .from("customer_calendar_connections")
+        .update({
+          encrypted_credentials: encryptCredentials(credsToStore),
+          token_expires_at: tokens.expiry ? new Date(tokens.expiry).toISOString() : null,
+          status: "active",
+          last_error: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existing.id);
+    } else {
+      await supabaseAdmin.from("customer_calendar_connections").insert({
+        customer_user_id: verified.customerId,
+        provider,
+        account_email: tokens.email || null,
+        encrypted_credentials: encryptCredentials(credsToStore),
+        token_expires_at: tokens.expiry ? new Date(tokens.expiry).toISOString() : null,
+        target_calendar_id: "primary",
+        target_calendar_name: "Calendario principal",
+        status: "active",
+      });
+    }
+
+    return back("connected");
+  } catch (error) {
+    return back("error", String(error?.message || error).slice(0, 200));
+  }
+});
+
+/** List connections for the panel UI (NEVER returns the encrypted token blob). */
+app.get("/api/customer/calendar/connections", requireCustomer, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("customer_calendar_connections")
+      .select(
+        "id, provider, account_email, target_calendar_id, target_calendar_name, status, last_sync_at, last_error, created_at, updated_at"
+      )
+      .eq("customer_user_id", req.customerId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return res.status(200).json({ ok: true, connections: data || [] });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** List the user's calendars from the provider so they can choose the target one. */
+app.get("/api/customer/calendar/connections/:id/calendars", requireCustomer, async (req, res) => {
+  try {
+    const { data: conn } = await supabaseAdmin
+      .from("customer_calendar_connections")
+      .select("id, provider, encrypted_credentials")
+      .eq("id", req.params.id)
+      .eq("customer_user_id", req.customerId)
+      .maybeSingle();
+    if (!conn) return res.status(404).json({ ok: false, message: "Conexión no encontrada" });
+    const adapter = getAdapter(conn.provider);
+    let creds = decryptCredentials(conn.encrypted_credentials);
+    const { creds: fresh, changed } = await adapter.ensureFreshAccessToken(creds);
+    creds = fresh;
+    if (changed) {
+      await supabaseAdmin
+        .from("customer_calendar_connections")
+        .update({
+          encrypted_credentials: encryptCredentials(creds),
+          token_expires_at: creds.expiry ? new Date(creds.expiry).toISOString() : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", conn.id);
+    }
+    const calendars = await adapter.listCalendars(creds);
+    return res.status(200).json({ ok: true, calendars });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** Update which calendar new bookings get pushed to. */
+app.patch("/api/customer/calendar/connections/:id", requireCustomer, async (req, res) => {
+  try {
+    const patch = { updated_at: new Date().toISOString() };
+    if (typeof req.body?.target_calendar_id === "string") {
+      patch.target_calendar_id = req.body.target_calendar_id.slice(0, 200);
+    }
+    if (typeof req.body?.target_calendar_name === "string") {
+      patch.target_calendar_name = req.body.target_calendar_name.slice(0, 200);
+    }
+    const { data, error } = await supabaseAdmin
+      .from("customer_calendar_connections")
+      .update(patch)
+      .eq("id", req.params.id)
+      .eq("customer_user_id", req.customerId)
+      .select(
+        "id, provider, account_email, target_calendar_id, target_calendar_name, status, last_sync_at, last_error, created_at, updated_at"
+      )
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ ok: false, message: "Conexión no encontrada" });
+    return res.status(200).json({ ok: true, connection: data });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** Disconnect: revoke at the provider (best-effort) + delete the row. */
+app.delete("/api/customer/calendar/connections/:id", requireCustomer, async (req, res) => {
+  try {
+    const { data: conn } = await supabaseAdmin
+      .from("customer_calendar_connections")
+      .select("id, provider, encrypted_credentials")
+      .eq("id", req.params.id)
+      .eq("customer_user_id", req.customerId)
+      .maybeSingle();
+    if (!conn) return res.status(404).json({ ok: false, message: "Conexión no encontrada" });
+
+    // Best-effort token revoke — never block the deletion on it.
+    try {
+      const adapter = getAdapter(conn.provider);
+      const creds = decryptCredentials(conn.encrypted_credentials);
+      await adapter.revokeToken(creds);
+    } catch (e) {
+      console.warn("[calendar] revoke failed:", e?.message || e);
+    }
+
+    const { error } = await supabaseAdmin
+      .from("customer_calendar_connections")
+      .delete()
+      .eq("id", conn.id);
+    if (error) throw error;
+    return res.status(200).json({ ok: true });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/**
+ * Cron-safe drain endpoint. Guard with X-Cron-Token === CRON_SECRET so a
+ * random visitor can't trigger the worker. Vercel cron will call this on a
+ * 5-minute schedule (see vercel.json).
+ */
+app.post("/api/internal/calendar/drain", async (req, res) => {
+  const expected = String(process.env.CRON_SECRET || "").trim();
+  const given = String(req.headers["x-cron-token"] || req.query.token || "").trim();
+  if (expected && given !== expected) {
+    return res.status(401).json({ ok: false, message: "Unauthorized" });
+  }
+  try {
+    const result = await runCalendarSyncJobs();
+    return res.status(200).json({ ok: true, ...result });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
 /**
  * Customer bookings/calendar. Replaces the prior localStorage stub at /api/events.
  */
@@ -1492,7 +1755,7 @@ app.get("/api/customer/events", requireCustomer, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from("customer_events")
-      .select("id, name, datetime, service, phone, notes, source, status, created_at, updated_at")
+      .select("id, name, datetime, end_at, service, phone, notes, source, status, created_at, updated_at")
       .eq("customer_user_id", req.customerId)
       .order("datetime", { ascending: true });
     if (error) throw error;
@@ -1514,6 +1777,7 @@ app.post("/api/customer/events", requireCustomer, async (req, res) => {
         customer_user_id: req.customerId,
         name: typeof body.name === "string" ? body.name.slice(0, 200) : null,
         datetime: body.datetime,
+        end_at: body.end_at || null,
         service: typeof body.service === "string" ? body.service.slice(0, 200) : null,
         phone: typeof body.phone === "string" ? body.phone.slice(0, 40) : null,
         notes: typeof body.notes === "string" ? body.notes.slice(0, 2000) : null,
@@ -1523,6 +1787,10 @@ app.post("/api/customer/events", requireCustomer, async (req, res) => {
       .select()
       .single();
     if (error) throw error;
+    // Best-effort: fan out to any connected calendars. Never block the response.
+    syncEventOutbound({ customerId: req.customerId, op: "create", event: data }).catch((e) => {
+      console.warn("[calendar] post-create sync failed:", e?.message || e);
+    });
     return res.status(201).json(data);
   } catch (error) {
     return res.status(500).json({ ok: false, message: `Create event failed: ${error.message}` });
@@ -1536,6 +1804,7 @@ app.put("/api/customer/events/:id", requireCustomer, async (req, res) => {
     const patch = { updated_at: new Date().toISOString() };
     if (typeof body.name === "string") patch.name = body.name.slice(0, 200) || null;
     if (body.datetime) patch.datetime = body.datetime;
+    if ("end_at" in body) patch.end_at = body.end_at || null;
     if (typeof body.service === "string") patch.service = body.service.slice(0, 200) || null;
     if (typeof body.phone === "string") patch.phone = body.phone.slice(0, 40) || null;
     if (typeof body.notes === "string") patch.notes = body.notes.slice(0, 2000) || null;
@@ -1550,6 +1819,10 @@ app.put("/api/customer/events/:id", requireCustomer, async (req, res) => {
       .maybeSingle();
     if (error) throw error;
     if (!data) return res.status(404).json({ ok: false, message: "Event not found" });
+    // Best-effort: push the change to connected calendars.
+    syncEventOutbound({ customerId: req.customerId, op: "update", event: data }).catch((e) => {
+      console.warn("[calendar] post-update sync failed:", e?.message || e);
+    });
     return res.status(200).json(data);
   } catch (error) {
     return res.status(500).json({ ok: false, message: `Update event failed: ${error.message}` });
@@ -1559,6 +1832,11 @@ app.put("/api/customer/events/:id", requireCustomer, async (req, res) => {
 app.delete("/api/customer/events/:id", requireCustomer, async (req, res) => {
   try {
     const { id } = req.params;
+    // Capture external refs BEFORE deleting so the sync worker knows what to
+    // remove from each connected calendar.
+    syncEventOutbound({ customerId: req.customerId, op: "delete", event: { id } }).catch((e) => {
+      console.warn("[calendar] pre-delete sync enqueue failed:", e?.message || e);
+    });
     const { error } = await supabaseAdmin
       .from("customer_events")
       .delete()
