@@ -1,0 +1,581 @@
+================================================================================
+  OMNIRA — GOOGLE CALENDAR OAUTH VERIFICATION
+  End-to-End Setup Guide for Production Approval
+================================================================================
+
+OVERVIEW
+--------
+This document walks you through the Google Cloud OAuth verification process
+for Omnira's Google Calendar integration. Once approved by Google, your app
+moves from "Testing" mode to "Verified Production" mode, which means:
+
+  - Unlimited customers can connect (no 100-user limit)
+  - No "unverified app" warning screen — customers see a clean OAuth flow
+  - Refresh tokens never expire (customers stay connected for life)
+  - No need to manually whitelist every test user
+
+The whole process takes about 1 hour of YOUR time today, then 2-6 weeks of
+waiting for Google's review team to approve.
+
+TOTAL ACTIVE WORK: ~1 hour
+TOTAL CALENDAR TIME: 2-6 weeks (Google's review queue)
+COST: FREE
+
+
+================================================================================
+  PREREQUISITES (you already have all of these)
+================================================================================
+
+  [X] Google Cloud Console project named "Omnira"
+  [X] OAuth Client ID + Secret created
+  [X] Privacy Policy URL    : https://www.omnira.chat/privacidad
+  [X] Terms of Service URL  : https://www.omnira.chat/terminos
+  [X] App Homepage          : https://www.omnira.chat
+  [X] Backend URL           : https://omnira-backend.vercel.app
+  [X] Customer Frontend URL : https://omnira-saas-application.vercel.app
+  [X] Domain ownership of omnira.chat (Hostinger)
+
+
+================================================================================
+  STEP 1 — VERIFY DOMAIN OWNERSHIP (5 minutes)
+================================================================================
+
+Google needs to confirm you own omnira.chat. We do this via DNS TXT record.
+
+1.1  OPEN GOOGLE SEARCH CONSOLE
+     ----------------------------
+     URL: https://search.google.com/search-console
+
+     Sign in with the SAME Google account you use for Google Cloud Console
+     (waqas56jb@gmail.com).
+
+
+1.2  ADD PROPERTY
+     -------------
+     - Top-left dropdown → "Add property"
+     - Two boxes appear. Use the LEFT one (labeled "Domain", recommended)
+     - Type: omnira.chat
+     - Click CONTINUE
+
+     Google will display a TXT record like:
+
+         google-site-verification=ABC123xyz_def456GHI789jkl
+
+     Copy this entire string.
+
+
+1.3  ADD TXT RECORD IN HOSTINGER
+     ---------------------------
+     URL: https://hpanel.hostinger.com
+
+     - Sign in to Hostinger
+     - Go to: Domains → omnira.chat → DNS / Nameservers
+     - Scroll to "Manage DNS records"
+     - Click "Add record"
+     - Fill in:
+         Type:  TXT
+         Name:  @           (means root domain — exactly one @ symbol)
+         Value: google-site-verification=ABC123xyz_def456...
+                (the full string from step 1.2)
+         TTL:   3600        (default — leave as is)
+     - Click "Save"
+
+
+1.4  VERIFY IN SEARCH CONSOLE
+     -------------------------
+     - Go back to the Google Search Console tab
+     - Click VERIFY
+
+     DNS propagation can take up to 30 minutes. If verification fails
+     immediately, wait 5-30 minutes and click VERIFY again.
+
+     SUCCESS SIGN: Green checkmark + "Ownership verified"
+
+
+================================================================================
+  STEP 2 — RECORD DEMO VIDEO (30 minutes)
+================================================================================
+
+Google's reviewers need to see:
+  1. What Omnira does
+  2. How a real customer connects Google Calendar
+  3. How the Calendar API data is actually used
+  4. The consent screen and scopes being requested
+
+A 2-3 minute video is enough. Doesn't need to be polished — just clear.
+
+
+2.1  CHOOSE A RECORDING TOOL (any one)
+     ----------------------------------
+     - Loom              https://loom.com         (free, browser, easiest)
+     - OBS Studio        https://obsproject.com   (free, desktop)
+     - ScreenPal         https://screenpal.com    (free, simple)
+
+
+2.2  RECORDING SCRIPT (read this voice-over while screen recording)
+     ----------------------------------------------------------------
+
+     SCENE 1 — App Introduction (15 seconds)
+     ---------------------------------------
+     SHOW: https://www.omnira.chat (homepage)
+
+     SAY:
+     "Hello, this is Omnira — a SaaS application that helps small businesses
+     manage WhatsApp bookings automatically. Our customers connect their
+     Google Calendar so that every booking made through our WhatsApp bot
+     appears in their personal calendar in real time."
+
+
+     SCENE 2 — Customer Login (30 seconds)
+     -------------------------------------
+     SHOW: Log in to a test customer account on omnira.chat
+           Navigate to the customer dashboard
+           Click "Calendario" tab in the sidebar
+
+     SAY:
+     "Customers sign up on omnira.chat, configure their WhatsApp Business,
+     and then access their dashboard. Inside the dashboard, the Calendar
+     section is where they manage and view all bookings."
+
+
+     SCENE 3 — OAuth Connect Flow (45 seconds) — IMPORTANT
+     -----------------------------------------------------
+     SHOW: In the Calendar page, point to the "Google Calendar — Connect" card
+           Click the "Conectar" button
+           Show the Google OAuth screen appearing
+           Select a Google account
+           Show the consent screen with the scopes listed
+           Click "Allow"
+           Show the redirect back to the dashboard with "Conectado" success
+
+     SAY:
+     "Here in the Calendar section, the customer sees a 'Connect Google
+     Calendar' option. When they click it, they are taken to Google's secure
+     OAuth screen where they explicitly approve access to their calendar.
+
+     Notice the only scopes we request: calendar.events, calendar.readonly,
+     and userinfo.email — the minimum needed to push bookings and read
+     availability."
+
+
+     SCENE 4 — Real Usage Demonstration (30 seconds) — IMPORTANT
+     -----------------------------------------------------------
+     SHOW: Create a new reservation in the Omnira panel
+           (Example: customer name "Demo Cliente", time "16:00", service
+           "Consulta")
+           Wait 5 seconds
+           Open Google Calendar in a new tab (calendar.google.com)
+           Show the same reservation appearing at 16:00
+
+     SAY:
+     "Once connected, let me show how the integration works. I'll create a
+     new booking inside Omnira — for example, Demo Cliente at 4 PM.
+
+     Within seconds, this exact booking appears in the customer's Google
+     Calendar at the right time and date."
+
+
+     SCENE 5 — Disconnect Option (20 seconds)
+     ----------------------------------------
+     SHOW: Go back to the Omnira Calendar panel
+           Point to the "Desconectar" button
+           Click it
+           Show the confirmation dialog
+           Show the connection card returning to "Conectar" state
+
+     SAY:
+     "Customers can disconnect anytime. Clicking 'Desconectar' immediately
+     revokes the OAuth token at Google's revoke endpoint and stops all
+     calendar synchronization."
+
+
+     SCENE 6 — Privacy & Data Handling (10 seconds)
+     ----------------------------------------------
+     SHOW: Open https://www.omnira.chat/privacidad in a new tab
+           Scroll briefly to show the privacy policy content
+
+     SAY:
+     "We never store calendar event content beyond what's needed for sync.
+     Our privacy policy at omnira.chat slash privacidad explains everything
+     in full detail."
+
+     END RECORDING.
+
+
+2.3  UPLOAD TO YOUTUBE
+     ------------------
+     - Go to https://youtube.com → Sign in
+     - Click the camera icon (top right) → "Upload video"
+     - Drag the video file
+     - Title:        Omnira — Google Calendar OAuth Verification Demo
+     - Description:  Demo of Google Calendar OAuth integration for the
+                     Omnira SaaS platform (https://www.omnira.chat).
+                     Shows the consent flow, scope usage, and data handling.
+     - Visibility:   UNLISTED       (NOT Private — Google reviewers must
+                                     be able to open the link)
+     - Click PUBLISH
+
+     COPY the unlisted video URL — you will paste it into the verification
+     form in Step 3.
+
+
+================================================================================
+  STEP 3 — SUBMIT FOR VERIFICATION (15 minutes)
+================================================================================
+
+3.1  OPEN OAUTH CONSENT SCREEN
+     --------------------------
+     URL: https://console.cloud.google.com/auth/audience
+
+     Make sure the "Omnira" project is selected at the top.
+
+
+3.2  PUBLISH APP
+     ------------
+     At the top of the page you'll see:
+
+         Publishing status: Testing
+         User type: External
+         [ PUBLISH APP ]
+
+     Click "PUBLISH APP".
+
+     A confirmation dialog appears explaining that because your app uses
+     restricted scopes (Calendar API), you must complete verification.
+     Click CONFIRM.
+
+
+3.3  FILL OUT THE VERIFICATION FORM
+     -------------------------------
+
+     The form opens with several sections. Copy-paste the exact values below.
+
+     ---------------------------------------------------------------
+     APP INFORMATION
+     ---------------------------------------------------------------
+
+     App name:
+         Omnira
+
+     User support email:
+         (your support email, e.g. ayuda@omnira.chat)
+
+     App logo:
+         (upload a square 120x120 PNG of the Omnira logo)
+
+     Application home page:
+         https://www.omnira.chat
+
+     Application privacy policy link:
+         https://www.omnira.chat/privacidad
+
+     Application terms of service link:
+         https://www.omnira.chat/terminos
+
+
+     ---------------------------------------------------------------
+     AUTHORIZED DOMAINS
+     ---------------------------------------------------------------
+
+     Add this domain (one per line):
+         omnira.chat
+
+
+     ---------------------------------------------------------------
+     DEVELOPER CONTACT INFORMATION
+     ---------------------------------------------------------------
+
+     Email addresses:
+         (your developer email, e.g. waqas56jb@gmail.com)
+
+
+     ---------------------------------------------------------------
+     DEMO VIDEO URL
+     ---------------------------------------------------------------
+
+     Demo video YouTube link:
+         (paste the unlisted YouTube URL from Step 2.3)
+
+
+     ---------------------------------------------------------------
+     SCOPE JUSTIFICATIONS (this is the most critical section)
+     ---------------------------------------------------------------
+
+     Google will ask you to justify each OAuth scope you request. Copy each
+     justification EXACTLY into the corresponding box.
+
+
+     SCOPE: https://www.googleapis.com/auth/calendar.events
+     ------------------------------------------------------
+     JUSTIFICATION:
+
+     Omnira customers are small businesses (clinics, salons, restaurants)
+     that receive bookings through WhatsApp. Our AI bot creates booking
+     events in our customer_events database table. We need the
+     calendar.events scope to push these bookings into the customer's
+     Google Calendar so they have a single unified view of their schedule
+     across WhatsApp, manual entries, and external calendars.
+
+     We create, update, and delete only events that were originated by
+     Omnira (identified by an omniraEventId extended property we set on
+     each event). We never modify events that the user created manually
+     in Google Calendar.
+
+
+     SCOPE: https://www.googleapis.com/auth/calendar.readonly
+     -------------------------------------------------------
+     JUSTIFICATION:
+
+     We need read access to the customer's primary calendar for two
+     purposes:
+
+     1. AVAILABILITY CHECKS — When our WhatsApp bot proposes available time
+        slots to end-customers (the user's clients), we need to read the
+        user's busy windows from their Google Calendar to prevent
+        double-bookings. We use the freeBusy API and only read busy
+        time-range metadata, not event content.
+
+     2. UNIFIED DASHBOARD VIEW — In the Omnira dashboard we display the
+        user's existing Google Calendar events alongside Omnira bookings
+        so the user has full context of their day.
+
+     We never store calendar event details beyond the busy-window cache
+     used for availability checks.
+
+
+     SCOPE: https://www.googleapis.com/auth/userinfo.email
+     ----------------------------------------------------
+     JUSTIFICATION:
+
+     We use the email scope to label the connected calendar account in our
+     UI (e.g. "Conectado: user@gmail.com") so the customer can clearly
+     identify which Google account is linked and disconnect the correct
+     one if they have multiple Google accounts. The email is stored
+     encrypted alongside the OAuth tokens and is never used for marketing
+     or shared with any third party.
+
+
+     SCOPE: openid
+     -------------
+     JUSTIFICATION:
+
+     Standard OpenID Connect scope used to authenticate the user for the
+     account linking flow. No personal data is collected beyond what's
+     already covered by the userinfo.email scope.
+
+
+     ---------------------------------------------------------------
+     DATA HANDLING QUESTIONNAIRE
+     ---------------------------------------------------------------
+
+     Google will ask several data-handling questions. Use these exact
+     answers:
+
+
+     Q: How does your app use Google user data?
+     ------------------------------------------
+     ANSWER:
+
+     Omnira uses the customer's Google Calendar to bidirectionally
+     synchronize bookings:
+
+     - OUTBOUND: Bookings created in Omnira (via our WhatsApp AI bot or
+       manual dashboard entry) are pushed to the customer's primary Google
+       Calendar as standard calendar events tagged with an omniraEventId
+       extended property.
+
+     - INBOUND (availability): We periodically read the user's busy
+       time-windows via the freeBusy API to prevent the bot from
+       double-booking slots that already have other commitments in the
+       user's Google Calendar.
+
+     The user's calendar is never modified except for events that Omnira
+     itself created. Events the user authored manually in Google Calendar
+     remain untouched.
+
+
+     Q: Do you share user data with third parties?
+     --------------------------------------------
+     ANSWER:
+
+     No. User data and OAuth tokens are stored encrypted in our own
+     Supabase database (EU region). We do not share, sell, or transfer
+     calendar data to any third party. The only outbound calls to Google
+     APIs are the calendar.events CRUD operations and the freeBusy
+     availability checks described above.
+
+
+     Q: How long do you retain Google user data?
+     -------------------------------------------
+     ANSWER:
+
+     OAuth refresh tokens are retained until the user explicitly
+     disconnects (revoke + delete) or their Omnira account is deleted.
+
+     Calendar event ID mappings (used to update/delete the right external
+     event when the corresponding Omnira booking changes) are retained
+     for the lifetime of the corresponding booking in our system.
+
+     When a user disconnects, we (1) call Google's revoke endpoint to
+     invalidate the token immediately, then (2) delete the encrypted
+     token blob, the email label, and all event-id mappings from our
+     database within the same transaction.
+
+     Inactive connections (no calendar sync in 12 months) are
+     automatically purged with the same flow.
+
+
+     Q: How do you secure user data?
+     -------------------------------
+     ANSWER:
+
+     1. ENCRYPTION AT REST: OAuth refresh tokens and access tokens are
+        encrypted with AES-256-GCM using a 256-bit key stored separately
+        from the database (as an environment variable in the server
+        runtime, never in the database itself). The encryption format is
+        a versioned envelope (v1.iv.tag.ciphertext) using random 12-byte
+        IVs per token.
+
+     2. ENCRYPTION IN TRANSIT: All communication is over HTTPS / TLS 1.2+
+        end to end — between customer browsers and our backend, between
+        our backend and Google APIs, and between our backend and the
+        database.
+
+     3. ACCESS CONTROL: OAuth tokens are scoped to a single customer's
+        row in the customer_calendar_connections table, accessible only
+        via our server's service-role database credentials. Customer JWT
+        authentication is required for every API call that touches
+        calendar data.
+
+     4. TOKEN HYGIENE: Access tokens are kept in memory only during sync
+        operations and refreshed via Google's refresh-token endpoint when
+        they expire. We never log tokens. We never expose tokens to the
+        frontend — only metadata like account_email is returned to the UI.
+
+     5. CSRF PROTECTION: The OAuth state parameter is an HMAC-signed token
+        bound to the customer's session and provider, with a 10-minute TTL.
+
+     6. DISCONNECT FLOW: When a user disconnects, we call Google's
+        revocation endpoint (oauth2.googleapis.com/revoke) before deleting
+        the local token blob, so the token is invalidated at the source.
+
+
+3.4  SUBMIT
+     ------
+     Review every field one final time, then click
+
+         SUBMIT FOR VERIFICATION
+
+     You will see a confirmation: "Your verification request has been
+     submitted." Google sends a confirmation email to your developer
+     contact email within a few hours.
+
+
+================================================================================
+  STEP 4 — AFTER SUBMISSION
+================================================================================
+
+WHAT HAPPENS NOW
+----------------
+- Google's review team gets your submission.
+- Your app stays in "Testing" mode (with all the existing limits) until
+  Google approves it.
+- During the review, Google may email you with follow-up questions or
+  requests for clarification — typically about scope usage, data
+  retention, or video quality. Respond promptly (within 7 days) to avoid
+  the queue resetting.
+
+
+TIMELINE EXPECTATIONS
+---------------------
+
+    Submission acknowledged      :  Within 24 hours
+    Initial review by Google     :  3-7 days
+    Possible follow-up questions :  Variable (you respond, they re-review)
+    Final approval               :  Typically 2-6 weeks total
+
+
+WHAT TO DO WHILE WAITING
+------------------------
+1. In Google Cloud Console -> Audience -> Test users, add the emails of
+   any customer who wants to use the integration during the review period.
+   They will see a "Google hasn't verified this app" warning but can click
+   "Advanced -> Continue" to proceed.
+
+2. Their refresh tokens will still expire after 7 days during the testing
+   period. They'll have to click "Conectar" again every week. THIS IS
+   TEMPORARY — once Google approves, all existing tokens automatically
+   transition to "never expire" status.
+
+3. If Google asks for follow-up info, respond from the same developer
+   contact email you registered. Be concise and reference specific scopes
+   they ask about.
+
+
+AFTER APPROVAL
+--------------
+- Your app status changes to "In Production" in the OAuth Consent Screen.
+- The "unverified app" warning screen disappears for all users.
+- The 100-test-user limit is removed.
+- Existing customer tokens upgrade automatically to long-lived (no expiry).
+- New customers connect with a single click — no manual whitelist.
+
+FROM THIS POINT FORWARD, THE INTEGRATION IS FULLY AUTOMATED — NO MORE
+MANUAL WORK FOR YOU OR YOUR CUSTOMERS.
+
+
+================================================================================
+  TROUBLESHOOTING
+================================================================================
+
+PROBLEM:  "Verify domain" fails in Google Search Console
+SOLUTION: DNS propagation takes up to 30 minutes. Wait, then retry. Use
+          https://dnschecker.org and search for "omnira.chat TXT" to confirm
+          the record is visible globally before retrying.
+
+
+PROBLEM:  Google rejects the video as "not detailed enough"
+SOLUTION: Re-record with longer scope-by-scope explanations. Spend at least
+          15 seconds per scope in the voice-over showing what data is read
+          and what data is written. Show the actual consent screen scope
+          list, not just the Allow button.
+
+
+PROBLEM:  Google asks for "minimization justification" for a scope
+SOLUTION: Reply that you tried narrower scopes (e.g. calendar.events.public
+          or calendar.events.readonly) but they don't give the
+          create/update/delete capability required by the use case. State
+          this concretely — Google reviewers want concrete reasoning.
+
+
+PROBLEM:  Verification rejected because "app does not match the description"
+SOLUTION: Make sure the demo video shows the exact app at https://www.omnira.chat,
+          not a localhost dev environment. Google reviewers cross-check the
+          video against the live URL.
+
+
+PROBLEM:  "Privacy policy missing required disclosures"
+SOLUTION: Make sure omnira.chat/privacidad contains the following sections:
+          - What data we collect (calendar events, email)
+          - Why we collect it (booking sync, account labeling)
+          - How long we retain it
+          - User's right to disconnect / delete
+          - Contact email for data deletion requests
+          If any of these are missing, add them and resubmit.
+
+
+================================================================================
+  CONTACT FOR FOLLOW-UP
+================================================================================
+
+If Google's review team emails follow-up questions, forward them to the
+developer at:
+
+    waqas56jb@gmail.com
+
+The developer will draft the technical response.
+
+
+================================================================================
+  END OF DOCUMENT
+================================================================================
