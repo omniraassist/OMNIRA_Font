@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { supabaseAdmin } from "./config/supabase.js";
 import { getCheckoutPlan, computeNewSubscriptionEnd } from "./billing.js";
 import { sendInvoiceForPayment } from "./invoice.js";
+import { assignNumberToCustomer } from "./twilio.js";
 
 /**
  * Drop a "purchase confirmed" notification into user_notifications targeting
@@ -135,6 +136,16 @@ export async function applyPaidCheckoutSession(session) {
     subscriptionEnd: newEnd
   });
 
+  // Auto-assign a Twilio virtual number (best-effort — never blocks the payment).
+  try {
+    const assigned = await assignNumberToCustomer(userId);
+    if (!assigned.ok && assigned.reason !== "no_numbers_available") {
+      console.warn("[stripeSync] twilio assign failed:", assigned.reason);
+    }
+  } catch (e) {
+    console.warn("[stripeSync] twilio assign error:", e?.message || e);
+  }
+
   return { ok: true, planId, subscription_ends_at: newEnd };
 }
 
@@ -231,6 +242,16 @@ export async function applyPaidPaymentIntent(pi) {
     createdAt: new Date().toISOString(),
     subscriptionEnd: newEnd
   });
+
+  // Auto-assign a Twilio virtual number (best-effort — never blocks the payment).
+  try {
+    const assigned = await assignNumberToCustomer(userId);
+    if (!assigned.ok && assigned.reason !== "no_numbers_available") {
+      console.warn("[stripeSync] twilio assign failed:", assigned.reason);
+    }
+  } catch (e) {
+    console.warn("[stripeSync] twilio assign error:", e?.message || e);
+  }
 
   return { ok: true, planId, subscription_ends_at: newEnd };
 }

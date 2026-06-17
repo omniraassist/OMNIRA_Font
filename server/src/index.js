@@ -32,6 +32,16 @@ import { getAdapter, providerStatus } from "./calendar/registry.js";
 import { createOAuthState, verifyOAuthState } from "./calendar/oauthState.js";
 import { encryptCredentials, decryptCredentials, isCalendarCryptoConfigured } from "./calendar/crypto.js";
 import { syncEventOutbound, runCalendarSyncJobs } from "./calendar/sync.js";
+import {
+  isTwilioConfigured,
+  assignNumberToCustomer,
+  releaseCustomerNumber,
+  getCustomerNumber,
+  findCustomerByTwilioNumber,
+  sendTwilioWhatsAppMessage,
+  verifyTwilioSignature,
+  shouldSkipTwilioSignature
+} from "./twilio.js";
 
 const app = express();
 const port = Number(process.env.PORT || 5000);
@@ -3775,6 +3785,259 @@ app.get("/health", async (_req, res) => {
       ok: false,
       message: error.message
     });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// TWILIO WHATSAPP — virtual number pool
+// ---------------------------------------------------------------------------
+
+/**
+ * Inbound webhook from Twilio. Twilio sends form-urlencoded POST when an
+ * end-user messages one of our WhatsApp numbers.
+ * Routing: To (our Twilio number) → customer → bot config → OpenAI → reply.
+ */
+app.post("/api/twilio/whatsapp/webhook", express.urlencoded({ extended: false }), async (req, res) => {
+  // Always respond 200 to Twilio immediately to avoid retries.
+  res.set("Content-Type", "text/xml");
+
+  const valid = await verifyTwilioSignature(req);
+  if (!valid) {
+    console.warn("[twilio] webhook signature invalid");
+    return res.status(403).send("<Response></Response>");
+  }
+
+  const toRaw   = String(req.body?.To   || "");
+  const fromRaw = String(req.body?.From || "");
+  const body    = String(req.body?.Body || "").trim();
+  const sid     = String(req.body?.MessageSid || "");
+
+  // Strip whatsapp: prefix to get E.164 numbers.
+  const toPhone   = toRaw.replace(/^whatsapp:/i, "").trim();
+  const fromPhone = fromRaw.replace(/^whatsapp:/i, "").trim();
+
+  if (!toPhone || !fromPhone || !body) {
+    return res.send("<Response></Response>");
+  }
+
+  try {
+    // Find which customer owns this Twilio number.
+    const assignment = await findCustomerByTwilioNumber(toPhone);
+    if (!assignment) {
+      console.warn(`[twilio] no customer found for number ${toPhone}`);
+      return res.send("<Response></Response>");
+    }
+    const customerId = assignment.customer_user_id;
+
+    // Persist inbound message.
+    await supabaseAdmin.from("twilio_messages").insert({
+      customer_user_id: customerId,
+      twilio_number: toPhone,
+      wa_from: fromPhone,
+      direction: "inbound",
+      body,
+      twilio_sid: sid
+    });
+
+    // Load customer bot config.
+    const { data: botCfg } = await supabaseAdmin
+      .from("bot_configs")
+      .select("system_prompt, knowledge_base, greeting, is_active")
+      .eq("scope", "customer")
+      .eq("customer_user_id", customerId)
+      .maybeSingle();
+
+    // Load recent conversation history (last 20 messages).
+    const { data: history } = await supabaseAdmin
+      .from("twilio_messages")
+      .select("direction, body")
+      .eq("customer_user_id", customerId)
+      .eq("wa_from", fromPhone)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    const messages = (history || []).reverse().map(m => ({
+      role: m.direction === "inbound" ? "user" : "assistant",
+      content: m.body
+    }));
+
+    // Build system prompt.
+    const defaultPrompt = "You are a helpful WhatsApp assistant. Reply in the user's language, concise and warm.";
+    let systemPrompt = botCfg?.system_prompt || defaultPrompt;
+    if (botCfg?.knowledge_base) {
+      systemPrompt += `\n\n# Knowledge base\n${botCfg.knowledge_base}`;
+    }
+
+    // Call OpenAI.
+    const openaiKey = String(process.env.OPENAI_API_KEY || "").trim();
+    const model     = String(process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini").trim();
+    let replyText   = botCfg?.greeting || "Hola, ¿en qué puedo ayudarte?";
+
+    if (openaiKey) {
+      try {
+        const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${openaiKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              ...messages,
+              { role: "user", content: body }
+            ],
+            max_tokens: 500
+          }),
+          signal: AbortSignal.timeout(25000)
+        });
+        const aiJson = await aiRes.json();
+        const choice = aiJson?.choices?.[0]?.message?.content;
+        if (choice) replyText = String(choice).trim();
+      } catch (e) {
+        console.error("[twilio] OpenAI call failed:", e?.message || e);
+      }
+    }
+
+    // Send reply via Twilio.
+    const sent = await sendTwilioWhatsAppMessage(toPhone, fromPhone, replyText);
+
+    // Persist outbound message.
+    await supabaseAdmin.from("twilio_messages").insert({
+      customer_user_id: customerId,
+      twilio_number: toPhone,
+      wa_from: fromPhone,
+      direction: "outbound",
+      body: replyText,
+      twilio_sid: sent.sid || null,
+      openai_used: Boolean(openaiKey)
+    });
+
+    // Update/upsert lead.
+    const { data: existingLead } = await supabaseAdmin
+      .from("wa_leads")
+      .select("id, message_count")
+      .eq("customer_user_id", customerId)
+      .eq("wa_from", fromPhone)
+      .maybeSingle();
+
+    if (existingLead) {
+      await supabaseAdmin
+        .from("wa_leads")
+        .update({
+          message_count: (existingLead.message_count || 0) + 1,
+          last_message_at: new Date().toISOString()
+        })
+        .eq("id", existingLead.id);
+    } else {
+      await supabaseAdmin.from("wa_leads").insert({
+        customer_user_id: customerId,
+        phone_number_id: toPhone,
+        wa_from: fromPhone,
+        status: "new",
+        message_count: 1,
+        first_seen_at: new Date().toISOString(),
+        last_message_at: new Date().toISOString()
+      });
+    }
+  } catch (e) {
+    console.error("[twilio] webhook handler error:", e?.message || e);
+  }
+
+  return res.send("<Response></Response>");
+});
+
+/** Customer: get their assigned Twilio number. */
+app.get("/api/customer/twilio-number", requireCustomer, async (req, res) => {
+  try {
+    const number = await getCustomerNumber(req.customerId);
+    return res.status(200).json({ ok: true, number });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** Admin: pool overview. */
+app.get("/api/admin/twilio/pool", async (_req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("twilio_number_pool")
+      .select("id, phone_number, friendly_name, status, customer_user_id, assigned_at, monthly_cost_cents")
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    const available = (data || []).filter(n => n.status === "available").length;
+    const assigned  = (data || []).filter(n => n.status === "assigned").length;
+    return res.status(200).json({ ok: true, numbers: data || [], stats: { available, assigned, total: (data || []).length } });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** Admin: add a number to the pool manually. */
+app.post("/api/admin/twilio/pool", async (req, res) => {
+  try {
+    const phoneNumber  = String(req.body?.phone_number || "").trim();
+    const twilioSid    = String(req.body?.twilio_sid   || "").trim();
+    const friendlyName = String(req.body?.friendly_name || "").trim() || null;
+    const costCents    = Number(req.body?.monthly_cost_cents) || 100;
+    if (!phoneNumber || !twilioSid) {
+      return res.status(400).json({ ok: false, message: "phone_number and twilio_sid are required." });
+    }
+    const { data, error } = await supabaseAdmin
+      .from("twilio_number_pool")
+      .insert({ phone_number: phoneNumber, twilio_sid: twilioSid, friendly_name: friendlyName, monthly_cost_cents: costCents })
+      .select("id, phone_number, status")
+      .single();
+    if (error) throw error;
+    return res.status(201).json({ ok: true, number: data });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** Admin: manually assign / release a number. */
+app.patch("/api/admin/twilio/pool/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const patch = { updated_at: new Date().toISOString() };
+    if (typeof req.body?.status === "string") patch.status = req.body.status;
+    if (typeof req.body?.friendly_name === "string") patch.friendly_name = req.body.friendly_name;
+    const { data, error } = await supabaseAdmin
+      .from("twilio_number_pool")
+      .update(patch)
+      .eq("id", id)
+      .select("id, phone_number, status")
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ ok: false, message: "Number not found." });
+    return res.status(200).json({ ok: true, number: data });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** Admin: manually trigger number assignment for a customer. */
+app.post("/api/admin/twilio/assign", async (req, res) => {
+  try {
+    const customerId = String(req.body?.customer_user_id || "").trim();
+    if (!customerId) return res.status(400).json({ ok: false, message: "customer_user_id required." });
+    const result = await assignNumberToCustomer(customerId);
+    return res.status(result.ok ? 200 : 400).json(result);
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** Admin: release a customer's number back to the pool. */
+app.post("/api/admin/twilio/release", async (req, res) => {
+  try {
+    const customerId = String(req.body?.customer_user_id || "").trim();
+    if (!customerId) return res.status(400).json({ ok: false, message: "customer_user_id required." });
+    const result = await releaseCustomerNumber(customerId);
+    return res.status(result.ok ? 200 : 400).json(result);
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
   }
 });
 
