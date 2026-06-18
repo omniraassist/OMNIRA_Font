@@ -26,6 +26,7 @@
     "mailparser": "^3.9.9",
     "nodemailer": "^8.0.9",
     "pg": "^8.20.0",
-    "stripe": "^22.1.1"
+    "stripe": "^22.1.1",
+    "twilio": "^6.0.2"
   }
 }

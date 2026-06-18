@@ -6,7 +6,6 @@ import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { apiCall } from '../../api/client.js';
 import { canAccessDashboardPage } from '../../constants/plans.js';
 import { LogoMark } from '../brand/LogoMark.jsx';
-import { WhatsAppConfigCard } from './WhatsAppConfigCard.jsx';
 import { ModernCalendar } from './ModernCalendar.jsx';
 import { usePanel } from '../../context/PanelContext.jsx';
 import { usePricing } from '../../hooks/usePricing.js';
@@ -87,7 +86,7 @@ function ResList({ list }) {
   });
 }
 
-export function Dashboard() {
+export function Dashboard({ mockData = null }) {
   const { user, handleLogout } = usePanel();
   const { plansByCheapest } = usePricing();
   const [page, setPage] = useState('dash');
@@ -103,6 +102,9 @@ export function Dashboard() {
   const [upcomingBookings, setUpcomingBookings] = useState([]);
   const [latestPayment, setLatestPayment] = useState(null);
   const [recentConversations, setRecentConversations] = useState([]);
+  const [twilioNumber, setTwilioNumber] = useState(null);
+  const [twilioUsage, setTwilioUsage] = useState(null);
+  const [twilioConversations, setTwilioConversations] = useState([]);
   const [allEvents, setAllEvents] = useState([]);
   const [calDate, setCalDate] = useState(() => {
     const d = new Date();
@@ -137,7 +139,7 @@ export function Dashboard() {
     .slice(0, 2)
     .join('')
     .toUpperCase();
-  const isPro = user?.plan === 'pro';
+  const isPro = Boolean(user?.subscriptionActive);
 
   const loadData = useCallback(async () => {
     // Aggregated dashboard stats — real wa_messages + wa_leads + customer_events + customer_payments
@@ -195,11 +197,34 @@ export function Dashboard() {
     } catch {
       /* ignore */
     }
+    // Twilio virtual number + usage + conversations
+    try {
+      const n = await apiCall('/api/customer/twilio-number');
+      setTwilioNumber(n?.number || null);
+    } catch { /* ignore */ }
+    try {
+      const u = await apiCall('/api/customer/twilio-usage');
+      setTwilioUsage(u?.ok ? u : null);
+    } catch { /* ignore */ }
+    try {
+      const c = await apiCall('/api/customer/twilio-conversations?limit=50');
+      setTwilioConversations(Array.isArray(c?.conversations) ? c.conversations : []);
+    } catch { /* ignore */ }
   }, [user?.email]);
 
   useEffect(() => {
+    if (mockData) {
+      if (mockData.stats)               setStats(mockData.stats);
+      if (mockData.upcomingBookings)    setUpcomingBookings(mockData.upcomingBookings);
+      if (mockData.latestPayment)       setLatestPayment(mockData.latestPayment);
+      if (mockData.twilioNumber)        setTwilioNumber(mockData.twilioNumber);
+      if (mockData.twilioUsage)         setTwilioUsage(mockData.twilioUsage);
+      if (mockData.twilioConversations) setTwilioConversations(mockData.twilioConversations);
+      if (mockData.bot)                 setBot(mockData.bot);
+      return;
+    }
     loadData();
-  }, [loadData]);
+  }, [loadData, mockData]);
 
   useEffect(() => {
     if (user?.subscription_plan_id && !canAccessDashboardPage(user.subscription_plan_id, page)) {
@@ -803,7 +828,7 @@ export function Dashboard() {
                     </span>
                   )}
                 </button>
-                <div className="bot-live-badge" id="dashBotBadge" style={{ display: isPro && user?.botActive ? 'inline-flex' : 'none' }}>
+                <div className="bot-live-badge" id="dashBotBadge" style={{ display: twilioNumber ? 'inline-flex' : 'none' }}>
                   <div className="bot-live-dot" /> Bot activo
                 </div>
               </div>
@@ -831,6 +856,31 @@ export function Dashboard() {
                 )}
               </div>
             )}
+            {twilioNumber ? (
+              <div className="p-card" style={{ marginBottom: 20, background: 'linear-gradient(135deg, rgba(0,229,160,0.07) 0%, rgba(0,229,160,0.02) 100%)', borderColor: 'rgba(0,229,160,0.25)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg, var(--em) 0%, #34d399 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>📱</div>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--em)', marginBottom: 2 }}>Tu número de WhatsApp</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>{twilioNumber.phone_number}</div>
+                    </div>
+                  </div>
+                  {twilioUsage && (
+                    <div style={{ minWidth: 160 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--soft)', marginBottom: 4 }}>
+                        <span>Conversaciones este mes</span>
+                        <span style={{ fontFamily: 'monospace', color: 'var(--text)' }}>{twilioUsage.used}/{twilioUsage.limit}</span>
+                      </div>
+                      <div style={{ height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, var(--em), #34d399)', width: `${Math.min(100, Math.round((twilioUsage.used / twilioUsage.limit) * 100))}%`, transition: 'width .5s ease' }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
+
             <div className="p-stats-grid">
               <div className="p-stat-card">
                 <div className="p-stat-top">
@@ -956,48 +1006,54 @@ export function Dashboard() {
           <div id="page-convs" className={`p-page${page === 'convs' ? ' active' : ''}`}>
             <h1 className="p-page-title">Conversaciones</h1>
             <p className="p-page-sub">
-              Todos los hilos en tu número de WhatsApp Business. Cada fila proviene de{' '}
-              <code style={{ background: 'rgba(255,255,255,0.04)', padding: '1px 5px', borderRadius: 4 }}>wa_messages</code> en Supabase.
+              Todos los hilos de WhatsApp recibidos en tu número Omnira.
             </p>
-            <div className="p-card">
-              <div className="p-card-header">
-                <span className="p-card-title">{recentConversations.length} conversaciones</span>
-                <span style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'monospace' }}>
-                  {stats.messagesTotal} mensajes totales
-                </span>
-              </div>
-              {recentConversations.length === 0 ? (
-                <div className="p-empty">
-                  <i className="fa-brands fa-whatsapp" />
-                  <p>Las conversaciones aparecerán cuando tu bot reciba mensajes</p>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {recentConversations.map((c) => {
-                    const name = c.lead?.name || `+${c.wa_from}`;
-                    const initials = name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
-                    return (
-                      <div key={`${c.phone_number_id || ''}|${c.wa_from}`} className="p-res-item" style={{ alignItems: 'flex-start' }}>
-                        <div className="p-res-av">{initials}</div>
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div className="p-res-name">{name}</div>
-                          <div className="p-res-detail" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {c.last_body || '—'}
+            {(() => {
+              const convs = twilioConversations.length ? twilioConversations : recentConversations;
+              return (
+                <div className="p-card">
+                  <div className="p-card-header">
+                    <span className="p-card-title">{convs.length} conversaciones</span>
+                    {twilioUsage && (
+                      <span style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'monospace' }}>
+                        {twilioUsage.used}/{twilioUsage.limit} este mes
+                      </span>
+                    )}
+                  </div>
+                  {convs.length === 0 ? (
+                    <div className="p-empty">
+                      <i className="fa-brands fa-whatsapp" />
+                      <p>Las conversaciones aparecerán cuando tu bot reciba mensajes</p>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {convs.map((c) => {
+                        const cname = c.lead?.name || `+${c.wa_from}`;
+                        const cinits = cname.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+                        return (
+                          <div key={`${c.phone_number_id || ''}|${c.wa_from}`} className="p-res-item" style={{ alignItems: 'flex-start' }}>
+                            <div className="p-res-av">{cinits}</div>
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div className="p-res-name">{cname}</div>
+                              <div className="p-res-detail" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {c.last_body || '—'}
+                              </div>
+                              <div style={{ display: 'flex', gap: 10, marginTop: 4, fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
+                                <span>+{c.wa_from}</span>
+                                <span>·</span>
+                                <span>{c.message_count} msg</span>
+                                {c.lead?.intent ? <><span>·</span><span>{c.lead.intent}</span></> : null}
+                              </div>
+                            </div>
+                            <span className="p-status">{c.lead?.status || 'inbound'}</span>
                           </div>
-                          <div style={{ display: 'flex', gap: 10, marginTop: 4, fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
-                            <span>+{c.wa_from}</span>
-                            <span>·</span>
-                            <span>{c.message_count} msg</span>
-                            {c.lead?.intent ? <><span>·</span><span>{c.lead.intent}</span></> : null}
-                          </div>
-                        </div>
-                        <span className="p-status">{c.lead?.status || 'inbound'}</span>
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()}
           </div>
 
           <div id="page-stats" className={`p-page${page === 'stats' ? ' active' : ''}`}>
@@ -1251,13 +1307,72 @@ export function Dashboard() {
 
           {/* WhatsApp page — Meta Business credentials + activation (paid customers only) */}
           <div id="page-whatsapp" className={`p-page${page === 'whatsapp' ? ' active' : ''}`}>
-            <h1 className="p-page-title">WhatsApp Business</h1>
+            <h1 className="p-page-title">Mi número de WhatsApp</h1>
             <p className="p-page-sub">
-              Conecta tu número de WhatsApp Business pegando tus credenciales de Meta. Al guardar las
-              verificamos con Meta y, si son correctas, tu agente Omnira queda activo 24/7. Después,
-              entrena al agente con tu información en <strong>Entrenar Chatbot</strong>.
+              Omnira te asigna un número de WhatsApp Business exclusivo. Compártelo con tus clientes — el bot responde automáticamente 24/7.
             </p>
-            <WhatsAppConfigCard showToast={showToast} />
+            <div className="p-card" style={{ marginBottom: 16 }}>
+              <div className="p-card-header">
+                <span className="p-card-title">Número asignado</span>
+                <span className="p-status" style={{ background: twilioNumber ? 'rgba(0,229,160,0.12)' : 'rgba(255,255,255,0.05)', color: twilioNumber ? 'var(--em)' : 'var(--muted)' }}>
+                  {twilioNumber ? '● activo' : '⏳ asignando…'}
+                </span>
+              </div>
+              {twilioNumber ? (
+                <div style={{ padding: '12px 0' }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: 32, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>
+                    {twilioNumber.phone_number}
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--soft)', lineHeight: 1.6, marginBottom: 16 }}>
+                    Comparte este número en tu web, Instagram o tarjeta de visita. Todos los mensajes que reciba serán respondidos por tu agente Omnira.
+                  </div>
+                  {twilioUsage && (
+                    <div style={{ maxWidth: 360 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--soft)', marginBottom: 6 }}>
+                        <span>Conversaciones este mes</span>
+                        <span style={{ fontFamily: 'monospace', color: 'var(--text)', fontWeight: 600 }}>{twilioUsage.used} / {twilioUsage.limit}</span>
+                      </div>
+                      <div style={{ height: 8, borderRadius: 999, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%', borderRadius: 999,
+                          background: twilioUsage.used / twilioUsage.limit > 0.85
+                            ? 'linear-gradient(90deg, #f59e0b, #ef4444)'
+                            : 'linear-gradient(90deg, var(--em), #34d399)',
+                          width: `${Math.min(100, Math.round((twilioUsage.used / twilioUsage.limit) * 100))}%`,
+                          transition: 'width .5s ease'
+                        }} />
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                        Se reinicia el 1 de cada mes · Plan {twilioUsage.plan}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-empty">
+                  <i className="fa-brands fa-whatsapp" />
+                  <p>Tu número se está asignando. Aparecerá aquí en breve.</p>
+                </div>
+              )}
+            </div>
+            <div className="p-card">
+              <div className="p-card-header"><span className="p-card-title">¿Cómo funciona?</span></div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '4px 0' }}>
+                {[
+                  ['1', 'Tu cliente escribe a tu número de WhatsApp', 'El mensaje llega directamente a tu bot Omnira.'],
+                  ['2', 'El bot responde automáticamente con IA', 'Usa la información de tu negocio para dar respuestas precisas.'],
+                  ['3', 'Se genera un lead automático', 'Cada conversación queda registrada con nombre, intención y datos de contacto.'],
+                ].map(([n, title, desc]) => (
+                  <div key={n} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                    <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--em)', color: '#00120a', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{n}</div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>{title}</div>
+                      <div style={{ fontSize: 12, color: 'var(--soft)' }}>{desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </main>
       </div>
