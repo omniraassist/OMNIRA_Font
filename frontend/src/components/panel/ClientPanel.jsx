@@ -6,10 +6,19 @@ import { AuthRegister } from './AuthRegister.jsx';
 import { Dashboard } from './Dashboard.jsx';
 import { PostLoginPaymentStep } from './PostLoginPaymentStep.jsx';
 import { PostLoginPlanHome } from './PostLoginPlanHome.jsx';
-import { PostLoginWhatsAppSetup } from './PostLoginWhatsAppSetup.jsx';
+import { PostLoginTwilioReady } from './PostLoginTwilioReady.jsx';
 
 export function ClientPanel() {
   const { open, view, setView, user } = usePanel();
+
+  // ?preview=twilio in the URL forces the Twilio ready screen for quick preview.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('preview') === 'twilio') {
+      setView('whatsAppSetup');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [setView]);
 
   useEffect(() => {
     if (open && view === 'whatsAppSetup' && user && user.subscriptionActive === false) {
@@ -28,7 +37,7 @@ export function ClientPanel() {
       {view === 'forgot' && <AuthForgot />}
       {view === 'planHome' && <PostLoginPlanHome />}
       {view === 'paymentStep' && <PostLoginPaymentStep />}
-      {view === 'whatsAppSetup' && <PostLoginWhatsAppSetup />}
+      {view === 'whatsAppSetup' && <PostLoginTwilioReady />}
       {view === 'dashboard' && <Dashboard />}
     </div>
   );

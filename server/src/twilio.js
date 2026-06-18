@@ -8,11 +8,11 @@
  * bot config, processed with OpenAI, and replied via Twilio.
  */
 
+import twilio from "twilio";
 import { supabaseAdmin } from "./config/supabase.js";
-import { getPlatformSetting } from "./platformSettings.js";
 
 // ---------------------------------------------------------------------------
-// Twilio client (lazy init — avoids import errors when env is not set)
+// Twilio client (lazy init)
 // ---------------------------------------------------------------------------
 
 let _twilioClient = null;
@@ -22,9 +22,6 @@ export function getTwilioClient() {
   const accountSid = String(process.env.TWILIO_ACCOUNT_SID || "").trim();
   const authToken  = String(process.env.TWILIO_AUTH_TOKEN  || "").trim();
   if (!accountSid || !authToken) return null;
-
-  // Dynamic import so the package is optional until Twilio env vars are set.
-  const twilio = (await import("twilio")).default;
   _twilioClient = twilio(accountSid, authToken);
   return _twilioClient;
 }
@@ -177,6 +174,86 @@ export async function findCustomerByTwilioNumber(toRaw) {
   return data || null;
 }
 
+// ---------------------------------------------------------------------------
+// Conversation rate limits (Plan A — OMNIRA absorbs Twilio cost)
+// ---------------------------------------------------------------------------
+
+// Max unique contacts/month per plan tier.
+export const PLAN_CONVERSATION_LIMITS = {
+  monthly:    300,
+  quarterly:  500,
+  semiannual: 1000,
+  annual:     2000,
+};
+
+const DEFAULT_LIMIT = 300; // fallback when plan is unknown
+
+function monthKey() {
+  const d = new Date();
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
+ * Checks whether a customer can receive a message from `fromPhone` this month.
+ * If the contact is new this month and the customer is under their limit,
+ * records the new conversation and returns { allowed: true }.
+ * If the limit is reached, returns { allowed: false, used, limit }.
+ */
+export async function checkAndIncrementConversation(customerId, fromPhone, planId) {
+  const limit = PLAN_CONVERSATION_LIMITS[planId] ?? DEFAULT_LIMIT;
+  const mk = monthKey();
+
+  // Is this contact already active for this customer this month?
+  const { data: existing } = await supabaseAdmin
+    .from("twilio_conversation_windows")
+    .select("id")
+    .eq("customer_user_id", customerId)
+    .eq("wa_from", fromPhone)
+    .eq("month_key", mk)
+    .maybeSingle();
+
+  if (existing) {
+    // Existing conversation — always allowed, no need to recount.
+    return { allowed: true, existing: true };
+  }
+
+  // New contact this month — check current count first.
+  const { count } = await supabaseAdmin
+    .from("twilio_conversation_windows")
+    .select("id", { count: "exact", head: true })
+    .eq("customer_user_id", customerId)
+    .eq("month_key", mk);
+
+  const used = count ?? 0;
+  if (used >= limit) {
+    return { allowed: false, used, limit };
+  }
+
+  // Under limit — record this new conversation.
+  await supabaseAdmin
+    .from("twilio_conversation_windows")
+    .insert({ customer_user_id: customerId, wa_from: fromPhone, month_key: mk })
+    .onConflict("customer_user_id, wa_from, month_key")   // safety: concurrent request
+    .ignore();
+
+  return { allowed: true, existing: false, used: used + 1, limit };
+}
+
+/**
+ * Returns how many unique conversations a customer has used this month.
+ */
+export async function getConversationUsage(customerId) {
+  const mk = monthKey();
+  const { count } = await supabaseAdmin
+    .from("twilio_conversation_windows")
+    .select("id", { count: "exact", head: true })
+    .eq("customer_user_id", customerId)
+    .eq("month_key", mk);
+  return count ?? 0;
+}
+
+// ---------------------------------------------------------------------------
+
 /**
  * Validates that a Twilio inbound request is authentic by checking the
  * X-Twilio-Signature header against the TWILIO_AUTH_TOKEN.
@@ -189,17 +266,15 @@ export function shouldSkipTwilioSignature() {
   );
 }
 
-export async function verifyTwilioSignature(req) {
+export function verifyTwilioSignature(req) {
   if (shouldSkipTwilioSignature()) return true;
-  const client = getTwilioClient();
-  if (!client) return false;
   try {
-    const { validateRequest } = await import("twilio");
     const authToken = String(process.env.TWILIO_AUTH_TOKEN || "").trim();
+    if (!authToken) return false;
     const url = String(process.env.PUBLIC_API_URL || `https://${req.headers.host}`).replace(/\/$/, "")
       + req.originalUrl;
     const signature = req.headers["x-twilio-signature"] || "";
-    return validateRequest(authToken, signature, url, req.body || {});
+    return twilio.validateRequest(authToken, signature, url, req.body || {});
   } catch {
     return false;
   }

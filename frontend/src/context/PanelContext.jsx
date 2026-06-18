@@ -97,6 +97,12 @@ export function PanelProvider({ children }) {
       setOpen(true);
       document.body.style.overflow = 'hidden';
 
+      // Dev preview: skip auth and go straight to the target view.
+      if (initial === 'preview-twilio') {
+        setView('whatsAppSetup');
+        return;
+      }
+
       if (initial === 'stripe-return') {
         const sid = sessionStorage.getItem('omnira_pending_checkout');
         sessionStorage.removeItem('omnira_pending_checkout');

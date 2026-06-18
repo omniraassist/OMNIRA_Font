@@ -31,7 +31,7 @@ async function insertPurchaseNotification({ customerId, planLabel, newEnd, dedup
       message:
         `Gracias por elegir Omnira. Tu plan${planLabel ? ` "${planLabel}"` : ""} está activo` +
         (dateStr ? ` hasta el ${dateStr}.` : ".") +
-        " Conecta tu WhatsApp Business para activar el agente.",
+        " Tu número de WhatsApp se está asignando automáticamente — entra al dashboard para configurar tu bot.",
       created_by: dedupKey
     });
   } catch (e) {
@@ -136,7 +136,7 @@ export async function applyPaidCheckoutSession(session) {
     subscriptionEnd: newEnd
   });
 
-  // Auto-assign a Twilio virtual number (best-effort — never blocks the payment).
+  // Auto-assign a Twilio virtual number + create bot config (best-effort).
   try {
     const assigned = await assignNumberToCustomer(userId);
     if (!assigned.ok && assigned.reason !== "no_numbers_available") {
@@ -144,6 +144,15 @@ export async function applyPaidCheckoutSession(session) {
     }
   } catch (e) {
     console.warn("[stripeSync] twilio assign error:", e?.message || e);
+  }
+  try {
+    const { data: existingCfg } = await supabaseAdmin
+      .from("bot_configs").select("id").eq("scope", "customer").eq("customer_user_id", userId).maybeSingle();
+    if (!existingCfg) {
+      await supabaseAdmin.from("bot_configs").insert({ scope: "customer", customer_user_id: userId });
+    }
+  } catch (e) {
+    console.warn("[stripeSync] bot_config create error:", e?.message || e);
   }
 
   return { ok: true, planId, subscription_ends_at: newEnd };
@@ -243,7 +252,7 @@ export async function applyPaidPaymentIntent(pi) {
     subscriptionEnd: newEnd
   });
 
-  // Auto-assign a Twilio virtual number (best-effort — never blocks the payment).
+  // Auto-assign a Twilio virtual number + create bot config (best-effort).
   try {
     const assigned = await assignNumberToCustomer(userId);
     if (!assigned.ok && assigned.reason !== "no_numbers_available") {
@@ -251,6 +260,15 @@ export async function applyPaidPaymentIntent(pi) {
     }
   } catch (e) {
     console.warn("[stripeSync] twilio assign error:", e?.message || e);
+  }
+  try {
+    const { data: existingCfg } = await supabaseAdmin
+      .from("bot_configs").select("id").eq("scope", "customer").eq("customer_user_id", userId).maybeSingle();
+    if (!existingCfg) {
+      await supabaseAdmin.from("bot_configs").insert({ scope: "customer", customer_user_id: userId });
+    }
+  } catch (e) {
+    console.warn("[stripeSync] bot_config create error:", e?.message || e);
   }
 
   return { ok: true, planId, subscription_ends_at: newEnd };
