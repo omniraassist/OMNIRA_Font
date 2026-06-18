@@ -3,11 +3,15 @@ import { useState } from 'react';
 const FAQS = [
   {
     q: '¿Necesito saber programar para usar Omnira?',
-    a: 'No, en absoluto. Omnira está diseñado para que cualquier negocio pueda configurarlo sin conocimientos técnicos. El proceso de activación dura menos de 30 minutos y te guiamos paso a paso.',
+    a: 'No, en absoluto. Omnira está diseñado para que cualquier negocio pueda activarlo sin ningún conocimiento técnico. Al completar el pago, el sistema asigna tu número de WhatsApp y activa el bot de forma automática — sin pasos manuales ni configuraciones complicadas.',
   },
   {
-    q: '¿Cómo se conecta a mi WhatsApp Business?',
-    a: 'Mediante la API oficial de WhatsApp Business de Meta. El proceso es sencillo: te proporcionamos instrucciones paso a paso y en menos de 30 minutos tu bot estará activo y respondiendo mensajes.',
+    q: '¿Cómo obtengo mi número de WhatsApp?',
+    a: 'En el momento en que se confirma tu pago, Omnira te asigna automáticamente un número de WhatsApp Business exclusivo para tu negocio. No necesitas crear ninguna cuenta en Twilio ni en Meta: nosotros gestionamos toda la infraestructura por ti. El número aparece en tu dashboard en menos de 60 segundos y ya está listo para recibir mensajes de tus clientes.',
+  },
+  {
+    q: '¿Tengo que pagar el número de WhatsApp por separado?',
+    a: 'No. El número de WhatsApp Business y todos los costes de mensajería están incluidos en tu plan de Omnira. Cada plan incluye una cuota mensual de conversaciones únicas: 300 con el plan mensual, 500 con el trimestral, 1.000 con el semestral y 2.000 con el anual. OMNIRA absorbe el coste de Twilio — tú solo pagas tu suscripción.',
   },
   {
     q: '¿Puedo cancelar en cualquier momento?',
