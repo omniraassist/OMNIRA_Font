@@ -3885,10 +3885,14 @@ app.post("/api/twilio/whatsapp/webhook", express.urlencoded({ extended: false })
     }));
 
     // Build system prompt.
-    const defaultPrompt = "You are a helpful WhatsApp assistant. Reply in the user's language, concise and warm.";
+    const defaultPrompt =
+      "Eres el asistente virtual de este negocio en WhatsApp. " +
+      "Responde siempre en el idioma del cliente, de forma amable, concisa y profesional. " +
+      "Si no tienes información sobre algo, di que lo consultarás y que se pondrán en contacto. " +
+      "No inventes precios, horarios ni servicios que no conozcas.";
     let systemPrompt = botCfg?.system_prompt || defaultPrompt;
     if (botCfg?.knowledge_base) {
-      systemPrompt += `\n\n# Knowledge base\n${botCfg.knowledge_base}`;
+      systemPrompt += `\n\n# Información del negocio\n${botCfg.knowledge_base}`;
     }
 
     // Call OpenAI.
