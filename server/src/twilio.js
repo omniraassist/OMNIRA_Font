@@ -233,7 +233,7 @@ export async function checkAndIncrementConversation(customerId, fromPhone, planI
   await supabaseAdmin
     .from("twilio_conversation_windows")
     .insert({ customer_user_id: customerId, wa_from: fromPhone, month_key: mk })
-    .onConflict("customer_user_id, wa_from, month_key")   // safety: concurrent request
+    .onConflict("customer_user_id,wa_from,month_key")   // safety: concurrent request
     .ignore();
 
   return { allowed: true, existing: false, used: used + 1, limit };
