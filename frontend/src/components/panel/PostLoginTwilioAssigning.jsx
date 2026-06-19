@@ -3,10 +3,10 @@ import { LogoMark } from '../brand/LogoMark.jsx';
 import { usePanel } from '../../context/PanelContext.jsx';
 
 const STEPS = [
-  { label: 'Verificando tu pago…',           duration: 1200 },
-  { label: 'Reservando tu número de WhatsApp…', duration: 1800 },
-  { label: 'Activando tu agente de IA…',     duration: 1400 },
-  { label: '¡Listo!',                         duration: 600  },
+  { label: 'Verificando tu pago…',              duration: 1200 },
+  { label: 'Asignando tu número de teléfono…',  duration: 1800 },
+  { label: 'Activando tu agente de IA…',        duration: 1400 },
+  { label: '¡Tu bot está listo!',               duration: 600  },
 ];
 
 const STYLES = `
@@ -175,18 +175,18 @@ export function PostLoginTwilioAssigning({ onDone }) {
         <div className="twa-pipe-line" />
         <div className="twa-pipe-step done"><span className="num">✓</span><span className="lbl">Pago</span></div>
         <div className="twa-pipe-line" />
-        <div className="twa-pipe-step active"><span className="num">3</span><span className="lbl">WhatsApp listo</span></div>
+        <div className="twa-pipe-step active"><span className="num">3</span><span className="lbl">Activando bot</span></div>
         <div className="twa-pipe-line" />
-        <div className="twa-pipe-step"><span className="num">4</span><span className="lbl">Dashboard</span></div>
+        <div className="twa-pipe-step"><span className="num">4</span><span className="lbl">Panel</span></div>
       </div>
 
       <main className="twa-main">
         <div className="twa-card">
           <div className="twa-icon">📱</div>
 
-          <h1 className="twa-title">Preparando tu WhatsApp</h1>
+          <h1 className="twa-title">Preparando tu cuenta</h1>
           <p className="twa-sub">
-            Estamos asignando tu número exclusivo y activando tu agente de IA. Tardará solo unos segundos.
+            Estamos asignando tu número y activando tu agente de IA. Tardará solo unos segundos.
           </p>
 
           <div className="twa-steps">

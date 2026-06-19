@@ -8,7 +8,6 @@ import { WhatsAppFloat } from './components/layout/WhatsAppFloat.jsx';
 import { LandingPage } from './pages/LandingPage.jsx';
 import { PrivacyPage } from './pages/PrivacyPage.jsx';
 import { TermsPage } from './pages/TermsPage.jsx';
-import { PostLoginTwilioReady } from './components/panel/PostLoginTwilioReady.jsx';
 import { PostLoginTwilioAssigning } from './components/panel/PostLoginTwilioAssigning.jsx';
 import { Dashboard } from './components/panel/Dashboard.jsx';
 
@@ -97,9 +96,8 @@ function DashboardPreview() {
 }
 
 function TwilioPreviewFlow() {
-  const [stage, setStage] = useState('assigning');
-  if (stage === 'assigning') return <PostLoginTwilioAssigning onDone={() => setStage('ready')} />;
-  return <PostLoginTwilioReady previewMode />;
+  const [key, setKey] = useState(0);
+  return <PostLoginTwilioAssigning key={key} onDone={() => setKey((k) => k + 1)} />;
 }
 
 function LandingShell() {
