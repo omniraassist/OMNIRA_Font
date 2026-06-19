@@ -44,7 +44,7 @@ export function PanelProvider({ children }) {
     setView('dashboard');
   }, []);
 
-  /** Tras login/registro: panel según suscripción y onboarding */
+  /** Tras login/registro: panel según suscripción */
   const completeCustomerAuth = useCallback((res) => {
     try {
       localStorage.setItem('omnira_session', JSON.stringify(res));
@@ -57,15 +57,6 @@ export function PanelProvider({ children }) {
     if (!u?.subscriptionActive) {
       setView('planHome');
       return;
-    }
-    try {
-      const done = localStorage.getItem(ONBOARDING_DONE_KEY) === 'true';
-      if (!done) {
-        setView('whatsAppSetup');
-        return;
-      }
-    } catch {
-      /* ignore */
     }
     setView('dashboard');
   }, []);
@@ -80,16 +71,7 @@ export function PanelProvider({ children }) {
   }, []);
 
   const completePaymentStep = useCallback(() => {
-    setView('whatsAppSetup');
-  }, []);
-
-  const completeWhatsAppSetup = useCallback(() => {
-    try {
-      localStorage.setItem(ONBOARDING_DONE_KEY, 'true');
-    } catch {
-      /* ignore */
-    }
-    setView('dashboard');
+    setView('onboarding');
   }, []);
 
   const openClientPanel = useCallback(
@@ -99,7 +81,7 @@ export function PanelProvider({ children }) {
 
       // Dev preview: skip auth and go straight to the target view.
       if (initial === 'preview-twilio') {
-        setView('whatsAppSetup');
+        setView('onboarding');
         return;
       }
 
@@ -124,7 +106,7 @@ export function PanelProvider({ children }) {
           if (r.ok && r.user) {
             writeSessionUser(r.user);
             setUser(r.user);
-            setView('whatsAppSetup');
+            setView('onboarding');
             return;
           }
         } catch {
@@ -163,8 +145,7 @@ export function PanelProvider({ children }) {
             setView('planHome');
             return;
           }
-          const done = localStorage.getItem(ONBOARDING_DONE_KEY) === 'true';
-          setView(done ? 'dashboard' : 'whatsAppSetup');
+          setView('dashboard');
           return;
         } catch {
           const fallback = applyTestPaidOverride(sess.user);
@@ -172,8 +153,7 @@ export function PanelProvider({ children }) {
             setView('planHome');
             return;
           }
-          const done = localStorage.getItem(ONBOARDING_DONE_KEY) === 'true';
-          setView(done ? 'dashboard' : 'whatsAppSetup');
+          setView('dashboard');
           return;
         }
       }
@@ -234,7 +214,6 @@ export function PanelProvider({ children }) {
       completeCustomerAuth,
       completePlanSelection,
       completePaymentStep,
-      completeWhatsAppSetup,
       handleLogout,
       refreshCustomerUser,
     }),
@@ -252,7 +231,6 @@ export function PanelProvider({ children }) {
       completeCustomerAuth,
       completePlanSelection,
       completePaymentStep,
-      completeWhatsAppSetup,
       handleLogout,
       refreshCustomerUser,
     ]

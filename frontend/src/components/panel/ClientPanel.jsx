@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { usePanel } from '../../context/PanelContext.jsx';
 import { AuthForgot } from './AuthForgot.jsx';
 import { AuthLogin } from './AuthLogin.jsx';
@@ -7,21 +6,9 @@ import { Dashboard } from './Dashboard.jsx';
 import { PostLoginPaymentStep } from './PostLoginPaymentStep.jsx';
 import { PostLoginPlanHome } from './PostLoginPlanHome.jsx';
 import { PostLoginTwilioAssigning } from './PostLoginTwilioAssigning.jsx';
-import { PostLoginTwilioReady } from './PostLoginTwilioReady.jsx';
 
 export function ClientPanel() {
-  const { open, view, setView, user } = usePanel();
-  const [twilioStage, setTwilioStage] = useState('assigning');
-
-  useEffect(() => {
-    if (view === 'whatsAppSetup') setTwilioStage('assigning');
-  }, [view]);
-
-  useEffect(() => {
-    if (open && view === 'whatsAppSetup' && user && user.subscriptionActive === false) {
-      setView('paymentStep');
-    }
-  }, [open, view, user, setView]);
+  const { open, view, setView } = usePanel();
 
   if (!open) return null;
 
@@ -34,11 +21,7 @@ export function ClientPanel() {
       {view === 'forgot' && <AuthForgot />}
       {view === 'planHome' && <PostLoginPlanHome />}
       {view === 'paymentStep' && <PostLoginPaymentStep />}
-      {view === 'whatsAppSetup' && (
-        twilioStage === 'assigning'
-          ? <PostLoginTwilioAssigning onDone={() => setTwilioStage('ready')} />
-          : <PostLoginTwilioReady />
-      )}
+      {view === 'onboarding' && <PostLoginTwilioAssigning onDone={() => setView('dashboard')} />}
       {view === 'dashboard' && <Dashboard />}
     </div>
   );
