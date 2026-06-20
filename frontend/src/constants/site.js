@@ -2,7 +2,7 @@
 export const SITE_LOGO_URL = '/logo.png';
 
 /** Deployed Express API (Vercel). Empty `VITE_API_BASE` falls back here — never rely on localhost in production builds. */
-const DEFAULT_BACKEND = 'https://omnira-backend.vercel.app';
+const DEFAULT_BACKEND = 'https://omnira-server.vercel.app';
 
 function trimOrEmpty(v) {
   return typeof v === 'string' ? v.trim() : '';
