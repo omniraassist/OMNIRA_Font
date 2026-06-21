@@ -4,7 +4,7 @@ import cors from "cors";
 import crypto from "crypto";
 import { testSupabaseConnection, isSupabaseConfigured } from "./config/supabase.js";
 import { supabaseAdmin } from "./config/supabase.js";
-import { signCustomerToken, requireCustomer, verifyCustomerToken } from "./customerJwt.js";
+import { signCustomerToken, requireCustomer, verifyCustomerToken, signAdminToken, requireAdmin } from "./customerJwt.js";
 import { getCheckoutPlans, getCheckoutPlan, computeNewSubscriptionEnd, invalidatePricingCache } from "./billing.js";
 import { getPlatformSetting, invalidatePlatformSettingsCache, maskSecret } from "./platformSettings.js";
 import { getStripe, applyPaidCheckoutSession, applyPaidPaymentIntent, OMNIRA_PAYMENT_INTENT_FLOW } from "./stripeSync.js";
@@ -519,10 +519,16 @@ function verifyPassword(password, storedHash) {
   if (!value) return false;
 
   if (!value.includes(":")) {
-    return password === value;
+    // Legacy plain-text password — use timing-safe comparison to prevent timing attacks.
+    const a = Buffer.from(String(password || ""));
+    const b = Buffer.from(value);
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
   }
 
-  const [salt, originalHash] = value.split(":");
+  const parts = value.split(":");
+  const salt = parts[0];
+  const originalHash = parts[1];
   if (!salt || !originalHash) return false;
   const hashToCompare = crypto.pbkdf2Sync(password, salt, 120000, 64, "sha512").toString("hex");
   return crypto.timingSafeEqual(Buffer.from(originalHash, "hex"), Buffer.from(hashToCompare, "hex"));
@@ -548,6 +554,18 @@ function asIsoDate(value) {
     return new Date().toISOString();
   }
 }
+
+// Protect all admin routes. These three paths are public (no token needed).
+const ADMIN_PUBLIC_PATHS = new Set([
+  "/api/admin/login",
+  "/api/admin/reset/request",
+  "/api/admin/reset/confirm",
+]);
+app.use((req, res, next) => {
+  if (!req.path.startsWith("/api/admin")) return next();
+  if (ADMIN_PUBLIC_PATHS.has(req.path)) return next();
+  return requireAdmin(req, res, next);
+});
 
 async function ensureAuxTables() {
   try {
@@ -1750,7 +1768,8 @@ app.delete("/api/customer/calendar/connections/:id", requireCustomer, async (req
 app.post("/api/internal/calendar/drain", async (req, res) => {
   const expected = String(process.env.CRON_SECRET || "").trim();
   const given = String(req.headers["x-cron-token"] || req.query.token || "").trim();
-  if (expected && given !== expected) {
+  // Reject if CRON_SECRET is not set OR the token doesn't match.
+  if (!expected || given !== expected) {
     return res.status(401).json({ ok: false, message: "Unauthorized" });
   }
   try {
@@ -1914,88 +1933,71 @@ app.put("/api/customer/business", requireCustomer, async (req, res) => {
 });
 
 /**
- * Customer notifications. Two flows in one endpoint:
- *
- *   1. If a JWT is present (panel call via apiCall + omnira_session token),
- *      we look up the customer's subscription_ends_at and auto-insert a
- *      daily "subscription expiring" reminder when ≤5 days remain (or an
- *      "expired" notice when already past). Dedup'd by created_by so we
- *      insert at most one per remaining-day-bucket per calendar day.
- *
- *   2. Anonymous (?email=...) calls still work for back-compat — they
- *      return the broadcast + targeted rows but don't auto-generate.
+ * Customer notifications — JWT required.
+ * Looks up the customer's subscription_ends_at and auto-inserts a daily
+ * "subscription expiring" reminder when ≤5 days remain (or "expired").
+ * Dedup'd by created_by so we insert at most one per bucket per calendar day.
  */
-app.get("/api/customer/notifications", async (req, res) => {
+app.get("/api/customer/notifications", requireCustomer, async (req, res) => {
   try {
-    let email = "";
-    let customerId = null;
+    const customerId = req.customerId;
 
-    // Try JWT first (panel call)
+    const { data: u } = await supabaseAdmin
+      .from("customer_users")
+      .select("email, subscription_ends_at")
+      .eq("id", customerId)
+      .maybeSingle();
+
+    const email = normalizeEmail(u?.email);
+    if (!email) return res.status(400).json({ ok: false, message: "Customer email not found." });
+
+    // Auto-generate subscription warnings (≤5 days) / expired notice.
     try {
-      const auth = String(req.headers.authorization || "").trim();
-      if (auth.toLowerCase().startsWith("bearer ")) {
-        const token = auth.slice(7).trim();
-        const payload = verifyCustomerToken(token);
-        if (payload?.sub) {
-          customerId = payload.sub;
-          const { data: u } = await supabaseAdmin
-            .from("customer_users")
-            .select("email, subscription_ends_at")
-            .eq("id", customerId)
+      if (u?.subscription_ends_at) {
+        const now = new Date();
+        const ends = new Date(u.subscription_ends_at);
+        const msLeft = ends.getTime() - now.getTime();
+        const today = now.toISOString().slice(0, 10);
+        const dateStr = ends.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
+        if (msLeft <= 0) {
+          const dedup = `system:expired:${today}:${customerId}`;
+          const { data: existing } = await supabaseAdmin
+            .from("user_notifications")
+            .select("id")
+            .eq("created_by", dedup)
             .maybeSingle();
-          email = normalizeEmail(u?.email);
-
-          // Auto-generate subscription warnings (≤5 days) / expired notice.
-          if (email && u?.subscription_ends_at) {
-            const now = new Date();
-            const ends = new Date(u.subscription_ends_at);
-            const msLeft = ends.getTime() - now.getTime();
-            const today = now.toISOString().slice(0, 10);
-            const dateStr = ends.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
-            if (msLeft <= 0) {
-              const dedup = `system:expired:${today}:${customerId}`;
-              const { data: existing } = await supabaseAdmin
-                .from("user_notifications")
-                .select("id")
-                .eq("created_by", dedup)
-                .maybeSingle();
-              if (!existing) {
-                await supabaseAdmin.from("user_notifications").insert({
-                  target_email: email,
-                  title: "⚠️ Tu plan ha expirado",
-                  message: `Tu agente Omnira está en pausa. Renueva tu plan para que vuelva a responder en WhatsApp 24/7.`,
-                  created_by: dedup
-                });
-              }
-            } else {
-              const daysLeft = Math.ceil(msLeft / 86_400_000);
-              if (daysLeft >= 1 && daysLeft <= 5) {
-                const dedup = `system:expiry-${daysLeft}d:${today}:${customerId}`;
-                const { data: existing } = await supabaseAdmin
-                  .from("user_notifications")
-                  .select("id")
-                  .eq("created_by", dedup)
-                  .maybeSingle();
-                if (!existing) {
-                  await supabaseAdmin.from("user_notifications").insert({
-                    target_email: email,
-                    title: `⏰ Tu plan expira en ${daysLeft} día${daysLeft === 1 ? "" : "s"}`,
-                    message:
-                      `Renueva antes del ${dateStr} para que tu agente Omnira siga respondiendo automáticamente en WhatsApp.`,
-                    created_by: dedup
-                  });
-                }
-              }
+          if (!existing) {
+            await supabaseAdmin.from("user_notifications").insert({
+              target_email: email,
+              title: "⚠️ Tu plan ha expirado",
+              message: `Tu agente Omnira está en pausa. Renueva tu plan para que vuelva a responder en WhatsApp 24/7.`,
+              created_by: dedup
+            });
+          }
+        } else {
+          const daysLeft = Math.ceil(msLeft / 86_400_000);
+          if (daysLeft >= 1 && daysLeft <= 5) {
+            const dedup = `system:expiry-${daysLeft}d:${today}:${customerId}`;
+            const { data: existing } = await supabaseAdmin
+              .from("user_notifications")
+              .select("id")
+              .eq("created_by", dedup)
+              .maybeSingle();
+            if (!existing) {
+              await supabaseAdmin.from("user_notifications").insert({
+                target_email: email,
+                title: `⏰ Tu plan expira en ${daysLeft} día${daysLeft === 1 ? "" : "s"}`,
+                message:
+                  `Renueva antes del ${dateStr} para que tu agente Omnira siga respondiendo automáticamente en WhatsApp.`,
+                created_by: dedup
+              });
             }
           }
         }
       }
     } catch {
-      /* fall through to query-param mode */
+      /* Notifications are best-effort — never block the main response. */
     }
-
-    if (!email) email = normalizeEmail(req.query.email || "");
-    if (!email) return res.status(400).json({ ok: false, message: "Email query is required." });
 
     const { data, error } = await supabaseAdmin
       .from("user_notifications")
@@ -2538,6 +2540,99 @@ app.get("/api/admin/clients/:clientId", async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ ok: false, message: `Admin client detail failed: ${error.message}` });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────────────────
+   ADMIN CALENDAR — all customer_events across every client, with optional
+   filters: month (YYYY-MM), status, and a freetext search on name/phone/service.
+   ───────────────────────────────────────────────────────────────────────── */
+
+app.get("/api/admin/events", async (req, res) => {
+  try {
+    const month = String(req.query.month || "").trim();
+    const status = String(req.query.status || "").trim();
+    const search = String(req.query.search || "").trim().toLowerCase();
+    const upcoming = req.query.upcoming === "1";
+
+    let query = supabaseAdmin
+      .from("customer_events")
+      .select(
+        `id, customer_user_id, name, datetime, end_at, service, phone, notes, source, status, created_at,
+         customer_users!customer_events_customer_user_id_fkey(email, first_name, last_name)`
+      )
+      .order("datetime", { ascending: true });
+
+    if (month) {
+      const [y, m] = month.split("-").map(Number);
+      const from = new Date(Date.UTC(y, m - 1, 1)).toISOString();
+      const to   = new Date(Date.UTC(y, m, 1)).toISOString();
+      query = query.gte("datetime", from).lt("datetime", to);
+    } else if (upcoming) {
+      const now = new Date().toISOString();
+      const future = new Date(Date.now() + 30 * 86_400_000).toISOString();
+      query = query.gte("datetime", now).lte("datetime", future);
+    }
+
+    if (status && status !== "all") query = query.eq("status", status);
+
+    const { data, error } = await query.limit(500);
+    if (error) throw error;
+
+    let events = (data || []).map((e) => {
+      const cu = e.customer_users || {};
+      return {
+        id: e.id,
+        customer_user_id: e.customer_user_id,
+        customer_email: cu.email || null,
+        customer_name: [cu.first_name, cu.last_name].filter(Boolean).join(" ") || cu.email || null,
+        name: e.name,
+        datetime: e.datetime,
+        end_at: e.end_at,
+        service: e.service,
+        phone: e.phone,
+        notes: e.notes,
+        source: e.source,
+        status: e.status,
+        created_at: e.created_at
+      };
+    });
+
+    if (search) {
+      events = events.filter((e) =>
+        (e.name || "").toLowerCase().includes(search) ||
+        (e.phone || "").toLowerCase().includes(search) ||
+        (e.service || "").toLowerCase().includes(search) ||
+        (e.customer_email || "").toLowerCase().includes(search) ||
+        (e.customer_name || "").toLowerCase().includes(search)
+      );
+    }
+
+    return res.status(200).json({ ok: true, events });
+  } catch (err) {
+    return res.status(500).json({ ok: false, message: err?.message || "Events load failed" });
+  }
+});
+
+app.patch("/api/admin/events/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const body = req.body || {};
+    const patch = { updated_at: new Date().toISOString() };
+    if (["pending", "confirmed", "cancelled"].includes(body.status)) patch.status = body.status;
+    if (typeof body.notes === "string") patch.notes = body.notes.slice(0, 2000);
+
+    const { data, error } = await supabaseAdmin
+      .from("customer_events")
+      .update(patch)
+      .eq("id", id)
+      .select()
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ ok: false, message: "Event not found" });
+    return res.status(200).json({ ok: true, event: data });
+  } catch (err) {
+    return res.status(500).json({ ok: false, message: err?.message || "Update failed" });
   }
 });
 
@@ -3459,6 +3554,7 @@ app.post("/api/admin/login", async (req, res) => {
     return res.status(200).json({
       ok: true,
       message: "Admin login successful.",
+      token: signAdminToken(admin.id, admin.email),
       user: {
         id: admin.id,
         email: admin.email,
@@ -3486,10 +3582,11 @@ app.post("/api/admin/reset/request", async (req, res) => {
 
     if (adminError) throw adminError;
 
+    // Always return the same response to avoid email enumeration.
     if (!admin) {
       return res.status(200).json({
         ok: true,
-        message: "If this email exists, reset instructions were created."
+        message: "If this email is registered, a reset code has been sent."
       });
     }
 
@@ -3504,11 +3601,20 @@ app.post("/api/admin/reset/request", async (req, res) => {
     });
     if (insertError) throw insertError;
 
+    // Send token by email — never expose it in the HTTP response.
+    if (isEmailConfigured()) {
+      await sendEmail({
+        to: admin.email,
+        subject: "Código de recuperación de contraseña — Omnira Admin",
+        html: `<p>Tu código de recuperación es: <strong>${resetToken}</strong></p><p>Caduca en ${RESET_TOKEN_TTL_MINUTES} minutos.</p>`
+      }).catch((e) => console.warn("[reset] email send failed:", e?.message));
+    } else {
+      console.warn("[reset] SMTP not configured — admin reset token was NOT emailed:", resetToken);
+    }
+
     return res.status(200).json({
       ok: true,
-      message: "Admin reset token created.",
-      reset_token: resetToken,
-      expires_at: expiresAt
+      message: "If this email is registered, a reset code has been sent."
     });
   } catch (error) {
     return res.status(500).json({ ok: false, message: `Admin reset request failed: ${error.message}` });
@@ -3670,11 +3776,11 @@ app.post("/api/customer/reset/request", async (req, res) => {
 
     if (customerError) throw customerError;
 
+    // Always return the same response to avoid email enumeration.
     if (!customer) {
-      return res.status(404).json({
-        ok: false,
-        registered: false,
-        message: "No customer found with this email."
+      return res.status(200).json({
+        ok: true,
+        message: "Si este email está registrado, recibirás un código de recuperación."
       });
     }
 
@@ -3689,12 +3795,20 @@ app.post("/api/customer/reset/request", async (req, res) => {
     });
     if (insertError) throw insertError;
 
+    // Send token by email — never expose it in the HTTP response.
+    if (isEmailConfigured()) {
+      await sendEmail({
+        to: customer.email,
+        subject: "Código de recuperación de contraseña — Omnira",
+        html: `<p>Hola,</p><p>Tu código de recuperación de contraseña es:</p><p style="font-size:24px;font-weight:bold;letter-spacing:4px">${resetToken}</p><p>Introdúcelo en el panel de Omnira. Caduca en ${RESET_TOKEN_TTL_MINUTES} minutos.</p><p>Si no solicitaste esto, ignora este correo.</p>`
+      }).catch((e) => console.warn("[reset] email send failed:", e?.message));
+    } else {
+      console.warn("[reset] SMTP not configured — customer reset token was NOT emailed:", resetToken);
+    }
+
     return res.status(200).json({
       ok: true,
-      registered: true,
-      message: "Customer reset token created.",
-      reset_token: resetToken,
-      expires_at: expiresAt
+      message: "Si este email está registrado, recibirás un código de recuperación."
     });
   } catch (error) {
     return res.status(500).json({ ok: false, message: `Customer reset request failed: ${error.message}` });
@@ -4056,7 +4170,7 @@ app.get("/api/customer/twilio-conversations", requireCustomer, async (req, res) 
 });
 
 /** Admin: release numbers for all customers whose subscription has expired. */
-app.post("/api/admin/twilio/release-expired", async (req, res) => {
+app.post("/api/admin/twilio/release-expired", requireAdmin, async (req, res) => {
   try {
     const now = new Date().toISOString();
     const { data: expired } = await supabaseAdmin

@@ -160,6 +160,17 @@ export function Sidebar({ onNavigate, mobileOpen, collapsed, onToggleCollapse })
           <span>Notificaciones</span>
           <span className="adm-nav-tip">Notificaciones</span>
         </NavLink>
+        <NavLink to="/calendar" className={linkClass} onClick={wrap}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+            <rect x="3" y="4" width="18" height="18" rx="2" strokeLinejoin="round" />
+            <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
+            <circle cx="8" cy="15" r="1" fill="currentColor" stroke="none" />
+            <circle cx="12" cy="15" r="1" fill="currentColor" stroke="none" />
+            <circle cx="16" cy="15" r="1" fill="currentColor" stroke="none" />
+          </svg>
+          <span>Calendario</span>
+          <span className="adm-nav-tip">Calendario · Llamadas</span>
+        </NavLink>
         <NavLink to="/sessions" className={linkClass} onClick={wrap}>
           <IconPulse />
           <span>Administradores</span>

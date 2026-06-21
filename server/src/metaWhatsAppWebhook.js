@@ -229,14 +229,19 @@ async function loadCustomerBusiness(customerId) {
   }
 }
 
-const DEFAULT_CUSTOMER_SYSTEM_PROMPT = `You are the official AI assistant for the business described in the BUSINESS CONTEXT below. You speak ON BEHALF OF this business — answer as if you were a human staff member who knows everything in the context and knowledge base. Detect the language the user wrote in and ALWAYS reply in that exact same language. Be warm, concise, professional — short paragraphs, no bullet symbols inside WhatsApp text, one clear next step at the end.
+const DEFAULT_CUSTOMER_SYSTEM_PROMPT = `You are the official assistant for the business in BUSINESS CONTEXT below. You speak as a human staff member of this business. Detect the user's language and ALWAYS reply in it.
 
-Strict rules — do NOT break these:
-- Use the BUSINESS CONTEXT and KNOWLEDGE BASE below as the SOLE source of truth for facts (prices, services, hours, policies, contact). Never invent details that aren't there.
-- If the user asks something not covered, say you'll check with the team and offer to connect them with a human — do not guess.
-- If a "GREETING" is provided in the BUSINESS CONTEXT, open the first reply of a fresh conversation with it (verbatim or slightly adapted to fit the user's question).
-- Never reveal that you are an AI built on Omnira; you are the assistant of this specific business.
-- Never mention "Omnira" unless the customer explicitly asks who built the assistant.`;
+STYLE — non-negotiable:
+- BRIEF: max 2-3 lines per reply. No bullet points, no long paragraphs. WhatsApp-friendly.
+- One clear question or action per message — never dump multiple questions at once.
+- Warm and direct. Move the conversation forward.
+
+RULES:
+- Use BUSINESS CONTEXT and KNOWLEDGE BASE as sole source of truth. Never invent details.
+- If something isn't covered, say you'll check and offer to connect with the team.
+- Use the GREETING verbatim (or slightly adapted) at the start of a fresh conversation.
+- Never say you are an AI or mention Omnira unless directly asked.
+- SCHEDULING: When the user wants a call, meeting or appointment — collect name (if unknown), preferred date+time, and reason. Confirm back. Then say the appointment is noted and someone will confirm shortly.`;
 
 /**
  * Builds the full system prompt sent to OpenAI for a customer's inbound. Every
@@ -299,7 +304,7 @@ export async function sendWelcomeWhatsAppMessage(customerConfig, customerPersona
  * row is missing — in production the seed migration creates it on first apply.
  */
 const FALLBACK_SYSTEM_PROMPT =
-  "You are Omnira's WhatsApp sales assistant. Reply in the user's language, concise and warm. Qualify softly: ask one natural question per turn to learn name, business, email, and intent. Plans from 49€/month; packs 3/6/12 months at 129€/229€/399€. Activation requires registration on the website + payment. Support: ayuda@omnira.chat. Never invent features.";
+  "You are Omnira's WhatsApp sales closer. Your ONLY goals: qualify the lead and get them to book a call or visit the website to sign up. Reply in the user's language. Keep replies SHORT — max 2-3 lines, no lists, no long explanations. One punchy question or CTA per message. Hook with the value (AI agent that responds 24/7 on WhatsApp, captures leads automatically, books appointments). Pricing: from 49€/month. Sign up: omnira. Support: ayuda@omnira.chat. If they ask to schedule a call or demo, ask for their name, preferred date+time, and what they want to discuss — then confirm and say the team will reach out. Never invent features. Never write more than 3 lines.";
 
 const FALLBACK_LEAD_EXTRACTION_PROMPT =
   'You are an information extractor for a WhatsApp sales conversation. Output ONE JSON object with keys: name, email, phone, business_name, intent ("pricing"|"booking"|"support"|"demo"|"integration"|"info"|"other"), language (ISO 639-1), confidence (0..1), notes (≤200 chars). Use null for missing fields. Output ONLY JSON.';
@@ -602,13 +607,13 @@ export async function getMetaWhatsAppDeployDiagnostics() {
 async function loadRecentConversation(phoneNumberId, waFrom, limit = 12) {
   if (!isSupabaseConfigured() || !waFrom) return [];
   try {
-    const q = supabaseAdmin
+    let q = supabaseAdmin
       .from("wa_messages")
       .select("direction, body, created_at")
       .eq("wa_from", waFrom)
       .order("created_at", { ascending: false })
       .limit(limit);
-    if (phoneNumberId) q.eq("phone_number_id", phoneNumberId);
+    if (phoneNumberId) q = q.eq("phone_number_id", phoneNumberId);
     const { data, error } = await q;
     if (error || !Array.isArray(data)) return [];
     return data
@@ -814,6 +819,134 @@ async function upsertWaLead({ phoneNumberId, waFrom, extracted, inboundBody }) {
   }
 }
 
+/**
+ * Third OpenAI pass: detect if the conversation contains a confirmed call/meeting
+ * booking request and extract the details. Returns null if no booking detected.
+ * Cheap model, runs async after reply — never blocks the user.
+ */
+async function extractBookingFromConversation(conversationMessages) {
+  const trimmed = Array.isArray(conversationMessages)
+    ? conversationMessages.slice(-16).filter((m) => m?.content && m.content.trim())
+    : [];
+  if (trimmed.length === 0) return null;
+
+  const model = String(
+    process.env.OPENAI_EXTRACT_MODEL ||
+    (await getPlatformSetting("OPENAI_CHAT_MODEL", "gpt-4o-mini"))
+  ).trim() || "gpt-4o-mini";
+
+  const systemPrompt = `You are a booking-intent extractor for a WhatsApp conversation. Decide if the user has CLEARLY requested to schedule a call, meeting, appointment or demo — and if so, extract the details.
+
+Output ONE JSON object with these keys:
+- has_booking: boolean — true ONLY if the user clearly expressed intent to schedule a call/meeting/appointment/demo (keywords: "llamada", "cita", "reunión", "agendar", "reservar", "call", "meeting", "book", "schedule", "appointment", "demo"). False if it is just a casual question or no scheduling was discussed.
+- name: string or null — the person's name if mentioned, else null
+- phone: string or null — their phone number if mentioned, else null
+- service: string or null — what they want (e.g. "demo", "consulta", "llamada de ventas"), infer from context
+- datetime_iso: string or null — ISO 8601 datetime if the user specified a date/time. If they said e.g. "mañana a las 10" compute it relative to today (${new Date().toISOString().slice(0, 10)}). If no date was given, null.
+- notes: string — brief summary of what they want (max 120 chars)
+
+Output ONLY valid JSON. No markdown, no explanation.`;
+
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 25000);
+  try {
+    const data = await callOpenAiWithRetry(
+      "https://api.openai.com/v1/chat/completions",
+      (apiKey) => ({
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "system", content: systemPrompt }, ...trimmed],
+          temperature: 0,
+          max_tokens: 300,
+          response_format: { type: "json_object" }
+        }),
+        signal: controller.signal
+      }),
+      "openai booking extract"
+    );
+    if (!data) return null;
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) return null;
+    let parsed;
+    try { parsed = JSON.parse(content); } catch { return null; }
+    if (!parsed?.has_booking) return null;
+    return {
+      name: typeof parsed.name === "string" ? parsed.name.slice(0, 200) : null,
+      phone: typeof parsed.phone === "string" ? parsed.phone.slice(0, 40) : null,
+      service: typeof parsed.service === "string" ? parsed.service.slice(0, 200) : null,
+      datetime_iso: typeof parsed.datetime_iso === "string" ? parsed.datetime_iso : null,
+      notes: typeof parsed.notes === "string" ? parsed.notes.slice(0, 300) : null
+    };
+  } catch (e) {
+    console.warn("[meta whatsapp] booking extraction failed:", e?.message || e);
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/**
+ * Quick keyword check to avoid running the booking-extraction OpenAI call on
+ * every message — only fires when booking-related words appear in the last user turn.
+ */
+function messageHasBookingKeywords(text) {
+  const lower = String(text || "").toLowerCase();
+  return /llamad|cita|reuni[oó]n|agendar|reservar|book|meeting|call|schedule|appointment|demo|hablar con|contactar con|quiero hablar/.test(lower);
+}
+
+/**
+ * Insert a pending event into customer_events from bot-detected booking.
+ * customer_user_id may be null for the platform (Omnira's own) agent.
+ * Deduplicates: skips if a pending bot event from the same waFrom already exists
+ * with the same datetime (within 30 min) or was created in the last 5 minutes.
+ */
+async function saveBotBooking({ customerId, waFrom, booking }) {
+  if (!isSupabaseConfigured() || !booking) return;
+  try {
+    const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString();
+
+    // Dedup: don't create a second event if we already saved one from this number in the last 5 min
+    let dupQuery = supabaseAdmin
+      .from("customer_events")
+      .select("id")
+      .eq("source", "bot")
+      .eq("phone", waFrom)
+      .gte("created_at", fiveMinAgo)
+      .limit(1);
+    if (customerId) dupQuery = dupQuery.eq("customer_user_id", customerId);
+
+    const { data: existing } = await dupQuery;
+    if (existing && existing.length > 0) {
+      console.info("[meta whatsapp] booking dedup — skipping duplicate event for", waFrom);
+      return;
+    }
+
+    const datetime = booking.datetime_iso || new Date(Date.now() + 24 * 3600_000).toISOString();
+
+    const row = {
+      datetime,
+      name: booking.name || waFrom,
+      phone: waFrom,
+      service: booking.service || null,
+      notes: booking.notes || null,
+      source: "bot",
+      status: "pending"
+    };
+    if (customerId) row.customer_user_id = customerId;
+
+    const { error } = await supabaseAdmin.from("customer_events").insert(row);
+    if (error) {
+      console.warn("[meta whatsapp] saveBotBooking insert failed:", error.message);
+    } else {
+      console.info("[meta whatsapp] bot booking saved for", waFrom, "datetime=", datetime);
+    }
+  } catch (e) {
+    console.warn("[meta whatsapp] saveBotBooking error:", e?.message || e);
+  }
+}
+
 async function sendReplyForInbound(inbound) {
   const staticReply = String(await getPlatformSetting("META_WABA_MARKETING_AUTO_REPLY", "")).trim();
   if (staticReply) {
@@ -945,8 +1078,7 @@ async function processMetaWebhookInboundBody(body) {
         });
       }
 
-      // Lead extraction runs after the reply so it never delays the user response.
-      // Errors are swallowed inside extractLeadFromConversation / upsertWaLead.
+      // Lead extraction + booking detection run after the reply so they never delay the user response.
       if (out?.conversationForExtraction?.length) {
         const extracted = await extractLeadFromConversation(out.conversationForExtraction);
         await upsertWaLead({
@@ -955,6 +1087,14 @@ async function processMetaWebhookInboundBody(body) {
           extracted,
           inboundBody: inbound.body
         });
+
+        // Booking detection: only run the extra OpenAI pass if keywords are present
+        if (messageHasBookingKeywords(inbound.body)) {
+          const booking = await extractBookingFromConversation(out.conversationForExtraction);
+          if (booking) {
+            await saveBotBooking({ customerId: null, waFrom: inbound.from, booking });
+          }
+        }
       }
     } catch (e) {
       console.error("[meta whatsapp] reply error", e?.message || e);
@@ -1150,7 +1290,7 @@ async function processCustomerWebhookInbound(inbound, customerCfg) {
       console.warn("[meta whatsapp] customer reply failed", sendResult?.status, sendResult?.snippet);
     }
 
-    // Lead extraction (best-effort, same flow as platform)
+    // Lead extraction + booking detection (best-effort, same flow as platform)
     const conversation = [
       ...trimmedHistory,
       { role: "user", content: inbound.body },
@@ -1163,6 +1303,14 @@ async function processCustomerWebhookInbound(inbound, customerCfg) {
       extracted,
       inboundBody: inbound.body
     });
+
+    // Booking detection: only runs when booking keywords are present
+    if (messageHasBookingKeywords(inbound.body)) {
+      const booking = await extractBookingFromConversation(conversation);
+      if (booking) {
+        await saveBotBooking({ customerId, waFrom: inbound.from, booking });
+      }
+    }
 
     // Tag the lead row with the customer so /api/customer/leads sees it.
     try {
