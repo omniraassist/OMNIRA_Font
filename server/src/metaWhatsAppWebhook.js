@@ -902,22 +902,46 @@ function messageHasBookingKeywords(text) {
  * Deduplicates: skips if a pending bot event from the same waFrom already exists
  * with the same datetime (within 30 min) or was created in the last 5 minutes.
  */
+async function resolvePlatformCustomerId() {
+  // For the platform agent (Omnira's own WA), bot bookings are stored under the
+  // first active customer_users row that matches the platform admin email,
+  // or the oldest customer_users row as a fallback sentinel.
+  try {
+    const { data } = await supabaseAdmin
+      .from("customer_users")
+      .select("id, email")
+      .order("created_at", { ascending: true })
+      .limit(5);
+    if (!data || data.length === 0) return null;
+    const admin = data.find((r) => /omnira/i.test(r.email || "")) || data[0];
+    return admin.id;
+  } catch {
+    return null;
+  }
+}
+
 async function saveBotBooking({ customerId, waFrom, booking }) {
   if (!isSupabaseConfigured() || !booking) return;
   try {
+    // If no customerId (platform agent), resolve a sentinel customer to satisfy the FK
+    const resolvedCustomerId = customerId || (await resolvePlatformCustomerId());
+    if (!resolvedCustomerId) {
+      console.info("[meta whatsapp] saveBotBooking: no customer_user_id resolvable, skipping");
+      return;
+    }
+
     const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString();
 
     // Dedup: don't create a second event if we already saved one from this number in the last 5 min
-    let dupQuery = supabaseAdmin
+    const { data: existing } = await supabaseAdmin
       .from("customer_events")
       .select("id")
       .eq("source", "bot")
       .eq("phone", waFrom)
+      .eq("customer_user_id", resolvedCustomerId)
       .gte("created_at", fiveMinAgo)
       .limit(1);
-    if (customerId) dupQuery = dupQuery.eq("customer_user_id", customerId);
 
-    const { data: existing } = await dupQuery;
     if (existing && existing.length > 0) {
       console.info("[meta whatsapp] booking dedup — skipping duplicate event for", waFrom);
       return;
@@ -925,7 +949,8 @@ async function saveBotBooking({ customerId, waFrom, booking }) {
 
     const datetime = booking.datetime_iso || new Date(Date.now() + 24 * 3600_000).toISOString();
 
-    const row = {
+    const { error } = await supabaseAdmin.from("customer_events").insert({
+      customer_user_id: resolvedCustomerId,
       datetime,
       name: booking.name || waFrom,
       phone: waFrom,
@@ -933,10 +958,8 @@ async function saveBotBooking({ customerId, waFrom, booking }) {
       notes: booking.notes || null,
       source: "bot",
       status: "pending"
-    };
-    if (customerId) row.customer_user_id = customerId;
+    });
 
-    const { error } = await supabaseAdmin.from("customer_events").insert(row);
     if (error) {
       console.warn("[meta whatsapp] saveBotBooking insert failed:", error.message);
     } else {
