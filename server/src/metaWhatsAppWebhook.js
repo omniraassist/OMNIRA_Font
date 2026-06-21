@@ -887,13 +887,17 @@ Output ONLY valid JSON. No markdown, no explanation.`;
   }
 }
 
+const BOOKING_RE = /llamad|cita|reuni[oó]n|agendar|reservar|book|meeting|call|schedule|appointment|demo|hablar con|contactar con|quiero hablar/;
+
 /**
- * Quick keyword check to avoid running the booking-extraction OpenAI call on
- * every message — only fires when booking-related words appear in the last user turn.
+ * Checks the ENTIRE conversation (not just the current message) for booking
+ * keywords. This catches the second message ("Xavi mañana a las 9") that
+ * completes a booking started in a prior turn ("Quiero agendar una llamada").
  */
-function messageHasBookingKeywords(text) {
-  const lower = String(text || "").toLowerCase();
-  return /llamad|cita|reuni[oó]n|agendar|reservar|book|meeting|call|schedule|appointment|demo|hablar con|contactar con|quiero hablar/.test(lower);
+function conversationHasBookingKeywords(messages) {
+  return (Array.isArray(messages) ? messages : []).some(
+    (m) => BOOKING_RE.test(String(m?.content || "").toLowerCase())
+  );
 }
 
 /**
@@ -930,7 +934,7 @@ async function saveBotBooking({ customerId, waFrom, booking }) {
       return;
     }
 
-    const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString();
+    const fiveMinAgo = new Date(Date.now() - 30 * 60_000).toISOString();
 
     // Dedup: don't create a second event if we already saved one from this number in the last 5 min
     const { data: existing } = await supabaseAdmin
@@ -1111,8 +1115,9 @@ async function processMetaWebhookInboundBody(body) {
           inboundBody: inbound.body
         });
 
-        // Booking detection: only run the extra OpenAI pass if keywords are present
-        if (messageHasBookingKeywords(inbound.body)) {
+        // Booking detection: check the whole conversation so we catch follow-up
+        // messages that provide the date/name after booking intent was expressed
+        if (conversationHasBookingKeywords(out.conversationForExtraction)) {
           const booking = await extractBookingFromConversation(out.conversationForExtraction);
           if (booking) {
             await saveBotBooking({ customerId: null, waFrom: inbound.from, booking });
@@ -1327,8 +1332,8 @@ async function processCustomerWebhookInbound(inbound, customerCfg) {
       inboundBody: inbound.body
     });
 
-    // Booking detection: only runs when booking keywords are present
-    if (messageHasBookingKeywords(inbound.body)) {
+    // Booking detection: check the whole conversation for keywords
+    if (conversationHasBookingKeywords(conversation)) {
       const booking = await extractBookingFromConversation(conversation);
       if (booking) {
         await saveBotBooking({ customerId, waFrom: inbound.from, booking });
