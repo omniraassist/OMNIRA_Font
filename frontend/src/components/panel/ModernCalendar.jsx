@@ -131,7 +131,7 @@ const STYLES = `
     margin-bottom: 8px;
   }
   .gc-mini-label {
-    font-family: 'Syne', sans-serif;
+    font-family: 'Geist', sans-serif;
     font-weight: 700;
     font-size: 13.5px;
     color: var(--text, #E2EAF4);
@@ -261,7 +261,7 @@ const STYLES = `
     font-weight: 700;
   }
   .gc-qs-card .val {
-    font-family: 'Syne', sans-serif;
+    font-family: 'Geist', sans-serif;
     font-weight: 700;
     font-size: 22px;
     color: var(--text, #E2EAF4);
@@ -416,13 +416,13 @@ const STYLES = `
   .gc-bar-nav button:hover { background: rgba(255,255,255,0.06); color: var(--text, #E2EAF4); }
   .gc-bar-nav .today {
     width: auto; padding: 0 12px;
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 12px;
     font-weight: 700;
     color: var(--em, #00E5A0);
   }
   .gc-bar-title {
-    font-family: 'Syne', sans-serif;
+    font-family: 'Geist', sans-serif;
     font-weight: 700;
     font-size: 22px;
     color: var(--text, #E2EAF4);
@@ -457,7 +457,7 @@ const STYLES = `
     background: transparent; border: 0;
     padding: 7px 14px;
     color: var(--soft, #8FA3C0);
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 12.5px;
     font-weight: 700;
     border-radius: 9px;
@@ -518,7 +518,7 @@ const STYLES = `
   }
   .gc-mcell.empty { background: transparent; border: 0; cursor: default; }
   .gc-mcell-num {
-    font-family: 'Syne', sans-serif;
+    font-family: 'Geist', sans-serif;
     font-weight: 700;
     font-size: 13.5px;
     color: var(--text, #E2EAF4);
@@ -585,7 +585,7 @@ const STYLES = `
     text-transform: uppercase;
   }
   .gc-week-head .day .num {
-    font-family: 'Syne', sans-serif;
+    font-family: 'Geist', sans-serif;
     font-weight: 700;
     font-size: 20px;
     color: var(--text, #E2EAF4);
@@ -727,7 +727,7 @@ const STYLES = `
   }
   .gc-day-head h3 {
     margin: 0;
-    font-family: 'Syne', sans-serif;
+    font-family: 'Geist', sans-serif;
     font-weight: 700;
     font-size: 18px;
     color: var(--text, #E2EAF4);
@@ -750,7 +750,7 @@ const STYLES = `
   .gc-empty svg { opacity: 0.35; }
   .gc-empty h4 {
     margin: 0;
-    font-family: 'Syne', sans-serif;
+    font-family: 'Geist', sans-serif;
     font-size: 16px;
     color: var(--soft, #8FA3C0);
   }

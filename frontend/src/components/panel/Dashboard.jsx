@@ -1139,11 +1139,11 @@ export function Dashboard({ mockData = null }) {
                   </div>
                   <div className="form-group full">
                     <label className="form-label">Horario</label>
-                    <textarea className="form-input" rows={3} value={biz.hours || ''} onChange={(e) => setBiz({ ...biz, hours: e.target.value })} style={{ resize: 'vertical', fontFamily: "'Outfit',sans-serif" }} placeholder={'Lunes a Viernes: 9:00 - 20:00\nSábado: 10:00 - 14:00'} />
+                    <textarea className="form-input" rows={3} value={biz.hours || ''} onChange={(e) => setBiz({ ...biz, hours: e.target.value })} style={{ resize: 'vertical', fontFamily: "'Plus Jakarta Sans',sans-serif" }} placeholder={'Lunes a Viernes: 9:00 - 20:00\nSábado: 10:00 - 14:00'} />
                   </div>
                   <div className="form-group full">
                     <label className="form-label">Servicios y precios</label>
-                    <textarea className="form-input" rows={4} value={biz.services || ''} onChange={(e) => setBiz({ ...biz, services: e.target.value })} style={{ resize: 'vertical', fontFamily: "'Outfit',sans-serif" }} placeholder={'Limpieza dental — 60€ — 30 min\nEmpaste — 80€ — 45 min'} />
+                    <textarea className="form-input" rows={4} value={biz.services || ''} onChange={(e) => setBiz({ ...biz, services: e.target.value })} style={{ resize: 'vertical', fontFamily: "'Plus Jakarta Sans',sans-serif" }} placeholder={'Limpieza dental — 60€ — 30 min\nEmpaste — 80€ — 45 min'} />
                   </div>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
@@ -1170,7 +1170,7 @@ export function Dashboard({ mockData = null }) {
                   const planMatch = plansByCheapest.find((p) => p.id === user?.subscription_plan_id);
                   return (
                     <div style={{ padding: '20px 0' }}>
-                      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 42, fontWeight: 800, color: 'var(--em)' }}>
+                      <div style={{ fontFamily: "'Geist',sans-serif", fontSize: 42, fontWeight: 800, color: 'var(--em)' }}>
                         {planMatch ? `${planMatch.priceNum}€` : '—'}
                         <span style={{ fontSize: 14, color: 'var(--muted)', fontWeight: 400 }}>
                           {planMatch?.period || '/mes'}
@@ -1233,7 +1233,7 @@ export function Dashboard({ mockData = null }) {
                   rows={2}
                   value={bot.greeting || ''}
                   onChange={(e) => setBot({ ...bot, greeting: e.target.value })}
-                  style={{ resize: 'vertical', fontFamily: "'Outfit',sans-serif" }}
+                  style={{ resize: 'vertical', fontFamily: "'Plus Jakarta Sans',sans-serif" }}
                   placeholder="¡Hola! Soy el asistente de [Negocio]. ¿En qué puedo ayudarte?"
                 />
               </div>
@@ -1244,7 +1244,7 @@ export function Dashboard({ mockData = null }) {
                   rows={4}
                   value={bot.instructions || bot.instr || ''}
                   onChange={(e) => setBot({ ...bot, instructions: e.target.value })}
-                  style={{ resize: 'vertical', fontFamily: "'Outfit',sans-serif" }}
+                  style={{ resize: 'vertical', fontFamily: "'Plus Jakarta Sans',sans-serif" }}
                   placeholder="Tono, reglas, qué debe y qué no debe decir el agente..."
                 />
               </div>
@@ -1419,7 +1419,7 @@ export function Dashboard({ mockData = null }) {
               </div>
               <div className="form-group">
                 <label className="form-label">Notas (opcional)</label>
-                <textarea className="form-input" rows={2} value={evForm.notes} onChange={(e) => setEvForm({ ...evForm, notes: e.target.value })} style={{ resize: 'vertical', fontFamily: "'Outfit',sans-serif" }} />
+                <textarea className="form-input" rows={2} value={evForm.notes} onChange={(e) => setEvForm({ ...evForm, notes: e.target.value })} style={{ resize: 'vertical', fontFamily: "'Plus Jakarta Sans',sans-serif" }} />
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn-cancel-modal" onClick={() => setEventOpen(false)}>
@@ -1467,7 +1467,7 @@ export function Dashboard({ mockData = null }) {
                 return (
                   <div key={plan.id} className="p-card" style={cardStyle}>
                     <div style={labelStyle}>{plan.featured ? '⚡ ' : ''}{plan.name}</div>
-                    <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 28, fontWeight: 800, color: '#fff' }}>{plan.priceNum}€</div>
+                    <div style={{ fontFamily: "'Geist',sans-serif", fontSize: 28, fontWeight: 800, color: '#fff' }}>{plan.priceNum}€</div>
                     <div style={{ fontSize: 10, color: 'var(--muted)' }}>{monthlyTextLabel}</div>
                     {plan.savings ? (
                       <div style={{ fontSize: 10, color: 'var(--em)', marginTop: 2 }}>{plan.savings.replace(/^[^A-Za-z]+/, '')}</div>

@@ -71,7 +71,7 @@
 }
 
 .legal-logo {
-  font-family: 'Syne', system-ui, sans-serif;
+  font-family: 'Geist', system-ui, sans-serif;
   font-weight: 800;
   font-size: 1.4rem;
   color: var(--legal-heading);
@@ -103,7 +103,7 @@
 }
 
 .legal-page-title {
-  font-family: 'Syne', system-ui, sans-serif;
+  font-family: 'Geist', system-ui, sans-serif;
   font-size: clamp(2.2rem, 5vw, 3.5rem);
   font-weight: 800;
   color: var(--legal-heading);
@@ -139,7 +139,7 @@
 }
 
 .legal-section h2 {
-  font-family: 'Syne', system-ui, sans-serif;
+  font-family: 'Geist', system-ui, sans-serif;
   font-size: 1.15rem;
   font-weight: 700;
   color: var(--legal-heading);

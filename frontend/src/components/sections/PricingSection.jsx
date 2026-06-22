@@ -111,7 +111,7 @@ export function PricingSection() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
             <div style={{ fontSize: '28px', flexShrink: 0 }}>⚡</div>
             <div>
-              <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff', marginBottom: '5px', fontFamily: "'Outfit',sans-serif" }}>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: '#fff', marginBottom: '5px', fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
                 Incluido en todos los planes
               </div>
               <p style={{ fontSize: '13px', color: 'var(--muted)' }}>

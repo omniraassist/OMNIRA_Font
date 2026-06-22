@@ -3,9 +3,6 @@ export function HowItWorksSection() {
     <section id="como-funciona" className="section" style={{ background: 'var(--ink2)' }}>
       <div className="container">
         <div className="section-header reveal">
-          <div className="eyebrow">
-            <span className="eyebrow-dot" /> Cómo funciona
-          </div>
           <h2>
             Automatización en <span className="gradient-text">4 pasos simples</span>
           </h2>
@@ -58,9 +55,6 @@ export function HowItWorksSection() {
 
         {/* New registration flow */}
         <div className="section-header reveal" style={{ marginTop: '80px' }}>
-          <div className="eyebrow">
-            <span className="eyebrow-dot" /> Alta en minutos
-          </div>
           <h2>
             Empieza en <span className="gradient-text">3 pasos</span>
           </h2>

@@ -95,7 +95,7 @@ export function Hero() {
                   <span style={{ display: 'inline-block' }}>automáticas</span>
                 </span>
               </span>
-              <span className="hero-title-sub">Por WhatsApp — sin esfuerzo, las 24 horas.</span>
+              <span className="hero-title-sub">Por WhatsApp, sin esfuerzo, las 24 horas.</span>
             </h1>
             <p className="hero-subtitle">
               Omnira responde a tus clientes, gestiona reservas y llena tu agenda{' '}

@@ -5,9 +5,6 @@ export function BenefitsSection() {
     <section id="beneficios" className="section section-light">
       <div className="container">
         <div className="section-header reveal">
-          <div className="eyebrow">
-            <span className="eyebrow-dot" /> Beneficios
-          </div>
           <h2>Todo lo que ganas con Omnira</h2>
           <p>Resultados reales desde el primer día de uso en más de 120 negocios de toda España.</p>
         </div>

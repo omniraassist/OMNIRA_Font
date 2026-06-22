@@ -30,9 +30,6 @@ export function FaqSection() {
     <section className="section" style={{ background: 'var(--ink2)' }}>
       <div className="container">
         <div className="section-header reveal">
-          <div className="eyebrow">
-            <span className="eyebrow-dot" /> Preguntas frecuentes
-          </div>
           <h2>Resolvemos tus dudas</h2>
         </div>
         <div className="faq-grid reveal">
