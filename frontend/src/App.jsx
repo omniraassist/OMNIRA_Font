@@ -69,7 +69,7 @@ function AppInner() {
     </PanelProvider>
   );
 
-  return <LandingShell />;
+  return <LandingShell v2 />;
 }
 
 function DashboardPreview() {
