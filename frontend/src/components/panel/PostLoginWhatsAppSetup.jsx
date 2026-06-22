@@ -63,7 +63,7 @@ const STYLES = `
     box-shadow: 0 20px 50px rgba(0,0,0,0.35);
   }
   @media (max-width: 560px) { .swa-card { padding: 22px 18px; border-radius: 18px; } }
-  .swa-title { font-family: var(--font-display, 'Syne', sans-serif); font-size: 26px; color: var(--text); margin: 0 0 4px; line-height: 1.2; }
+  .swa-title { font-family: var(--font-display, 'Geist', sans-serif); font-size: 26px; color: var(--text); margin: 0 0 4px; line-height: 1.2; }
   .swa-title .grad { background: linear-gradient(90deg, var(--em) 0%, #93c5fd 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .swa-sub { color: var(--soft); font-size: 14px; line-height: 1.6; margin: 0; }
 
@@ -190,7 +190,7 @@ const STYLES = `
   }
   .swa-cele h2 {
     margin: 0 0 8px;
-    font-family: var(--font-display, 'Syne', sans-serif);
+    font-family: var(--font-display, 'Geist', sans-serif);
     font-size: 28px;
     color: var(--text);
   }

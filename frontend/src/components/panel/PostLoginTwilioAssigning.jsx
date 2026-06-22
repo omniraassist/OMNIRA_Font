@@ -50,7 +50,7 @@ const STYLES = `
   }
 
   .twa-title {
-    font-family: var(--font-display, 'Syne', sans-serif);
+    font-family: var(--font-display, 'Geist', sans-serif);
     font-size: 26px; color: var(--text);
     margin: 0 0 8px; line-height: 1.2;
   }

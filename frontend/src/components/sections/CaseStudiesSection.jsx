@@ -42,9 +42,6 @@ export function CaseStudiesSection() {
       />
       <div className="container" style={{ position: 'relative', zIndex: 1 }}>
         <div className="section-header reveal">
-          <div className="eyebrow">
-            <span className="eyebrow-dot" /> Resultados reales
-          </div>
           <h2>Casos de éxito reales</h2>
           <p>Negocios como el tuyo ya están llenando su agenda con Omnira cada día.</p>
         </div>
@@ -78,7 +75,7 @@ export function CaseStudiesSection() {
                     {c.label}
                   </span>
                 </div>
-                <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '8px', fontFamily: "'Outfit',sans-serif", whiteSpace: 'pre-line' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '8px', fontFamily: "'Plus Jakarta Sans',sans-serif", whiteSpace: 'pre-line' }}>
                   {c.title}
                 </h3>
                 <p style={{ fontSize: '13px', color: 'var(--muted)', lineHeight: 1.7 }}>{c.quote}</p>

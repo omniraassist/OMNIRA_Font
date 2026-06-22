@@ -19,9 +19,6 @@ export function SolutionSection() {
       <div className="container" style={{ position: 'relative', zIndex: 1 }}>
         <div className="sol-grid">
           <div className="reveal-left">
-            <div className="eyebrow">
-              <span className="eyebrow-dot" /> La solución
-            </div>
             <h2
               style={{
                 fontSize: 'clamp(30px,3.8vw,50px)',

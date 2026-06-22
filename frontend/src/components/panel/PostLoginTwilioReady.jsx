@@ -37,7 +37,7 @@ const STYLES = `
   }
 
   .twr-title {
-    font-family: var(--font-display, 'Syne', sans-serif);
+    font-family: var(--font-display, 'Geist', sans-serif);
     font-size: 30px; color: var(--text);
     margin: 0 0 10px; line-height: 1.2;
   }
