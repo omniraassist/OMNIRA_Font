@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 const FAQS = [
   {
     q: '¿Necesito saber programar para usar Omnira?',
@@ -28,7 +26,6 @@ const FAQS = [
 ];
 
 export function FaqSection() {
-  const [open, setOpen] = useState(null);
   return (
     <section className="section" style={{ background: 'var(--ink2)' }}>
       <div className="container">
@@ -38,33 +35,16 @@ export function FaqSection() {
           </div>
           <h2>Resolvemos tus dudas</h2>
         </div>
-        <div style={{ maxWidth: '740px', margin: '0 auto' }} className="reveal">
-          {FAQS.map((item, i) => (
-            <div
-              key={item.q}
-              className="faq-item glass"
-              style={{ borderRadius: 'var(--r-lg)', padding: '24px 28px', marginBottom: i < FAQS.length - 1 ? '12px' : 0, cursor: 'pointer' }}
-              onClick={() => setOpen(open === i ? null : i)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === 'Enter' && setOpen(open === i ? null : i)}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px' }}>
-                <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#fff', fontFamily: "'Outfit',sans-serif" }}>{item.q}</h3>
-                <i
-                  className="fa-solid fa-plus faq-icon"
-                  style={{
-                    color: 'var(--em)',
-                    fontSize: '14px',
-                    flexShrink: 0,
-                    transition: 'transform 0.3s',
-                    transform: open === i ? 'rotate(45deg)' : 'rotate(0deg)',
-                  }}
-                />
+        <div className="faq-grid reveal">
+          {FAQS.map((item) => (
+            <div key={item.q} className="faq-grid-item">
+              <div className="faq-grid-q">
+                <span className="faq-grid-icon">
+                  <i className="fa-solid fa-circle-question" />
+                </span>
+                <h3>{item.q}</h3>
               </div>
-              <div className="faq-answer" style={{ display: open === i ? 'block' : 'none', marginTop: '14px' }}>
-                <p style={{ fontSize: '14px', color: 'var(--muted)', lineHeight: 1.75 }}>{item.a}</p>
-              </div>
+              <p className="faq-grid-a">{item.a}</p>
             </div>
           ))}
         </div>

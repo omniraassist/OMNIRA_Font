@@ -69,7 +69,7 @@ export async function assignNumberToCustomer(customerId) {
   if (!available) return { ok: false, reason: "no_numbers_available" };
 
   const now = new Date().toISOString();
-  const { error: upErr } = await supabaseAdmin
+  const { data: updated, error: upErr } = await supabaseAdmin
     .from("twilio_number_pool")
     .update({
       status: "assigned",
@@ -79,12 +79,16 @@ export async function assignNumberToCustomer(customerId) {
       updated_at: now
     })
     .eq("id", available.id)
-    .eq("status", "available"); // optimistic lock — prevents double-assign on concurrent requests
+    .eq("status", "available") // optimistic lock — prevents double-assign on concurrent requests
+    .select("id, phone_number, twilio_sid")
+    .maybeSingle();
 
   if (upErr) return { ok: false, reason: upErr.message };
+  // If another concurrent request grabbed the row first, updated is null.
+  if (!updated) return { ok: false, reason: "number_taken_by_concurrent_request" };
 
-  console.log(`[twilio] assigned ${available.phone_number} to customer ${customerId}`);
-  return { ok: true, number: available };
+  console.log(`[twilio] assigned ${updated.phone_number} to customer ${customerId}`);
+  return { ok: true, number: updated };
 }
 
 /**
@@ -230,11 +234,14 @@ export async function checkAndIncrementConversation(customerId, fromPhone, planI
   }
 
   // Under limit — record this new conversation.
+  // upsert with ignoreDuplicates handles the concurrent-request race condition
+  // without throwing (Supabase v2 doesn't have .onConflict().ignore()).
   await supabaseAdmin
     .from("twilio_conversation_windows")
-    .insert({ customer_user_id: customerId, wa_from: fromPhone, month_key: mk })
-    .onConflict("customer_user_id,wa_from,month_key")   // safety: concurrent request
-    .ignore();
+    .upsert(
+      { customer_user_id: customerId, wa_from: fromPhone, month_key: mk },
+      { onConflict: "customer_user_id,wa_from,month_key", ignoreDuplicates: true }
+    );
 
   return { allowed: true, existing: false, used: used + 1, limit };
 }

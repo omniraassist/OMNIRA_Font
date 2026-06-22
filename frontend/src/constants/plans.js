@@ -89,8 +89,12 @@ export const PLAN_TOTAL_CENTS = Object.fromEntries(
  * keep the same shape they used before the dynamic-pricing migration. Savings
  * are computed against the live monthly price so they update when the admin
  * changes pricing.
+ *
+ * @param {object} staticPlan - Entry from OMNIRA_PLANS
+ * @param {object|null} live   - Matching row from /api/public/pricing (may be null)
+ * @param {number|null} [liveMonthlyAmountCents] - Live amount for the monthly plan (for accurate savings)
  */
-export function mergePlanDisplay(staticPlan, live) {
+export function mergePlanDisplay(staticPlan, live, liveMonthlyAmountCents = null) {
   const amountCents = Number(live?.amount_cents ?? staticPlan.fallbackAmountCents);
   const durationDays = Number(live?.duration_days ?? staticPlan.durationDays);
   const months = Math.max(1, Math.round(durationDays / 30));
@@ -98,14 +102,14 @@ export function mergePlanDisplay(staticPlan, live) {
   const priceNum = String(Math.round(perMonthCents / 100));
   const totalEuro = (amountCents / 100).toFixed(0);
 
-  // Savings: only meaningful for packs ≥ 3 months; compare to N × monthly_total.
+  // Savings: only meaningful for packs ≥ 3 months; compare to N × monthly price.
   let savings = null;
   let savingsHot = false;
   if (months > 1) {
     const monthly = OMNIRA_PLANS.find((p) => p.id === 'monthly');
-    const monthlyAmount = Number(monthly?.fallbackAmountCents || 4900);
-    const monthlyLive = live?.id !== 'monthly' && live ? null : null; // never override monthly here
-    const baselineCents = (monthlyLive?.amount_cents ?? monthlyAmount) * months;
+    // Use the live monthly price when available; fall back to static.
+    const monthlyAmount = liveMonthlyAmountCents ?? Number(monthly?.fallbackAmountCents || 4900);
+    const baselineCents = monthlyAmount * months;
     const savedCents = Math.max(0, baselineCents - amountCents);
     if (savedCents > 0) {
       const savedEuro = Math.round(savedCents / 100);

@@ -15,7 +15,11 @@ import crypto from "node:crypto";
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 function getSecret() {
-  return String(process.env.CUSTOMER_JWT_SECRET || "omnira-dev").trim();
+  const s = String(process.env.CUSTOMER_JWT_SECRET || "").trim();
+  if (!s && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+    console.error("[FATAL] CUSTOMER_JWT_SECRET missing — OAuth state tokens are insecure.");
+  }
+  return s || "omnira-dev-insecure-oauth-state-secret";
 }
 
 function b64url(buf) {
@@ -44,7 +48,9 @@ export function verifyOAuthState(token, { provider } = {}) {
   }
   const [payloadB64, sig] = token.split(".");
   const expectedSig = b64url(crypto.createHmac("sha256", getSecret()).update(payloadB64).digest());
-  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSig))) {
+  const sigBuf = Buffer.from(sig ?? "");
+  const expectedBuf = Buffer.from(expectedSig);
+  if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) {
     return { ok: false, reason: "bad-signature" };
   }
   let payload;

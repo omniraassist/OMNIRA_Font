@@ -62,6 +62,16 @@ export async function applyPaidCheckoutSession(session) {
   if (!plan) {
     return { ok: false, reason: "bad_metadata" };
   }
+
+  // Verify amount matches to prevent price-bypass attacks.
+  if (
+    Number(session.amount_total) !== plan.amountCents ||
+    String(session.currency || "").toLowerCase() !== "eur"
+  ) {
+    console.error(`[stripeSync] checkout amount mismatch: expected ${plan.amountCents} EUR, got ${session.amount_total} ${session.currency}`);
+    return { ok: false, reason: "amount_mismatch" };
+  }
+
   const sessionId = session.id;
 
   const { data: dup } = await supabaseAdmin

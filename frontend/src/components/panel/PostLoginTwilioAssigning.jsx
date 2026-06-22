@@ -143,18 +143,19 @@ export function PostLoginTwilioAssigning({ onDone }) {
   const [currentStep, setCurrentStep] = useState(0);
 
   useEffect(() => {
+    const timers = [];
     let step = 0;
     function advance() {
       if (step >= STEPS.length - 1) {
-        setTimeout(() => onDone?.(), 400);
+        timers.push(setTimeout(() => onDone?.(), 400));
         return;
       }
       step += 1;
       setCurrentStep(step);
-      setTimeout(advance, STEPS[step].duration);
+      timers.push(setTimeout(advance, STEPS[step].duration));
     }
-    const t = setTimeout(advance, STEPS[0].duration);
-    return () => clearTimeout(t);
+    timers.push(setTimeout(advance, STEPS[0].duration));
+    return () => timers.forEach(clearTimeout);
   }, [onDone]);
 
   return (

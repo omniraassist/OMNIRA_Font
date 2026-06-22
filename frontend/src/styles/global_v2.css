@@ -1,0 +1,1175 @@
+/* ═══════════════════════════════════════════════════════════════
+   OMNIRA V2 — Aesthetic refinements
+   Scoped entirely to body.landing-v2 — no bleed into V1 or panel.
+   Import AFTER global.css.
+═══════════════════════════════════════════════════════════════ */
+
+/* ── VARIABLE OVERRIDES ── */
+body.landing-v2 {
+  /* Deeper, ink-black base with indigo undertone */
+  --ink:  #03060E;
+  --ink2: #050A14;
+  --ink3: #09101E;
+
+  /* Slightly more luminous emerald */
+  --em:  #00EDAA;
+  --em2: #00CC84;
+  --em3: #00FFA6;
+  --em-glow:  rgba(0, 237, 170, 0.30);
+  --em-glow2: rgba(0, 237, 170, 0.12);
+  --em-glow3: rgba(0, 237, 170, 0.06);
+  --border-em:  rgba(0, 237, 170, 0.28);
+  --border-em2: rgba(0, 237, 170, 0.45);
+  --shadow-em: 0 0 40px rgba(0, 237, 170, 0.25), 0 0 80px rgba(0, 237, 170, 0.10);
+
+  /* Richer card surfaces */
+  --surf:  #0F1828;
+  --surf2: #162236;
+  --surf3: #1C2D44;
+
+  /* Cleaner text contrast */
+  --text:  #E8F0FA;
+  --soft:  #94AECB;
+  --muted: #4A5E7A;
+
+  /* Slightly more visible borders */
+  --border:  rgba(255, 255, 255, 0.08);
+  --border2: rgba(255, 255, 255, 0.13);
+
+  /* Richer shadows */
+  --shadow-card: 0 24px 64px rgba(0, 0, 0, 0.55);
+}
+
+/* ── FILM GRAIN NOISE OVERLAY ── */
+body.landing-v2::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n' x='0' y='0'><feTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='1'/></svg>");
+  background-size: 200px 200px;
+  opacity: 0.022;
+  pointer-events: none;
+  z-index: 9999;
+  mix-blend-mode: overlay;
+}
+
+/* ── SCROLLBAR ── */
+body.landing-v2 ::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, var(--em), var(--em2));
+}
+
+/* ── GRADIENT TEXT — more vivid ── */
+body.landing-v2 .gradient-text {
+  background: linear-gradient(130deg, #ffffff 0%, var(--em) 52%, var(--em3) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 36px rgba(0, 237, 170, 0.32));
+}
+
+/* ── GLASS CARDS — deeper with top rim light ── */
+body.landing-v2 .glass {
+  background: linear-gradient(
+    160deg,
+    rgba(22, 34, 54, 0.88) 0%,
+    rgba(9, 16, 30, 0.72) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    0 24px 64px rgba(0, 0, 0, 0.52);
+}
+body.landing-v2 .glass-em {
+  background: linear-gradient(
+    160deg,
+    rgba(18, 30, 48, 0.90) 0%,
+    rgba(8, 14, 26, 0.80) 100%
+  );
+  border: 1px solid var(--border-em);
+  box-shadow:
+    inset 0 1px 0 rgba(0, 237, 170, 0.08),
+    0 24px 64px rgba(0, 0, 0, 0.5);
+}
+
+/* ── EYEBROW BADGES ── */
+body.landing-v2 .eyebrow {
+  background: linear-gradient(135deg, rgba(0, 237, 170, 0.12), rgba(0, 237, 170, 0.06));
+  border: 1px solid rgba(0, 237, 170, 0.28);
+  letter-spacing: 0.14em;
+  box-shadow: 0 0 20px rgba(0, 237, 170, 0.06);
+}
+
+/* ── SECTION HEADERS ── */
+body.landing-v2 .section-header {
+  margin-bottom: 72px;
+}
+body.landing-v2 .section-header h2 {
+  letter-spacing: -0.03em;
+}
+/* Gradient underline accent below every section h2 */
+body.landing-v2 .section-header h2::after {
+  content: '';
+  display: block;
+  margin: 18px auto 0;
+  width: 56px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--em), transparent);
+}
+
+/* ── DIVIDERS — emerald-tinted ── */
+body.landing-v2 .divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 237, 170, 0.14) 25%,
+    rgba(255, 255, 255, 0.07) 50%,
+    rgba(0, 237, 170, 0.14) 75%,
+    transparent 100%
+  );
+}
+
+/* ── BUTTONS ── */
+/* Primary — shimmer sweep + stronger glow on hover */
+@keyframes v2-btn-shimmer {
+  0%   { transform: translateX(-120%) skewX(-15deg); }
+  100% { transform: translateX(320%)  skewX(-15deg); }
+}
+body.landing-v2 .btn-primary {
+  background: linear-gradient(135deg, var(--em) 0%, var(--em2) 100%);
+  box-shadow: 0 4px 20px rgba(0, 237, 170, 0.20);
+  overflow: hidden;
+}
+body.landing-v2 .btn-primary::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 28%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.38), transparent);
+  animation: v2-btn-shimmer 3.5s ease-in-out 1.5s infinite;
+  pointer-events: none;
+}
+body.landing-v2 .btn-primary:hover {
+  box-shadow: var(--shadow-em), 0 8px 40px rgba(0, 237, 170, 0.30);
+  transform: translateY(-3px) scale(1.03);
+}
+
+/* Ghost — stronger tint on hover */
+body.landing-v2 .btn-ghost:hover {
+  background: rgba(0, 237, 170, 0.09);
+  border-color: var(--border-em);
+  color: var(--em);
+  box-shadow: 0 0 16px rgba(0, 237, 170, 0.08);
+}
+
+/* ── NAVBAR ── */
+body.landing-v2 #navbar.scrolled {
+  background: rgba(3, 6, 14, 0.93);
+  box-shadow:
+    0 4px 40px rgba(0, 0, 0, 0.55),
+    0 1px 0 rgba(0, 237, 170, 0.07);
+}
+
+/* ── HERO ── */
+/* Richer background: indigo accent replaces the plain blue */
+body.landing-v2 .hero-bg-scrim {
+  background:
+    linear-gradient(115deg, rgba(3, 6, 14, 0.97) 0%, rgba(3, 6, 14, 0.82) 42%, rgba(3, 6, 14, 0.38) 100%),
+    radial-gradient(ellipse 70% 55% at 15% 25%, rgba(0, 237, 170, 0.17) 0%, transparent 52%),
+    radial-gradient(ellipse 50% 42% at 88% 72%, rgba(99, 102, 241, 0.13) 0%, transparent 56%);
+}
+body.landing-v2 .hero-orb-1 {
+  background: rgba(0, 237, 170, 0.13);
+}
+body.landing-v2 .hero-orb-2 {
+  background: rgba(99, 102, 241, 0.08);
+}
+body.landing-v2 .hero-orb-3 {
+  background: rgba(99, 102, 241, 0.10);
+}
+body.landing-v2 .hero-grid-pattern {
+  opacity: 0.7;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+}
+/* Hero stage glass — richer top radial */
+body.landing-v2 .hero-stage::before {
+  background: radial-gradient(ellipse 90% 55% at 50% 0%, rgba(0, 237, 170, 0.11) 0%, transparent 55%);
+}
+body.landing-v2 .hero-stage {
+  box-shadow:
+    0 0 0 1px rgba(0, 237, 170, 0.14),
+    0 40px 80px rgba(0, 0, 0, 0.55),
+    0 0 100px rgba(0, 237, 170, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09);
+}
+
+/* Hero badge — brighter dot pulse */
+body.landing-v2 .hero-badge {
+  border-color: rgba(0, 237, 170, 0.40);
+  box-shadow: 0 0 40px rgba(0, 237, 170, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* Hero KPI chips — stronger glass */
+body.landing-v2 .hero-kpi {
+  background: rgba(15, 24, 40, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 16px 40px rgba(0, 0, 0, 0.40);
+}
+
+/* Subtitle border accent — thicker, glowing */
+body.landing-v2 .hero-subtitle {
+  border-left: 3px solid var(--em);
+  box-shadow: -3px 0 16px rgba(0, 237, 170, 0.18);
+}
+
+/* Float cards — more depth */
+body.landing-v2 .float-card {
+  background: rgba(15, 24, 40, 0.93);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 24px 48px rgba(0, 0, 0, 0.50);
+  border-color: var(--border-em);
+}
+
+/* Phone frame — deeper shadow */
+body.landing-v2 .phone-frame {
+  box-shadow:
+    0 60px 120px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09);
+}
+
+/* ── PROBLEM SECTION — cards ── */
+body.landing-v2 .pain-card {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+body.landing-v2 .pain-card:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 16px 48px rgba(0, 0, 0, 0.40);
+}
+
+/* ── SOLUTION SECTION ── */
+body.landing-v2 .dash-mockup {
+  box-shadow:
+    var(--shadow-card),
+    0 0 0 1px rgba(0, 237, 170, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+body.landing-v2 .feature-item:hover .feature-icon {
+  box-shadow: 0 0 20px rgba(0, 237, 170, 0.18);
+}
+
+/* ── HOW IT WORKS — step cards ── */
+body.landing-v2 .step-card:hover {
+  border-color: rgba(0, 237, 170, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 20px 56px rgba(0, 0, 0, 0.45);
+}
+body.landing-v2 .step-icon {
+  background: rgba(0, 237, 170, 0.12);
+  border: 1px solid rgba(0, 237, 170, 0.26);
+  box-shadow: 0 0 18px rgba(0, 237, 170, 0.12);
+}
+body.landing-v2 .step-card:hover .step-icon {
+  box-shadow: 0 0 28px rgba(0, 237, 170, 0.28);
+}
+body.landing-v2 .steps-connector {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 237, 170, 0) 0%,
+    rgba(0, 237, 170, 0.5) 30%,
+    rgba(0, 237, 170, 1.0) 50%,
+    rgba(0, 237, 170, 0.5) 70%,
+    rgba(0, 237, 170, 0) 100%
+  );
+  filter: drop-shadow(0 0 4px rgba(0, 237, 170, 0.5));
+}
+
+/* ── BENEFITS — cards ── */
+body.landing-v2 .ben-card:hover {
+  border-color: rgba(0, 237, 170, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 24px 64px rgba(0, 0, 0, 0.48);
+  transform: translateY(-8px);
+}
+body.landing-v2 .ben-metric {
+  background: linear-gradient(135deg, var(--em3), var(--em));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 12px rgba(0, 237, 170, 0.25));
+}
+
+/* Testimonials */
+body.landing-v2 .testi-card:hover {
+  border-color: var(--border-em);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 16px 48px rgba(0, 0, 0, 0.40);
+}
+body.landing-v2 .testi-quote::before {
+  font-size: 56px;
+  top: -12px;
+  opacity: 0.35;
+  color: var(--em);
+}
+body.landing-v2 .testi-av {
+  border-color: rgba(0, 237, 170, 0.30);
+  box-shadow: 0 0 14px rgba(0, 237, 170, 0.14);
+}
+
+/* ── PRICING SECTION ── */
+body.landing-v2 #precios {
+  background:
+    radial-gradient(ellipse 130% 80% at 50% 0%, rgba(0, 237, 170, 0.05) 0%, transparent 48%),
+    radial-gradient(ellipse 80% 60% at 80% 100%, rgba(99, 102, 241, 0.04) 0%, transparent 55%),
+    var(--ink2);
+}
+body.landing-v2 .plans-grid .plan-card {
+  background: linear-gradient(168deg, rgba(20, 32, 52, 0.90) 0%, rgba(8, 12, 22, 0.97) 60%, rgba(4, 8, 16, 0.99) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 20px 56px rgba(0, 0, 0, 0.45);
+}
+body.landing-v2 .plans-grid .plan-card.featured {
+  border-color: rgba(0, 237, 170, 0.48);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 1px rgba(0, 237, 170, 0.32),
+    0 24px 64px rgba(0, 237, 170, 0.18),
+    0 36px 80px rgba(0, 0, 0, 0.55);
+}
+body.landing-v2 .plans-grid .plan-card.featured:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 0 0 1px rgba(0, 237, 170, 0.45),
+    0 32px 80px rgba(0, 237, 170, 0.24),
+    0 40px 88px rgba(0, 0, 0, 0.60);
+}
+/* Shimmer on featured top bar */
+@keyframes v2-ribbon-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+body.landing-v2 .plans-grid .plan-card.featured::before {
+  height: 4px;
+  background: linear-gradient(90deg, var(--em2), var(--em), var(--em3), var(--em2));
+  background-size: 300% auto;
+  animation: v2-ribbon-shimmer 4s linear infinite;
+  opacity: 1;
+}
+body.landing-v2 .plan-num.featured-num {
+  background: linear-gradient(130deg, #ffffff 0%, var(--em) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 20px rgba(0, 237, 170, 0.25));
+}
+
+/* ── CTA FINAL SECTION ── */
+body.landing-v2 #cta-final {
+  background:
+    radial-gradient(ellipse 100% 70% at 50% 0%, rgba(0, 237, 170, 0.07) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 50% at 20% 100%, rgba(99, 102, 241, 0.05) 0%, transparent 55%),
+    var(--ink);
+}
+
+/* ── MARQUEE LOGOS ── */
+body.landing-v2 #logos {
+  background: var(--ink2);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+body.landing-v2 .marquee-item:hover {
+  color: var(--em);
+  filter: grayscale(0);
+}
+
+/* ── PROBLEM/SOLUTION SECTION ── */
+body.landing-v2 #problema,
+body.landing-v2 #solucion {
+  background: var(--ink2);
+}
+body.landing-v2 #como-funciona {
+  background: var(--ink3);
+}
+body.landing-v2 #beneficios {
+  background: var(--ink2);
+}
+
+/* ── SOCIAL PROOF BLOCK ── */
+body.landing-v2 .hero-proof {
+  background: rgba(4, 8, 20, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 20px 52px rgba(0, 0, 0, 0.40);
+}
+body.landing-v2 .proof-avatar {
+  border-color: rgba(4, 8, 20, 0.90);
+}
+
+/* ── SETUP BANNER ── */
+body.landing-v2 .setup-icon {
+  box-shadow: 0 0 20px rgba(0, 237, 170, 0.14);
+}
+
+/* ── FAQ SECTION ── */
+body.landing-v2 .faq-grid-item {
+  border-left-color: rgba(0, 237, 170, 0.25);
+}
+body.landing-v2 .faq-grid-q h3 {
+  color: #f0f6ff;
+}
+body.landing-v2 .faq-grid-icon {
+  color: var(--em);
+  filter: drop-shadow(0 0 6px rgba(0, 237, 170, 0.30));
+}
+
+/* ── TESTIMONIALS — first card featured ── */
+body.landing-v2 .testi-grid > *:first-child {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    0 24px 64px rgba(0, 0, 0, 0.52),
+    0 0 0 1px rgba(0, 237, 170, 0.10);
+}
+
+/* ── BENEFITS — icon glow ── */
+body.landing-v2 .ben-icon {
+  background: rgba(0, 237, 170, 0.12);
+  border-color: rgba(0, 237, 170, 0.26);
+  box-shadow: 0 0 16px rgba(0, 237, 170, 0.10);
+}
+body.landing-v2 .ben-card:hover .ben-icon {
+  box-shadow: 0 0 28px rgba(0, 237, 170, 0.28);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   V2 ANIMATION IMPROVEMENTS
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── BUTTON: :active state (was missing in V2) ── */
+body.landing-v2 .btn-primary:active {
+  transform: translateY(0) scale(0.97);
+  transition-duration: 80ms;
+  box-shadow: 0 2px 8px rgba(0, 237, 170, 0.12);
+}
+body.landing-v2 .btn-ghost:active {
+  transform: scale(0.97);
+  transition-duration: 80ms;
+}
+
+/* Fix: hover less aggressive (1.03 → 1.02) */
+body.landing-v2 .btn-primary:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+
+/* Fix: shimmer sweep — linear feels constant, ease-in-out starts slow */
+body.landing-v2 .btn-primary::after {
+  animation: v2-btn-shimmer 3.5s linear 1.5s infinite;
+}
+
+/* ── HOVER GATE — disable hover effects on touch devices ── */
+@media (hover: none) {
+  body.landing-v2 .btn-primary:hover {
+    transform: none;
+    box-shadow: 0 4px 20px rgba(0, 237, 170, 0.20);
+  }
+  body.landing-v2 .btn-ghost:hover {
+    background: none;
+    border-color: var(--border);
+    color: var(--text);
+    box-shadow: none;
+    transform: none;
+  }
+  body.landing-v2 .ben-card:hover,
+  body.landing-v2 .testi-card:hover,
+  body.landing-v2 .step-card:hover,
+  body.landing-v2 .pain-card:hover {
+    transform: none;
+  }
+}
+
+/* ── REVEAL — stronger ease-out, tighter stagger ── */
+body.landing-v2 .reveal,
+body.landing-v2 .reveal-left,
+body.landing-v2 .reveal-right {
+  transition:
+    opacity 0.65s cubic-bezier(0.23, 1, 0.32, 1),
+    transform 0.65s cubic-bezier(0.23, 1, 0.32, 1);
+}
+body.landing-v2 .reveal { transform: translateY(20px); }
+/* Tighter stagger: 60 ms steps instead of 100 ms */
+body.landing-v2 .reveal-d1 { transition-delay: 60ms; }
+body.landing-v2 .reveal-d2 { transition-delay: 120ms; }
+body.landing-v2 .reveal-d3 { transition-delay: 180ms; }
+body.landing-v2 .reveal-d4 { transition-delay: 240ms; }
+
+/* ── BENEFIT CARDS — hover tone-down (8 px was too much) ── */
+body.landing-v2 .ben-card:hover {
+  transform: translateY(-4px);
+}
+
+/* ── STEP CONNECTOR — traveling light effect ── */
+@keyframes v2-connector-flow {
+  0%   { background-position: -100% center; }
+  100% { background-position: 200% center; }
+}
+body.landing-v2 .steps-connector {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 237, 170, 0.05) 0%,
+    rgba(0, 237, 170, 0.35) 35%,
+    rgba(255, 255, 255, 0.85) 50%,
+    rgba(0, 237, 170, 0.35) 65%,
+    rgba(0, 237, 170, 0.05) 100%
+  );
+  background-size: 200% 100%;
+  animation: v2-connector-flow 2.8s linear infinite;
+  /* override the filter that clashes with background-position animation */
+  filter: none;
+  box-shadow: 0 0 6px rgba(0, 237, 170, 0.35);
+}
+
+/* ── CTA FINAL — pulsing ring on primary button ── */
+@keyframes v2-cta-pulse {
+  0%, 100% {
+    box-shadow:
+      0 4px 20px rgba(0, 237, 170, 0.22),
+      0 0 0 0 rgba(0, 237, 170, 0.40);
+  }
+  55% {
+    box-shadow:
+      0 4px 20px rgba(0, 237, 170, 0.22),
+      0 0 0 14px rgba(0, 237, 170, 0);
+  }
+}
+body.landing-v2 #cta-final .btn-primary {
+  animation: v2-cta-pulse 2.6s ease-out infinite;
+}
+/* Keep shimmer on ::after of CTA button */
+body.landing-v2 #cta-final .btn-primary::after {
+  animation: v2-btn-shimmer 3.5s linear 1.5s infinite;
+}
+
+/* ── HERO ORBS — slow aurora drift ── */
+@keyframes v2-aurora-a {
+  0%, 100% { opacity: 0.13; transform: scale(1)   translateX(0); }
+  50%       { opacity: 0.21; transform: scale(1.07) translateX(-3%); }
+}
+@keyframes v2-aurora-b {
+  0%, 100% { opacity: 0.10; transform: scale(1)   translateY(0); }
+  50%       { opacity: 0.16; transform: scale(1.06) translateY(2%); }
+}
+body.landing-v2 .hero-orb-1 {
+  animation: v2-aurora-a 9s ease-in-out infinite;
+}
+body.landing-v2 .hero-orb-3 {
+  animation: v2-aurora-b 11s ease-in-out 1.5s infinite;
+}
+
+/* ── REDUCED MOTION — respect user preference ── */
+@media (prefers-reduced-motion: reduce) {
+  body.landing-v2 .btn-primary::after,
+  body.landing-v2 #cta-final .btn-primary,
+  body.landing-v2 .steps-connector,
+  body.landing-v2 .hero-orb-1,
+  body.landing-v2 .hero-orb-3 {
+    animation: none;
+  }
+  body.landing-v2 .reveal,
+  body.landing-v2 .reveal-left,
+  body.landing-v2 .reveal-right {
+    transition: opacity 0.2s ease;
+    transform: none;
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   V2 SCROLL ANIMATIONS — reference-quality fluid reveals
+   Spring-ease slide-ups, cascaded hero entrance, FAQ auto-stagger.
+   All rules placed AFTER the earlier reveal block to win cascade.
+═══════════════════════════════════════════════════════════════ */
+
+/* Keyframe: pronounced spring slide-up */
+@keyframes v2-rise {
+  from { opacity: 0; transform: translateY(40px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── HERO — per-element staggered entrance ──
+   Cancel single-block slideInLeft / slideInRight; each child
+   enters individually so headline, subtitle, KPIs, and CTAs
+   cascade in sequence rather than appearing as one slab. */
+body.landing-v2 .hero-copy { animation: none; }
+
+body.landing-v2 .hero-badge    { animation: v2-rise 0.80s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both; }
+body.landing-v2 .hero-title    { animation: v2-rise 0.85s cubic-bezier(0.16, 1, 0.3, 1) 0.22s both; }
+body.landing-v2 .hero-subtitle { animation: v2-rise 0.80s cubic-bezier(0.16, 1, 0.3, 1) 0.36s both; }
+body.landing-v2 .hero-kpis     { animation: v2-rise 0.80s cubic-bezier(0.16, 1, 0.3, 1) 0.48s both; }
+body.landing-v2 .hero-actions  { animation: v2-rise 0.80s cubic-bezier(0.16, 1, 0.3, 1) 0.58s both; }
+body.landing-v2 .hero-proof    { animation: v2-rise 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.70s both; }
+body.landing-v2 .hero-trust    { animation: v2-rise 0.70s cubic-bezier(0.16, 1, 0.3, 1) 0.80s both; }
+
+/* Visual / phone rises from below (no more horizontal slideInRight) */
+body.landing-v2 .hero-visual {
+  animation: v2-rise 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.28s both;
+}
+
+/* ── SCROLL REVEALS — spring physics ──
+   Overrides the earlier reveal block further up in this file.
+   50 px travel + subtle scale-in = premium fintech feel. */
+body.landing-v2 .reveal,
+body.landing-v2 .reveal-left,
+body.landing-v2 .reveal-right {
+  transition:
+    opacity 0.85s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+}
+body.landing-v2 .reveal       { transform: translateY(50px) scale(0.97); }
+body.landing-v2 .reveal-left  { transform: translateX(-50px) scale(0.97); }
+body.landing-v2 .reveal-right { transform: translateX(50px)  scale(0.97); }
+
+/* Stagger spacing — wider gaps make the cascade legible */
+body.landing-v2 .reveal-d1 { transition-delay: 90ms; }
+body.landing-v2 .reveal-d2 { transition-delay: 180ms; }
+body.landing-v2 .reveal-d3 { transition-delay: 270ms; }
+body.landing-v2 .reveal-d4 { transition-delay: 360ms; }
+body.landing-v2 .reveal-d5 { transition-delay: 450ms; }
+
+/* ── FAQ GRID — child stagger on parent .visible ──
+   The parent .faq-grid already has the .reveal class. When the
+   IntersectionObserver adds .visible to it, each item animates
+   in sequence without needing individual reveal classes in JSX. */
+body.landing-v2 .faq-grid-item {
+  opacity: 0;
+  transform: translateY(30px);
+  transition:
+    opacity 0.70s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.70s cubic-bezier(0.16, 1, 0.3, 1);
+}
+body.landing-v2 .faq-grid.visible .faq-grid-item { opacity: 1; transform: none; }
+body.landing-v2 .faq-grid.visible .faq-grid-item:nth-child(1) { transition-delay: 60ms;  }
+body.landing-v2 .faq-grid.visible .faq-grid-item:nth-child(2) { transition-delay: 140ms; }
+body.landing-v2 .faq-grid.visible .faq-grid-item:nth-child(3) { transition-delay: 220ms; }
+body.landing-v2 .faq-grid.visible .faq-grid-item:nth-child(4) { transition-delay: 300ms; }
+body.landing-v2 .faq-grid.visible .faq-grid-item:nth-child(5) { transition-delay: 380ms; }
+body.landing-v2 .faq-grid.visible .faq-grid-item:nth-child(6) { transition-delay: 460ms; }
+
+/* ── PHONE FLOAT — slower, more cinematic ── */
+@keyframes v2-phone-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%       { transform: translateY(-10px) rotate(-0.4deg); }
+}
+body.landing-v2 .phone-frame {
+  animation: v2-phone-float 7s ease-in-out infinite;
+}
+
+/* ── REDUCED MOTION — disable all new v2 animations ── */
+@media (prefers-reduced-motion: reduce) {
+  body.landing-v2 .hero-badge,
+  body.landing-v2 .hero-title,
+  body.landing-v2 .hero-subtitle,
+  body.landing-v2 .hero-kpis,
+  body.landing-v2 .hero-actions,
+  body.landing-v2 .hero-proof,
+  body.landing-v2 .hero-trust,
+  body.landing-v2 .hero-visual,
+  body.landing-v2 .phone-frame {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  body.landing-v2 .faq-grid-item {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+
+
+/* ═══════════════════════════════════════════════════════════════
+   V2 PAGE AURORA — animated gradient background
+   Strategy: animated radial gradients on body + ::after overlays
+   on key transparent sections. Avoids fixed-position + overflow
+   clip interaction issues in Chrome/Safari.
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Body gradient — animates background-position so the
+   two large radial blobs drift across the entire page. 
+   Visible in all sections that don't override background. ── */
+@keyframes v2-bg-drift {
+  0%   { background-position: 0%   0%,   100% 100%; }
+  25%  { background-position: 40%  15%,  60%  85%;  }
+  50%  { background-position: 100% 50%,  0%   50%;  }
+  75%  { background-position: 60%  85%,  40%  15%;  }
+  100% { background-position: 0%   0%,   100% 100%; }
+}
+
+body.landing-v2 {
+  background:
+    radial-gradient(ellipse 70% 55% at 0% 0%, rgba(0, 237, 170, 0.11) 0%, transparent 65%),
+    radial-gradient(ellipse 65% 60% at 100% 100%, rgba(99, 102, 241, 0.09) 0%, transparent 65%),
+    #060D1F;
+  background-size: 280% 280%, 280% 280%, auto;
+  animation: v2-bg-drift 20s ease-in-out infinite;
+}
+
+/* ── Sections that override body background need their own
+   aurora overlay. We add it via ::after so it doesn't
+   interfere with existing ::before pseudo-elements. ── */
+
+/* Sections with ink2 background: add gradient overlay */
+body.landing-v2 #problema,
+body.landing-v2 #como-funciona,
+body.landing-v2 #precios,
+body.landing-v2 section[style*="ink2"] {
+  isolation: isolate;
+}
+
+body.landing-v2 #problema::after,
+body.landing-v2 #como-funciona::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 80% at 90% 20%, rgba(0, 237, 170, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 60% at 10% 80%, rgba(99, 102, 241, 0.05) 0%, transparent 60%);
+  animation: v2-section-drift 18s ease-in-out infinite;
+  z-index: 0;
+}
+
+body.landing-v2 #precios::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 60% at 80% 30%, rgba(0, 237, 170, 0.07) 0%, transparent 55%),
+    radial-gradient(ellipse 55% 70% at 20% 70%, rgba(99, 102, 241, 0.06) 0%, transparent 55%);
+  animation: v2-section-drift 22s ease-in-out infinite 4s;
+  z-index: 0;
+}
+
+@keyframes v2-section-drift {
+  0%,  100% { background-position: 0%   0%,   100% 100%; }
+  33%        { background-position: 30%  -20%,  70%  120%; }
+  66%        { background-position: -20% 30%,   120% 70%;  }
+}
+
+/* Ensure section content stays above the ::after overlay */
+body.landing-v2 #problema > *,
+body.landing-v2 #como-funciona > *,
+body.landing-v2 #precios > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Sección beneficios y solución: explicit animated gradient ── */
+body.landing-v2 #solucion,
+body.landing-v2 #beneficios,
+body.landing-v2 #cta-final {
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 40%, rgba(0, 237, 170, 0.07) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 70% at 85% 60%, rgba(99, 102, 241, 0.06) 0%, transparent 55%),
+    #060D1F;
+  background-size: 300% 300%, 300% 300%, auto;
+  animation: v2-bg-drift 24s ease-in-out infinite 6s;
+}
+
+/* ── Film grain animation — makes the texture feel alive ── */
+@keyframes v2-grain {
+  0%   { background-position:  0%    0%;   }
+  10%  { background-position: -5%   -10%;  }
+  20%  { background-position: -15%   5%;   }
+  30%  { background-position:  7%   -25%;  }
+  40%  { background-position: -5%    25%;  }
+  50%  { background-position: -15%   10%;  }
+  60%  { background-position:  15%   0%;   }
+  70%  { background-position:  0%    10%;  }
+  80%  { background-position: -20%   15%;  }
+  90%  { background-position:  10%  -5%;   }
+  100% { background-position:  0%    0%;   }
+}
+body.landing-v2::before {
+  animation: v2-grain 0.5s steps(1) infinite;
+}
+
+/* ── Mobile kill-switch ── */
+@media (max-width: 900px) {
+  body.landing-v2 {
+    background: #060D1F;
+    animation: none;
+  }
+  body.landing-v2 #solucion,
+  body.landing-v2 #beneficios,
+  body.landing-v2 #cta-final {
+    background: #060D1F;
+    animation: none;
+  }
+  body.landing-v2 #problema::after,
+  body.landing-v2 #como-funciona::after,
+  body.landing-v2 #precios::after {
+    display: none;
+  }
+  body.landing-v2::before {
+    animation: none;
+  }
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  body.landing-v2,
+  body.landing-v2 #solucion,
+  body.landing-v2 #beneficios,
+  body.landing-v2 #cta-final {
+    animation: none;
+  }
+  body.landing-v2 #problema::after,
+  body.landing-v2 #como-funciona::after,
+  body.landing-v2 #precios::after {
+    animation: none;
+  }
+  body.landing-v2::before {
+    animation: none;
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   V2 FULL REDESIGN — Nuvance-inspired adaptation
+   Typography · Light sections · Bare stats · Numbered cards
+   Testimonials v2 · White pricing card · FAQ accordion
+══════════════════════════════════════════════════════════════ */
+
+/* ── TYPOGRAPHY — heavier, more intentional ── */
+body.landing-v2 h2 { font-weight: 800; letter-spacing: -0.03em; }
+body.landing-v2 .section-header h2 {
+  font-size: clamp(30px, 4.2vw, 58px);
+  letter-spacing: -0.03em;
+}
+body.landing-v2 .hero-title-main {
+  font-size: clamp(28px, 4.2vw, 58px) !important;
+  letter-spacing: -0.038em !important;
+  line-height: 1.0 !important;
+  font-weight: 800;
+  text-wrap: normal !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  hyphens: none !important;
+}
+body.landing-v2 .hero-title-sub {
+  font-size: clamp(15px, 2vw, 20px) !important;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  margin-top: 14px !important;
+}
+/* Gradient text: simplified to white→emerald only */
+body.landing-v2 .gradient-text {
+  background: linear-gradient(110deg, #ffffff 0%, var(--em) 60%, var(--em3) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: none;
+}
+
+/* ── LIGHT SECTION SYSTEM ──
+   Add class .section-light to any <section> to switch it
+   to the cream palette. !important beats ID-based and
+   animation backgrounds. */
+body.landing-v2 .section-light {
+  background: #F4F1EB !important;
+  animation: none !important;
+}
+body.landing-v2 #problema.section-light,
+body.landing-v2 #beneficios.section-light {
+  background: #F4F1EB !important;
+  animation: none !important;
+}
+body.landing-v2 .section-light .problema-orb { display: none; }
+
+/* Dividers between light↔dark transitions */
+body.landing-v2 .section-light + .divider {
+  background: linear-gradient(90deg, transparent, rgba(0,0,0,0.06), transparent);
+}
+
+/* Text colors */
+body.landing-v2 .section-light .section-header h2,
+body.landing-v2 .section-light h2                   { color: #0D1830; }
+body.landing-v2 .section-light h3                   { color: #0D1830; }
+body.landing-v2 .section-light .section-header p,
+body.landing-v2 .section-light p                    { color: #4A5E7A; }
+body.landing-v2 .section-light strong               { color: #0D1830; }
+body.landing-v2 .section-light .section-header h2::after {
+  background: linear-gradient(90deg, transparent, #009966, transparent);
+}
+
+/* Eyebrow badge */
+body.landing-v2 .section-light .eyebrow {
+  background: rgba(0, 204, 132, 0.10);
+  border-color: rgba(0, 204, 132, 0.28);
+  color: #007A52;
+}
+body.landing-v2 .section-light .eyebrow-dot {
+  background: #00AA72;
+  box-shadow: 0 0 6px rgba(0,170,114,0.45);
+  animation: none;
+}
+
+/* White solid cards */
+body.landing-v2 .section-light .glass {
+  background: #ffffff !important;
+  border: 1px solid #E4E0D8 !important;
+  box-shadow: 0 2px 8px rgba(13,24,48,0.05), 0 8px 28px rgba(13,24,48,0.04) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+body.landing-v2 .section-light .glass::before,
+body.landing-v2 .section-light .glass::after { display: none !important; }
+body.landing-v2 .section-light .ben-card-glow { display: none; }
+body.landing-v2 .section-light .pain-card h3 { color: #0D1830; }
+body.landing-v2 .section-light .pain-card p  { color: #5A6B84; }
+body.landing-v2 .section-light .pain-card:hover {
+  box-shadow: 0 8px 40px rgba(13,24,48,0.10) !important;
+  border-color: #D0CCC4 !important;
+}
+
+/* ── BARE STATS ROW (no glassmorphism container) ── */
+.stats-bare {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin-top: 72px;
+}
+.stats-bare .stat-col {
+  padding: 36px 16px;
+  text-align: center;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+.stats-bare .stat-col::after { display: none !important; }
+.stats-bare .stat-num {
+  font-size: clamp(44px, 6vw, 76px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: #0D1830;
+  font-variant-numeric: tabular-nums;
+}
+.stats-bare .stat-label {
+  font-size: 13px;
+  color: #6B7A99;
+  line-height: 1.5;
+  margin-top: 8px;
+  max-width: 140px;
+  margin-inline: auto;
+}
+body.landing-v2 .section-light .stats-bare {
+  border-top: 1px solid #DDD9D0;
+}
+body.landing-v2 .section-light .stats-bare .stat-col:not(:last-child) {
+  border-right: 1px solid #DDD9D0;
+}
+
+/* ── NUMBERED BENEFIT CARDS ── */
+.ben-num {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--em);
+  font-family: 'Outfit', sans-serif;
+  margin-bottom: 14px;
+  opacity: 0.70;
+}
+body.landing-v2 .section-light .ben-num    { color: #007A52; opacity: 0.9; }
+body.landing-v2 .section-light .ben-metric { color: #0D1830; }
+body.landing-v2 .section-light .ben-sub    { color: #6B7A99; }
+body.landing-v2 .section-light .ben-card h3 { color: #0D1830; }
+body.landing-v2 .section-light .ben-card p  { color: #5A6B84; }
+body.landing-v2 .section-light .ben-icon {
+  background: rgba(0,122,82,0.10) !important;
+  border-color: rgba(0,122,82,0.22) !important;
+}
+body.landing-v2 .section-light .ben-icon i { color: #007A52 !important; }
+
+/* ── TESTIMONIALS V2 — author header first ── */
+.testi-v2-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.testi-av-sq img {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+  display: block;
+}
+.testi-card-v2 .testi-stars { margin-bottom: 14px; }
+.testi-card-v2 .testi-quote { margin-top: 0; font-size: 14px; line-height: 1.75; }
+/* 3 equal columns — remove asymmetric masonry in light sections */
+body.landing-v2 .section-light .testi-grid {
+  grid-template-columns: repeat(3, 1fr) !important;
+  grid-template-rows: auto !important;
+}
+body.landing-v2 .section-light .testi-grid > *:first-child {
+  grid-row: auto !important;
+  box-shadow: 0 2px 8px rgba(13,24,48,0.05), 0 8px 28px rgba(13,24,48,0.04) !important;
+}
+body.landing-v2 .section-light .testi-stars i  { color: #F59E0B !important; }
+body.landing-v2 .section-light .testi-quote    { color: #1A2B45 !important; }
+body.landing-v2 .section-light .testi-name     { color: #0D1830 !important; }
+body.landing-v2 .section-light .testi-role     { color: #6B7A99 !important; }
+
+/* ── PRICING — WHITE FEATURED CARD ── */
+body.landing-v2 .plan-card.featured {
+  background: #ffffff !important;
+  border-color: rgba(0,200,140,0.28) !important;
+  animation: none !important;
+  box-shadow:
+    0 0 0 1px rgba(0,200,140,0.12),
+    0 24px 64px rgba(0,0,0,0.40),
+    0 8px 32px rgba(0,200,140,0.08) !important;
+}
+body.landing-v2 .plan-card.featured::before,
+body.landing-v2 .plan-card.featured::after { opacity: 0 !important; }
+body.landing-v2 .plan-card.featured .plan-name  { color: #0D1830 !important; }
+body.landing-v2 .plan-card.featured .plan-num,
+body.landing-v2 .plan-card.featured .plan-cur   { color: #0D1830 !important; }
+body.landing-v2 .plan-card.featured .plan-period    { color: #4A5E7A !important; }
+body.landing-v2 .plan-card.featured .plan-total-row { color: #4A5E7A !important; }
+body.landing-v2 .plan-card.featured .plan-feat span { color: #1A2B45 !important; }
+body.landing-v2 .plan-card.featured .feat-check {
+  background: rgba(0,153,102,0.12) !important;
+  color: #007A52 !important;
+}
+body.landing-v2 .plan-card.featured .plan-divider { background: #E2DED7 !important; }
+body.landing-v2 .plan-card.featured .plan-saving {
+  background: rgba(0,153,102,0.12) !important;
+  color: #007A52 !important;
+}
+body.landing-v2 .plan-ribbon { background: #00EDAA !important; color: #030A1A !important; font-weight: 700; }
+body.landing-v2 .plan-card.featured .btn-primary {
+  background: linear-gradient(135deg, #0D1830 0%, #1A2B45 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 20px rgba(13,24,48,0.30) !important;
+}
+body.landing-v2 .plan-card.featured .btn-primary:hover {
+  background: linear-gradient(135deg, #162447 0%, #243560 100%) !important;
+  transform: translateY(-2px) scale(1.02) !important;
+}
+
+/* ── FAQ V2 — STICKY LEFT + ACCORDION RIGHT ── */
+.faq-v2-wrap {
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  gap: 80px;
+  align-items: start;
+}
+.faq-v2-left { position: sticky; top: 100px; }
+.faq-v2-left .eyebrow { display: inline-flex; }
+.faq-v2-left h2 {
+  font-size: clamp(30px, 3.8vw, 52px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #0D1830;
+  margin: 14px 0 14px;
+  line-height: 1.05;
+  text-align: left;
+  text-wrap: balance;
+}
+.faq-v2-left > p { color: #4A5E7A; line-height: 1.7; font-size: 15px; max-width: 300px; }
+.faq-v2-contact {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 28px;
+  padding: 11px 20px;
+  border: 1.5px solid #CCCAC3;
+  border-radius: 100px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0D1830;
+  background: transparent;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  text-decoration: none;
+  font-family: 'Outfit', sans-serif;
+}
+.faq-v2-contact:hover { background: #0D1830; color: #fff; border-color: #0D1830; }
+.faq-v2-contact i    { color: #25D366; font-size: 16px; }
+.faq-v2-right        { border-top: 1px solid #DDD9D0; }
+.faq-v2-item         { border-bottom: 1px solid #DDD9D0; }
+.faq-v2-q {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 22px 0;
+  background: none;
+  border: none;
+  font-family: 'Syne', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0D1830;
+  cursor: pointer;
+  text-align: left;
+  gap: 20px;
+  line-height: 1.4;
+}
+.faq-v2-ico {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid #CCCAC3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #0D1830;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.faq-v2-item.is-open .faq-v2-ico { background: #0D1830; border-color: #0D1830; color: #fff; }
+.faq-v2-body {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.40s cubic-bezier(0.16,1,0.3,1);
+}
+.faq-v2-item.is-open .faq-v2-body { max-height: 400px; }
+.faq-v2-a {
+  padding-bottom: 22px;
+  font-size: 15px;
+  color: #4A5E7A;
+  line-height: 1.75;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .faq-v2-wrap { grid-template-columns: 1fr; gap: 40px; }
+  .faq-v2-left { position: static; }
+  .stats-bare { grid-template-columns: 1fr 1fr; }
+  body.landing-v2 .section-light .stats-bare .stat-col:nth-child(2) { border-right: none !important; }
+  body.landing-v2 .section-light .testi-grid { grid-template-columns: 1fr !important; }
+}
+
+/* ── Prevent mid-word break — .hero-title in global.css sets word-break:break-word
+   and text-wrap:balance. Both are blocked here with !important ── */
+body.landing-v2 .hero-title-main,
+body.landing-v2 .hero-title-main .gradient-text {
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  hyphens: none !important;
+}
+body.landing-v2 .hero-title-main .gradient-text {
+  white-space: nowrap !important;
+}

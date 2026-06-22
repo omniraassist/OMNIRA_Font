@@ -6,17 +6,18 @@ import { usePanel } from '../../context/PanelContext.jsx';
 import { EmbeddedStripePay } from './EmbeddedStripePay.jsx';
 
 export function PostLoginPaymentStep() {
-  const { closeClientPanel, completePaymentStep, refreshCustomerUser } = usePanel();
+  const { closeClientPanel, completePaymentStep, refreshCustomerUser, enterPlanHome } = usePanel();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [embed, setEmbed] = useState(null);
 
-  let plan = null;
-  try {
-    plan = JSON.parse(localStorage.getItem(PLAN_STORAGE_KEY) || 'null');
-  } catch {
-    plan = null;
-  }
+  const [plan] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(PLAN_STORAGE_KEY) || 'null');
+    } catch {
+      return null;
+    }
+  });
 
   const persistUser = useCallback(
     async (user) => {
@@ -90,6 +91,31 @@ export function PostLoginPaymentStep() {
   function handleEmbeddedPaid(user) {
     setEmbed(null);
     void persistUser(user);
+  }
+
+  if (!plan) {
+    return (
+      <div className="auth-screen panel-payment-screen">
+        <header className="auth-header">
+          <div className="auth-header-inner">
+            <button type="button" className="auth-header-brand" onClick={closeClientPanel}>
+              <span className="auth-header-mini-icon"><LogoMark size={38} alt="" /></span>
+              Omni<span>ra</span>
+            </button>
+          </div>
+        </header>
+        <main className="panel-payment-main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="glass panel-payment-card" style={{ textAlign: 'center', padding: '40px 32px' }}>
+            <p style={{ marginBottom: 20, color: 'var(--soft)' }}>
+              No hay ningún plan seleccionado. Elige un plan antes de continuar.
+            </p>
+            <button type="button" className="btn-primary panel-plan-cta" onClick={() => enterPlanHome(null)}>
+              Elegir plan
+            </button>
+          </div>
+        </main>
+      </div>
+    );
   }
 
   return (

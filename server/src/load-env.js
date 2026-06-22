@@ -13,3 +13,16 @@ if (!isVercelRuntime) {
   dotenv.config({ path: path.join(dir, "..", ".env") });
   dotenv.config();
 }
+
+// Validate critical secrets at startup. On Vercel / production, abort if
+// CUSTOMER_JWT_SECRET is missing — it would allow forging tokens for any user.
+const isProduction = isVercelRuntime || process.env.NODE_ENV === "production";
+if (isProduction) {
+  const missing = ["CUSTOMER_JWT_SECRET"].filter(
+    (k) => !String(process.env[k] || "").trim()
+  );
+  if (missing.length) {
+    console.error(`[FATAL] Missing required env vars in production: ${missing.join(", ")}. Shutting down.`);
+    process.exit(1);
+  }
+}

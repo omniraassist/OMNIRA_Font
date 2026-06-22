@@ -6,6 +6,7 @@ import { Navbar } from './components/layout/Navbar.jsx';
 import { Footer } from './components/layout/Footer.jsx';
 import { WhatsAppFloat } from './components/layout/WhatsAppFloat.jsx';
 import { LandingPage } from './pages/LandingPage.jsx';
+import { LandingPageV2 } from './pages/LandingPageV2.jsx';
 import { PrivacyPage } from './pages/PrivacyPage.jsx';
 import { TermsPage } from './pages/TermsPage.jsx';
 import { PostLoginTwilioAssigning } from './components/panel/PostLoginTwilioAssigning.jsx';
@@ -54,6 +55,7 @@ function AppInner() {
   const pathname = usePathname();
   const path = normalizePath(pathname);
 
+  if (path === '/v2') return <LandingShell v2 />;
   if (path === '/privacidad') return <PrivacyPage />;
   if (path === '/terminos')   return <TermsPage />;
   if (path === '/preview-twilio') return (
@@ -100,7 +102,7 @@ function TwilioPreviewFlow() {
   return <PostLoginTwilioAssigning key={key} onDone={() => setKey((k) => k + 1)} />;
 }
 
-function LandingShell() {
+function LandingShell({ v2 = false }) {
   useReveal();
   const { openClientPanel } = usePanel();
 
@@ -161,7 +163,7 @@ function LandingShell() {
   return (
     <>
       <Navbar />
-      <LandingPage />
+      {v2 ? <LandingPageV2 /> : <LandingPage />}
       <Footer />
       <WhatsAppFloat />
       <Suspense fallback={null}>

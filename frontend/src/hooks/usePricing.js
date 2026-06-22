@@ -33,11 +33,18 @@ export function usePricing() {
     };
   }, []);
 
+  const liveMonthlyAmountCents = livePlans?.find((x) => x.id === 'monthly')?.amount_cents ?? null;
+
   const plans = OMNIRA_PLANS.map((p) => {
     const live = livePlans?.find((x) => x.id === p.id);
-    return mergePlanDisplay(p, live);
+    return mergePlanDisplay(p, live, liveMonthlyAmountCents);
   })
-    .filter((p) => (livePlans ? (livePlans.find((x) => x.id === p.id)?.is_active !== false ? true : false) : true))
+    .filter((p) => {
+      if (!livePlans) return true;
+      const live = livePlans.find((x) => x.id === p.id);
+      // If the plan doesn't exist in the live list, hide it; if it exists, respect is_active.
+      return live ? live.is_active !== false : false;
+    })
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 
   const plansByCheapest = [...plans].sort(

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { apiCall } from '../api/client.js';
 import { ONBOARDING_DONE_KEY, PLAN_STORAGE_KEY } from '../constants/plans.js';
 
@@ -33,6 +33,7 @@ export function PanelProvider({ children }) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState('login');
   const [user, setUser] = useState(null);
+  const openingRef = useRef(false);
 
   const closeClientPanel = useCallback(() => {
     setOpen(false);
@@ -74,90 +75,93 @@ export function PanelProvider({ children }) {
     setView('onboarding');
   }, []);
 
+  const completeWhatsAppSetup = useCallback(() => {
+    setView('dashboard');
+  }, []);
+
   const openClientPanel = useCallback(
     async (initial) => {
-      setOpen(true);
-      document.body.style.overflow = 'hidden';
+      // Guard against concurrent calls (e.g. double-click on "Entrar al panel").
+      if (openingRef.current) return;
+      openingRef.current = true;
+      try {
+        setOpen(true);
+        document.body.style.overflow = 'hidden';
 
-      // Dev preview: skip auth and go straight to the target view.
-      if (initial === 'preview-twilio') {
-        setView('onboarding');
-        return;
-      }
-
-      if (initial === 'stripe-return') {
-        const sid = sessionStorage.getItem('omnira_pending_checkout');
-        sessionStorage.removeItem('omnira_pending_checkout');
-        const sess = readSession();
-        if (!sess?.token) {
-          setView('login');
+        // Dev preview: skip auth and go straight to the target view.
+        if (initial === 'preview-twilio') {
+          setView('onboarding');
           return;
         }
-        setUser(sess.user);
-        if (!sid) {
-          setView(sess.user?.subscriptionActive ? 'dashboard' : 'paymentStep');
-          return;
-        }
-        try {
-          const r = await apiCall('/api/customer/stripe/confirm', {
-            method: 'POST',
-            body: JSON.stringify({ session_id: sid }),
-          });
-          if (r.ok && r.user) {
-            writeSessionUser(r.user);
-            setUser(r.user);
-            setView('onboarding');
+
+        if (initial === 'stripe-return') {
+          const sid = sessionStorage.getItem('omnira_pending_checkout');
+          sessionStorage.removeItem('omnira_pending_checkout');
+          const sess = readSession();
+          if (!sess?.token) {
+            setView('login');
             return;
           }
-        } catch {
-          /* fall through */
+          setUser(sess.user);
+          if (!sid) {
+            setView(sess.user?.subscriptionActive ? 'dashboard' : 'paymentStep');
+            return;
+          }
+          try {
+            const r = await apiCall('/api/customer/stripe/confirm', {
+              method: 'POST',
+              body: JSON.stringify({ session_id: sid }),
+            });
+            if (r.ok && r.user) {
+              writeSessionUser(r.user);
+              setUser(r.user);
+              setView('onboarding');
+              return;
+            }
+          } catch {
+            /* fall through */
+          }
+          setView('paymentStep');
+          return;
         }
-        setView('paymentStep');
-        return;
-      }
 
-      if (initial === 'stripe-canceled') {
+        if (initial === 'stripe-canceled') {
+          const sess = readSession();
+          if (sess?.user && sess?.token) {
+            const u = applyTestPaidOverride(sess.user);
+            setUser(u);
+            setView(u.subscriptionActive ? 'dashboard' : 'paymentStep');
+          } else {
+            setView('login');
+          }
+          return;
+        }
+
+        if (initial === 'login' || initial === 'register' || initial === 'forgot') {
+          setView(initial === 'register' ? 'login' : initial);
+          return;
+        }
+
         const sess = readSession();
         if (sess?.user && sess?.token) {
-          const u = applyTestPaidOverride(sess.user);
-          setUser(u);
-          setView(u.subscriptionActive ? 'dashboard' : 'paymentStep');
-        } else {
-          setView('login');
-        }
-        return;
-      }
-
-      if (initial === 'login' || initial === 'register' || initial === 'forgot') {
-        setView(initial === 'register' ? 'login' : initial);
-        return;
-      }
-
-      const sess = readSession();
-      if (sess?.user && sess?.token) {
-        setUser(applyTestPaidOverride(sess.user));
-        try {
-          const me = await apiCall('/api/customer/me');
-          const u = applyTestPaidOverride(me.user);
-          writeSessionUser(u);
-          setUser(u);
-          if (!u.subscriptionActive) {
-            setView('planHome');
+          setUser(applyTestPaidOverride(sess.user));
+          try {
+            const me = await apiCall('/api/customer/me');
+            const u = applyTestPaidOverride(me.user);
+            writeSessionUser(u);
+            setUser(u);
+            setView(u.subscriptionActive ? 'dashboard' : 'planHome');
+            return;
+          } catch {
+            const fallback = applyTestPaidOverride(sess.user);
+            setView(fallback?.subscriptionActive ? 'dashboard' : 'planHome');
             return;
           }
-          setView('dashboard');
-          return;
-        } catch {
-          const fallback = applyTestPaidOverride(sess.user);
-          if (!fallback?.subscriptionActive) {
-            setView('planHome');
-            return;
-          }
-          setView('dashboard');
-          return;
         }
+        setView(initial === 'register' ? 'register' : 'login');
+      } finally {
+        openingRef.current = false;
       }
-      setView(initial === 'register' ? 'register' : 'login');
     },
     []
   );
@@ -214,6 +218,7 @@ export function PanelProvider({ children }) {
       completeCustomerAuth,
       completePlanSelection,
       completePaymentStep,
+      completeWhatsAppSetup,
       handleLogout,
       refreshCustomerUser,
     }),
@@ -231,6 +236,7 @@ export function PanelProvider({ children }) {
       completeCustomerAuth,
       completePlanSelection,
       completePaymentStep,
+      completeWhatsAppSetup,
       handleLogout,
       refreshCustomerUser,
     ]

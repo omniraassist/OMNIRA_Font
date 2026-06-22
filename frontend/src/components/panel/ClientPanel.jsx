@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { usePanel } from '../../context/PanelContext.jsx';
 import { AuthForgot } from './AuthForgot.jsx';
 import { AuthLogin } from './AuthLogin.jsx';
@@ -8,7 +9,15 @@ import { PostLoginPlanHome } from './PostLoginPlanHome.jsx';
 import { PostLoginTwilioAssigning } from './PostLoginTwilioAssigning.jsx';
 
 export function ClientPanel() {
-  const { open, view, setView } = usePanel();
+  const { open, view, setView, user } = usePanel();
+
+  // Safety net: if somehow the dashboard is reached without a paid subscription,
+  // redirect to planHome so the user can purchase a plan.
+  useEffect(() => {
+    if (view === 'dashboard' && user !== null && !user?.subscriptionActive) {
+      setView('planHome');
+    }
+  }, [view, user, setView]);
 
   if (!open) return null;
 

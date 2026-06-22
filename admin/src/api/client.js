@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE ?? 'https://omnira-backend.vercel.app';
+const API_BASE = import.meta.env.VITE_API_BASE ?? 'https://omnira-server.vercel.app';
 const API_FALLBACK_BASE = import.meta.env.VITE_API_FALLBACK_BASE ?? 'http://localhost:5000';
 
 export async function apiCall(endpoint, opts = {}) {

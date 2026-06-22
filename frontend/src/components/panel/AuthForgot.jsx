@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { apiCall } from '../../api/client.js';
 import { LogoMark } from '../brand/LogoMark.jsx';
 import { usePanel } from '../../context/PanelContext.jsx';
@@ -9,10 +9,12 @@ export function AuthForgot() {
   const [ok, setOk] = useState('');
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
-  const [resetToken, setResetToken] = useState('');
   const [step, setStep] = useState('verify');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const timerRef = useRef(null);
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -23,36 +25,37 @@ export function AuthForgot() {
     try {
       if (step === 'verify') {
         const enteredEmail = String(form.get('forgotEmail') || '').trim().toLowerCase();
-        const res = await apiCall('/api/customer/reset/request', {
+        await apiCall('/api/customer/reset/request', {
           method: 'POST',
           body: JSON.stringify({ email: enteredEmail }),
         });
         setEmail(enteredEmail);
-        setResetToken(res.reset_token || '');
         setStep('reset');
-        setOk('Email verificado. Ahora crea nueva contraseña.');
+        setOk('Si tu correo está registrado, recibirás un código de recuperación en tu bandeja de entrada.');
         return;
       }
 
+      // step === 'reset': user has the code from their email
+      const resetToken = String(form.get('resetCode') || '').trim();
       const newPassword = String(form.get('newPassword') || '');
       const confirmPassword = String(form.get('confirmPassword') || '');
+
+      if (!resetToken) {
+        throw new Error('Introduce el código que recibiste por correo.');
+      }
       if (newPassword.length < 8) {
         throw new Error('La nueva contraseña debe tener al menos 8 caracteres.');
       }
       if (newPassword !== confirmPassword) {
         throw new Error('Las contraseñas no coinciden.');
       }
-      if (!resetToken) {
-        throw new Error('La sesión de restablecimiento ha caducado. Verifica el correo de nuevo.');
-      }
+
       await apiCall('/api/customer/reset/confirm', {
         method: 'POST',
         body: JSON.stringify({ token: resetToken, newPassword }),
       });
       setOk('Contraseña restablecida correctamente. Redirigiendo al inicio de sesión…');
-      setTimeout(() => {
-        showLogin();
-      }, 600);
+      timerRef.current = setTimeout(() => showLogin(), 600);
     } catch (ex) {
       setErr(ex.message || 'Error');
     } finally {
@@ -96,8 +99,8 @@ export function AuthForgot() {
                 <h1 className="auth-title">Recuperar contraseña</h1>
                 <p className="auth-subtitle">
                   {step === 'verify'
-                    ? 'Introduce tu correo para verificar tu cuenta.'
-                    : `Cuenta verificada (${email}). Crea tu nueva contraseña.`}
+                    ? 'Introduce tu correo para recibir un código de recuperación.'
+                    : `Introduce el código que te enviamos a ${email} y crea una nueva contraseña.`}
                 </p>
                 <div className={`auth-error ${err ? 'show' : ''}`}>{err}</div>
                 <div className={`auth-msg-success ${ok ? 'show' : ''}`}>{ok}</div>
@@ -107,13 +110,34 @@ export function AuthForgot() {
                       <label className="form-label" htmlFor="forgotEmail">
                         Email
                       </label>
-                      <input className="form-input" type="email" id="forgotEmail" name="forgotEmail" placeholder="tu@negocio.com" required />
+                      <input
+                        className="form-input"
+                        type="email"
+                        id="forgotEmail"
+                        name="forgotEmail"
+                        placeholder="tu@negocio.com"
+                        required
+                      />
                     </div>
                   ) : (
                     <>
                       <div className="form-group">
+                        <label className="form-label" htmlFor="resetCode">
+                          Código recibido por correo
+                        </label>
+                        <input
+                          className="form-input"
+                          type="text"
+                          id="resetCode"
+                          name="resetCode"
+                          placeholder="Pega aquí el código del email"
+                          required
+                          autoComplete="one-time-code"
+                        />
+                      </div>
+                      <div className="form-group">
                         <label className="form-label" htmlFor="newPassword">
-                          Crear nueva contraseña
+                          Nueva contraseña
                         </label>
                         <div style={{ position: 'relative' }}>
                           <input
@@ -168,7 +192,7 @@ export function AuthForgot() {
                       <div className="p-spinner" style={{ width: 20, height: 20 }} />
                     ) : (
                       <span className="panel-btn-primary-inner">
-                        <span>{step === 'verify' ? 'Verificar correo' : 'Restablecer contraseña'}</span>
+                        <span>{step === 'verify' ? 'Enviar código' : 'Restablecer contraseña'}</span>
                         <i className="fa-solid fa-paper-plane" aria-hidden />
                       </span>
                     )}
@@ -180,7 +204,6 @@ export function AuthForgot() {
                       type="button"
                       onClick={() => {
                         setStep('verify');
-                        setResetToken('');
                         setOk('');
                         setErr('');
                       }}
@@ -191,7 +214,11 @@ export function AuthForgot() {
                   </p>
                 )}
                 <p className="auth-switch">
-                  <button type="button" onClick={showLogin} style={{ background: 'none', border: 'none', color: 'var(--em)', cursor: 'pointer', font: 'inherit', fontWeight: 600 }}>
+                  <button
+                    type="button"
+                    onClick={showLogin}
+                    style={{ background: 'none', border: 'none', color: 'var(--em)', cursor: 'pointer', font: 'inherit', fontWeight: 600 }}
+                  >
                     ← Volver al inicio de sesión
                   </button>
                 </p>
@@ -206,7 +233,11 @@ export function AuthForgot() {
           <span className="auth-footer-badge">
             <i className="fa-solid fa-lock" /> Proceso seguro
           </span>
-          <button type="button" onClick={showLogin} style={{ background: 'none', border: 'none', color: 'var(--em)', cursor: 'pointer', fontWeight: 600 }}>
+          <button
+            type="button"
+            onClick={showLogin}
+            style={{ background: 'none', border: 'none', color: 'var(--em)', cursor: 'pointer', fontWeight: 600 }}
+          >
             Volver al login
           </button>
         </div>

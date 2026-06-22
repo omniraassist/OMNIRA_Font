@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 
 const SCRIPT = [
   { from: 'client', text: 'Hola, ¿tenéis hueco esta semana?' },
-  { from: 'bot', text: '¡Hola! Claro 😊 ¿Para qué servicio te gustaría reservar?' },
+  { from: 'bot', text: 'Hola. Claro, ¿qué servicio necesitas?' },
   { from: 'client', text: 'Limpieza facial y masaje de espalda' },
-  { from: 'bot', text: 'Perfecto. Tengo disponible el jueves 24 a las 17:00h. ¿Te va bien?' },
-  { from: 'client', text: '¡Sí, perfecto!' },
+  { from: 'bot', text: 'Tengo disponible el jueves 24 a las 17:00h. ¿Te va bien?' },
+  { from: 'client', text: 'Sí, perfecto.' },
   {
     from: 'bot',
-    text: '✅ ¡Cita confirmada! Te esperamos el jueves 24 a las 17:00h. Recibirás un recordatorio 24h antes 🎉',
+    text: 'Cita confirmada para el jueves 24 a las 17:00h. Recibirás un recordatorio 24 horas antes.',
   },
 ];
 
@@ -89,7 +89,11 @@ export function Hero() {
             <h1 className="hero-title">
               <span className="hero-title-kicker">Tu agenda inteligente</span>
               <span className="hero-title-main">
-                Convierte mensajes en <span className="gradient-text">citas automáticas</span>
+                Convierte mensajes en{' '}
+                <span className="gradient-text">
+                  citas{' '}
+                  <span style={{ display: 'inline-block' }}>automáticas</span>
+                </span>
               </span>
               <span className="hero-title-sub">Por WhatsApp — sin esfuerzo, las 24 horas.</span>
             </h1>

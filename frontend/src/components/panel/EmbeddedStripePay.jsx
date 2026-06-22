@@ -66,7 +66,13 @@ function InnerPayForm({ clientSecret, fallbackPaymentIntentId, onPaid, onError }
       if (r.user) {
         onPaid(r.user);
       } else {
-        setMsg('Pago ok pero no se pudo cargar el perfil. Recarga el panel.');
+        // Payment was confirmed but sync returned no user profile.
+        // Try refreshing the session — the webhook may have already processed it.
+        try {
+          const me = await apiCall('/api/customer/me');
+          if (me?.user) { onPaid(me.user); return; }
+        } catch { /* ignore */ }
+        setMsg('Pago confirmado. Si el panel no avanza en unos segundos, ciérralo y vuélvelo a abrir.');
       }
     } catch (err) {
       const m = err.message || 'Error al confirmar';

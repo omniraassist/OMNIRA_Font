@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
 import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
@@ -234,16 +234,23 @@ export function Dashboard({ mockData = null }) {
 
   useEffect(() => {
     if (page !== 'calendar') return;
-    (async () => {
-      const ev = await apiCall('/api/customer/events').catch(() => []);
-      setEvents(Array.isArray(ev) ? ev : []);
-    })();
+    let cancelled = false;
+    apiCall('/api/customer/events')
+      .catch(() => [])
+      .then((ev) => {
+        if (!cancelled) setEvents(Array.isArray(ev) ? ev : []);
+      });
+    return () => { cancelled = true; };
   }, [page, calDate]);
 
-  const showToast = (msg, type = 'success') => {
+  const toastTimerRef = useRef(null);
+  const showToast = useCallback((msg, type = 'success') => {
+    clearTimeout(toastTimerRef.current);
     setToast({ msg, type });
-    setTimeout(() => setToast({ msg: '', type: '' }), 3500);
-  };
+    toastTimerRef.current = setTimeout(() => setToast({ msg: '', type: '' }), 3500);
+  }, []);
+
+  useEffect(() => () => clearTimeout(toastTimerRef.current), []);
 
   function planDisplayName(planId) {
     return plansByCheapest.find((p) => p.id === planId)?.name || planId || 'Plan';

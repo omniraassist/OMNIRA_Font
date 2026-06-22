@@ -83,6 +83,19 @@
   .ben-grid {
     grid-template-columns: 1fr !important;
   }
+  .pain-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .faq-grid {
+    grid-template-columns: 1fr !important;
+    gap: 28px !important;
+  }
+  .testi-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .testi-grid > *:first-child {
+    grid-row: auto !important;
+  }
 }
 
 /* Navbar: tighter on phones */

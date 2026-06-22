@@ -198,6 +198,7 @@ img { max-width: 100%; display: block; }
   margin-bottom: 16px;
   overflow-wrap: anywhere;
   word-break: break-word;
+  text-wrap: balance;
 }
 .section-header p {
   font-size: clamp(15px, 2.8vw, 17px);
@@ -479,6 +480,7 @@ img { max-width: 100%; display: block; }
   display: block;
   font-size: clamp(30px, 6.5vw, 72px);
   line-height: 1.02;
+  text-wrap: balance;
 }
 .hero-title-main .gradient-text { filter: drop-shadow(0 0 28px rgba(0,229,160,0.25)); }
 .hero-title-sub {
@@ -530,6 +532,7 @@ img { max-width: 100%; display: block; }
   font-weight: 800;
   color: var(--em);
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 .hero-kpi-lbl {
   font-size: 12px;
@@ -802,7 +805,7 @@ img { max-width: 100%; display: block; }
   pointer-events: none;
 }
 
-.pain-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 60px; min-width: 0; }
+.pain-grid { display: grid; grid-template-columns: 1.55fr 1fr; gap: 16px; margin-bottom: 60px; min-width: 0; }
 .pain-grid > * { min-width: 0; }
 .pain-card {
   border-radius: var(--r-lg);
@@ -863,6 +866,7 @@ img { max-width: 100%; display: block; }
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  font-variant-numeric: tabular-nums;
 }
 .stat-label { font-size: clamp(11px, 2.8vw, 13px); color: var(--muted); line-height: 1.45; overflow-wrap: anywhere; }
 
@@ -1011,20 +1015,40 @@ img { max-width: 100%; display: block; }
 .ben-card:hover .ben-card-glow { transform: scale(1.5); opacity: 1.5; }
 .ben-emoji { font-size: 32px; margin-bottom: 18px; display: block; transition: transform 0.4s; }
 .ben-card:hover .ben-emoji { transform: scale(1.2) rotate(-10deg); }
+.ben-icon {
+  width: 48px; height: 48px; border-radius: 14px;
+  background: rgba(0,229,160,0.10);
+  border: 1px solid rgba(0,229,160,0.22);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 20px;
+  font-size: 20px; color: var(--em);
+  transition: transform 0.4s, box-shadow 0.3s;
+  flex-shrink: 0;
+}
+.ben-card:hover .ben-icon { transform: scale(1.1) rotate(-8deg); box-shadow: 0 0 20px rgba(0,229,160,0.18); }
 .ben-metric {
   font-family: 'Syne', sans-serif;
   font-size: 42px; font-weight: 800;
   color: var(--em);
   line-height: 1;
   margin-bottom: 4px;
+  font-variant-numeric: tabular-nums;
 }
 .ben-sub { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
 .ben-card h3 { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 8px; font-family: 'Outfit', sans-serif; }
 .ben-card p { font-size: 13px; color: var(--muted); line-height: 1.65; }
 
 /* Testimonials */
-.testi-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; min-width: 0; }
+.testi-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 16px;
+  min-width: 0;
+  align-items: start;
+}
 .testi-grid > * { min-width: 0; }
+.testi-grid > *:first-child { grid-row: 1 / 3; }
 .testi-card {
   border-radius: var(--r-xl);
   padding: 28px;
@@ -1303,6 +1327,7 @@ img { max-width: 100%; display: block; }
   color: #fff;
   line-height: 0.95;
   letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
 }
 .plan-num.featured-num {
   font-size: 52px;
@@ -1426,6 +1451,46 @@ img { max-width: 100%; display: block; }
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    CTA FINAL SECTION
 â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+
+/* FAQ SECTION */
+.faq-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 36px 64px;
+  max-width: 1020px;
+  margin: 0 auto;
+}
+.faq-grid-item {
+  border-left: 2px solid rgba(0,229,160,0.18);
+  padding-left: 22px;
+}
+.faq-grid-q {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.faq-grid-q h3 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.45;
+}
+.faq-grid-icon {
+  display: flex;
+  align-items: flex-start;
+  padding-top: 2px;
+  flex-shrink: 0;
+  color: var(--em);
+  font-size: 13px;
+}
+.faq-grid-a {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+
 #cta-final {
   padding: 140px 0;
   background: var(--ink);

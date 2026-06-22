@@ -103,7 +103,7 @@ export function HowItWorksSection() {
 
         <div className="glass-em setup-banner reveal" style={{ borderRadius: 'var(--r-xl)', marginTop: '32px' }}>
           <div className="setup-left">
-            <div className="setup-icon">🚀</div>
+            <div className="setup-icon"><i className="fa-solid fa-rocket" style={{ color: 'var(--em)', fontSize: '24px' }} /></div>
             <div className="setup-text">
               <h3>Activo en menos de 5 minutos</h3>
               <p>Sin pasos manuales, sin configurar Meta ni Twilio. Regístrate, paga y empieza a recibir reservas automáticas hoy mismo.</p>
