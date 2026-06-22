@@ -425,9 +425,8 @@ img { max-width: 100%; display: block; }
 }
 .hero-inner > * { min-width: 0; }
 
-/* Copy column */
+/* Copy column — entry handled by framer-motion in Hero.jsx */
 .hero-copy {
-  animation: slideInLeft 0.85s cubic-bezier(0.4,0,0.2,1) 0.05s both;
 }
 
 .hero-badge {
@@ -587,12 +586,11 @@ img { max-width: 100%; display: block; }
 .trust-badge { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
 .trust-badge i { color: var(--em); font-size: 13px; }
 
-/* Hero Visual â€” glass stage */
+/* Hero Visual — glass stage — entry handled by framer-motion in Hero.jsx */
 .hero-visual {
   display: flex;
   justify-content: center;
   align-items: center;
-  animation: slideInRight 0.85s cubic-bezier(0.4,0,0.2,1) 0.2s both;
   position: relative;
 }
 .hero-stage {

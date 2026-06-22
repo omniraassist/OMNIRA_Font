@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { motion, useMotionValue, useTransform, useSpring, useReducedMotion } from 'framer-motion';
+import { AuroraEffect } from '../ui/AuroraEffect.jsx';
 
 const SCRIPT = [
   { from: 'client', text: 'Hola, ¿tenéis hueco esta semana?' },
@@ -15,6 +17,33 @@ const SCRIPT = [
 export function Hero() {
   const bodyRef = useRef(null);
   const [nodes, setNodes] = useState([]);
+  const reduce = useReducedMotion();
+
+  // Mouse tracking for 3D tilt.
+  // useMotionValue instead of useState: never re-renders the React tree,
+  // runs entirely in the motion layer on every pointer event.
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const rotY = useSpring(useTransform(mouseX, [-300, 300], [-10, 10]), {
+    stiffness: 120,
+    damping: 22,
+  });
+  const rotX = useSpring(useTransform(mouseY, [-300, 300], [8, -8]), {
+    stiffness: 120,
+    damping: 22,
+  });
+
+  function handleMouseMove(e) {
+    if (reduce) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    mouseX.set(e.clientX - rect.left - rect.width / 2);
+    mouseY.set(e.clientY - rect.top - rect.height / 2);
+  }
+
+  function handleMouseLeave() {
+    mouseX.set(0);
+    mouseY.set(0);
+  }
 
   useEffect(() => {
     let chatIdx = 0;
@@ -73,14 +102,13 @@ export function Hero() {
     <section id="hero">
       <div className="hero-bg">
         <div className="hero-bg-scrim" aria-hidden="true" />
-        <div className="hero-bg-mesh" aria-hidden="true" />
-        <div className="hero-orb hero-orb-1" />
-        <div className="hero-orb hero-orb-2" />
-        <div className="hero-orb hero-orb-3" />
-        <div className="hero-grid-pattern" />
+        <AuroraEffect />
+        <div className="hero-grid-pattern" aria-hidden="true" />
       </div>
       <div className="container">
         <div className="hero-inner">
+
+          {/* ── Copy column — entrance via CSS v2-rise on each child (global_v2.css) ── */}
           <div className="hero-copy">
             <div className="hero-badge">
               <span className="hero-badge-dot" />
@@ -99,7 +127,7 @@ export function Hero() {
             </h1>
             <p className="hero-subtitle">
               Omnira responde a tus clientes, gestiona reservas y llena tu agenda{' '}
-              <strong>24/7 sin esfuerzo</strong> — mientras tú te enfocas en lo que importa.
+              <strong>24/7 sin esfuerzo</strong>, mientras tú te enfocas en lo que importa.
             </p>
             <div className="hero-kpis" aria-hidden="true">
               <div className="hero-kpi">
@@ -121,7 +149,7 @@ export function Hero() {
                 Solicitar demo gratis
               </a>
               <a href="#precios" className="btn-ghost btn-lg">
-                Ver planes — desde 33€/mes (12 meses)
+                Ver precios, desde 33€/mes
               </a>
             </div>
             <div className="hero-proof">
@@ -184,8 +212,18 @@ export function Hero() {
             </div>
           </div>
 
-          <div className="hero-visual">
-            <div className="hero-stage">
+          {/* ── Visual column: 3D tilt stage ── */}
+          {/* perspective on the parent, entrance via CSS v2-rise on .hero-visual */}
+          <div
+            className="hero-visual"
+            style={{ perspective: '1000px' }}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+          >
+            <motion.div
+              className="hero-stage"
+              style={reduce ? {} : { rotateX: rotX, rotateY: rotY }}
+            >
               <div className="hero-visual-wrap">
                 <div className="phone-frame">
                   <div className="phone-notch">
@@ -231,7 +269,7 @@ export function Hero() {
                   </div>
                 </div>
 
-                {/* Mobile-only live chip — replaces the desktop float cards on small screens */}
+                {/* Mobile-only live chip */}
                 <div className="phone-live-chip" aria-hidden="true">
                   <span className="phone-live-chip-dot" />
                   Respondiendo en vivo · <strong>24/7</strong>
@@ -242,7 +280,7 @@ export function Hero() {
                     <i className="fa-solid fa-calendar-check" style={{ color: 'var(--em)' }} />
                   </div>
                   <div className="float-card-text">
-                    <strong>✅ Cita confirmada</strong>
+                    <strong>Cita confirmada</strong>
                     <small>Jueves 24 · 17:00h</small>
                   </div>
                 </div>
@@ -260,13 +298,14 @@ export function Hero() {
                     <i className="fa-solid fa-star" style={{ color: 'var(--gold)' }} />
                   </div>
                   <div className="float-card-text">
-                    <strong>4.9★ valoración</strong>
+                    <strong>4.9 valoración</strong>
                     <small>Media de clientes</small>
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
+
         </div>
       </div>
     </section>

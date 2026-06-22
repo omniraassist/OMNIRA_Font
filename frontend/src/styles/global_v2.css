@@ -495,20 +495,15 @@ body.landing-v2 .btn-primary::after {
   }
 }
 
-/* ── REVEAL — stronger ease-out, tighter stagger ── */
+/* ── REVEAL — base transition (overridden by the later block at line ~630) ── */
 body.landing-v2 .reveal,
 body.landing-v2 .reveal-left,
 body.landing-v2 .reveal-right {
   transition:
-    opacity 0.65s cubic-bezier(0.23, 1, 0.32, 1),
-    transform 0.65s cubic-bezier(0.23, 1, 0.32, 1);
+    opacity 0.55s cubic-bezier(0.23, 1, 0.32, 1),
+    transform 0.75s cubic-bezier(0.23, 1, 0.32, 1);
 }
-body.landing-v2 .reveal { transform: translateY(20px); }
-/* Tighter stagger: 60 ms steps instead of 100 ms */
-body.landing-v2 .reveal-d1 { transition-delay: 60ms; }
-body.landing-v2 .reveal-d2 { transition-delay: 120ms; }
-body.landing-v2 .reveal-d3 { transition-delay: 180ms; }
-body.landing-v2 .reveal-d4 { transition-delay: 240ms; }
+body.landing-v2 .reveal { opacity: 1; transform: translateY(20px); }
 
 /* ── BENEFIT CARDS — hover tone-down (8 px was too much) ── */
 body.landing-v2 .ben-card:hover {
@@ -585,7 +580,14 @@ body.landing-v2 .hero-orb-3 {
   body.landing-v2 .reveal,
   body.landing-v2 .reveal-left,
   body.landing-v2 .reveal-right {
-    transition: opacity 0.2s ease;
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+  body.landing-v2 .reveal.visible,
+  body.landing-v2 .reveal-left.visible,
+  body.landing-v2 .reveal-right.visible {
+    opacity: 1;
     transform: none;
   }
 }
@@ -624,24 +626,35 @@ body.landing-v2 .hero-visual {
 
 /* ── SCROLL REVEALS — spring physics ──
    Overrides the earlier reveal block further up in this file.
-   50 px travel + subtle scale-in = premium fintech feel. */
+   50 px travel + subtle scale-in = premium fintech feel.
+
+   SPECIFICITY NOTE: body.landing-v2 .reveal = (0,2,1), which beats
+   .reveal.visible (0,2,0) from global.css. We must add .visible
+   overrides at (0,3,1) so the slide-up transform actually fires.
+   We also keep opacity:1 in the initial state so content is never
+   invisible — sections never look like empty blocks on scroll. */
 body.landing-v2 .reveal,
 body.landing-v2 .reveal-left,
 body.landing-v2 .reveal-right {
   transition:
-    opacity 0.85s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
 }
-body.landing-v2 .reveal       { transform: translateY(50px) scale(0.97); }
-body.landing-v2 .reveal-left  { transform: translateX(-50px) scale(0.97); }
-body.landing-v2 .reveal-right { transform: translateX(50px)  scale(0.97); }
+body.landing-v2 .reveal       { opacity: 1; transform: translateY(32px) scale(0.98); }
+body.landing-v2 .reveal-left  { opacity: 1; transform: translateX(-32px) scale(0.98); }
+body.landing-v2 .reveal-right { opacity: 1; transform: translateX(32px)  scale(0.98); }
+
+/* (0,3,1) beats (0,2,1) — these are the rules that actually win */
+body.landing-v2 .reveal.visible       { opacity: 1; transform: translateY(0) scale(1); }
+body.landing-v2 .reveal-left.visible  { opacity: 1; transform: translateX(0) scale(1); }
+body.landing-v2 .reveal-right.visible { opacity: 1; transform: translateX(0) scale(1); }
 
 /* Stagger spacing — wider gaps make the cascade legible */
-body.landing-v2 .reveal-d1 { transition-delay: 90ms; }
-body.landing-v2 .reveal-d2 { transition-delay: 180ms; }
-body.landing-v2 .reveal-d3 { transition-delay: 270ms; }
-body.landing-v2 .reveal-d4 { transition-delay: 360ms; }
-body.landing-v2 .reveal-d5 { transition-delay: 450ms; }
+body.landing-v2 .reveal-d1 { transition-delay: 60ms; }
+body.landing-v2 .reveal-d2 { transition-delay: 120ms; }
+body.landing-v2 .reveal-d3 { transition-delay: 180ms; }
+body.landing-v2 .reveal-d4 { transition-delay: 240ms; }
+body.landing-v2 .reveal-d5 { transition-delay: 300ms; }
 
 /* ── FAQ GRID — child stagger on parent .visible ──
    The parent .faq-grid already has the .reveal class. When the
@@ -986,7 +999,7 @@ body.landing-v2 .section-light .stats-bare .stat-col:not(:last-child) {
   font-weight: 700;
   letter-spacing: 0.14em;
   color: var(--em);
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   margin-bottom: 14px;
   opacity: 0.70;
 }
@@ -1103,7 +1116,7 @@ body.landing-v2 .plan-card.featured .btn-primary:hover {
   background: transparent;
   transition: background 0.2s, border-color 0.2s, color 0.2s;
   text-decoration: none;
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .faq-v2-contact:hover { background: #0D1830; color: #fff; border-color: #0D1830; }
 .faq-v2-contact i    { color: #25D366; font-size: 16px; }
@@ -1117,7 +1130,7 @@ body.landing-v2 .plan-card.featured .btn-primary:hover {
   padding: 22px 0;
   background: none;
   border: none;
-  font-family: 'Syne', sans-serif;
+  font-family: 'Geist', sans-serif;
   font-size: 16px;
   font-weight: 600;
   color: #0D1830;
