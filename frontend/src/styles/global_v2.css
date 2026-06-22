@@ -177,9 +177,12 @@ body.landing-v2 #navbar.scrolled {
 /* Richer background: indigo accent replaces the plain blue */
 body.landing-v2 .hero-bg-scrim {
   background:
-    linear-gradient(115deg, rgba(3, 6, 14, 0.97) 0%, rgba(3, 6, 14, 0.82) 42%, rgba(3, 6, 14, 0.38) 100%),
-    radial-gradient(ellipse 70% 55% at 15% 25%, rgba(0, 237, 170, 0.17) 0%, transparent 52%),
-    radial-gradient(ellipse 50% 42% at 88% 72%, rgba(99, 102, 241, 0.13) 0%, transparent 56%);
+    rgba(5, 8, 18, 0.88),
+    radial-gradient(ellipse 90% 70% at 50% 42%, rgba(0, 237, 170, 0.11) 0%, transparent 58%),
+    radial-gradient(ellipse 55% 50% at 80% 75%, rgba(99, 102, 241, 0.07) 0%, transparent 55%);
+}
+body.landing-v2 .hero-grid-pattern {
+  mask-image: radial-gradient(ellipse 90% 85% at 50% 50%, black 0%, transparent 78%);
 }
 body.landing-v2 .hero-orb-1 {
   background: rgba(0, 237, 170, 0.13);
@@ -1185,4 +1188,242 @@ body.landing-v2 .hero-title-main .gradient-text {
 }
 body.landing-v2 .hero-title-main .gradient-text {
   white-space: nowrap !important;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   HERO — CENTERED REDESIGN (21st.dev reference)
+   Replaces the two-column split layout with a centered
+   column + animated rotating word headline.
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* Centered container */
+body.landing-v2 .hero-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: clamp(18px, 2.5vw, 26px);
+  max-width: 860px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+  padding: clamp(16px, 3vw, 32px) 0;
+}
+
+/* ── Badge ── */
+body.landing-v2 .hero-center .hero-badge {
+  justify-content: center;
+  margin-inline: auto;
+  margin-bottom: 0;
+}
+
+/* ── Headline ── */
+body.landing-v2 #hero .hero-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: clamp(44px, 9.5vw, 96px);
+  line-height: 1.06;
+  letter-spacing: -0.045em;
+  text-align: center;
+  margin-bottom: 0;
+  overflow: visible;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+/* Line 1: static, emerald */
+body.landing-v2 .hero-title-static {
+  display: block;
+  color: var(--em);
+}
+
+/* Line 2: rotating container — clips the sliding word */
+body.landing-v2 .hero-title-rotate {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  height: 1.14em;
+  width: 100%;
+}
+
+/* Individual rotating word — absolutely positioned, centered */
+body.landing-v2 .hero-title-word {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  white-space: nowrap;
+}
+
+/* ── Subtitle, actions, proof — centered ── */
+body.landing-v2 .hero-center .hero-subtitle {
+  text-align: center;
+  max-width: 580px;
+  margin-bottom: 0;
+}
+body.landing-v2 .hero-center .hero-actions  { justify-content: center; flex-wrap: wrap; margin-bottom: 0; }
+body.landing-v2 .hero-center .hero-proof    { justify-content: center; margin: 0 auto; }
+body.landing-v2 .hero-center .hero-trust    { justify-content: center; margin-top: 0; }
+body.landing-v2 .hero-center .hero-kpis     { justify-content: center; }
+
+/* ── Floating stat pills (top-right) ── */
+body.landing-v2 .hero-floaters {
+  position: absolute;
+  z-index: 3;
+  top: clamp(90px, 12vw, 140px);
+  right: clamp(20px, 4vw, 64px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none;
+}
+
+body.landing-v2 .hero-floater {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(5, 8, 18, 0.68);
+  border: 1px solid rgba(0, 229, 160, 0.18);
+  border-radius: 14px;
+  padding: 10px 16px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  animation: v2-rise 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+body.landing-v2 .hero-floater:nth-child(1) { animation-delay: 0.85s; }
+body.landing-v2 .hero-floater:nth-child(2) { animation-delay: 1.05s; }
+body.landing-v2 .hero-floater:nth-child(3) { animation-delay: 1.25s; }
+
+body.landing-v2 .hero-floater > i {
+  color: var(--em);
+  font-size: 13px;
+  width: 16px;
+  flex-shrink: 0;
+}
+body.landing-v2 .hero-floater-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1;
+}
+body.landing-v2 .hero-floater-text strong {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+body.landing-v2 .hero-floater-text span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* ── Dot ripple background (lab-bg) ── */
+body.landing-v2 .hero-dot-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  --dot-mask-offset: 130px;
+  -webkit-mask:
+    linear-gradient(to bottom, transparent, #fff var(--dot-mask-offset) calc(100% - var(--dot-mask-offset)), transparent),
+    linear-gradient(to right,  transparent, #fff var(--dot-mask-offset) calc(100% - var(--dot-mask-offset)), transparent);
+  mask:
+    linear-gradient(to bottom, transparent, #fff var(--dot-mask-offset) calc(100% - var(--dot-mask-offset)), transparent),
+    linear-gradient(to right,  transparent, #fff var(--dot-mask-offset) calc(100% - var(--dot-mask-offset)), transparent);
+  -webkit-mask-composite: source-in, xor;
+  mask-composite: intersect;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+body.landing-v2 .hero-dot-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.10) 1px, transparent 1px);
+  background-size: 24px 24px;
+  -webkit-mask-image: radial-gradient(circle at center, transparent 0%, transparent 100%);
+  mask-image: radial-gradient(circle at center, transparent 0%, transparent 100%);
+  animation: hero-dot-ripple 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  will-change: transform, mask-image, -webkit-mask-image, background-size, opacity;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+@keyframes hero-dot-ripple {
+  0%  {
+    opacity: 0; background-size: 0 0; transform: scale(0.1);
+    -webkit-mask-image: radial-gradient(circle at center, black 0%, black 0%, transparent 2%, transparent 100%);
+    mask-image: radial-gradient(circle at center, black 0%, black 0%, transparent 2%, transparent 100%);
+  }
+  10% {
+    opacity: 1; background-size: 24px 24px; transform: scale(0.2);
+    -webkit-mask-image: radial-gradient(circle at center, black 0%, black 8%, transparent 12%, transparent 100%);
+    mask-image: radial-gradient(circle at center, black 0%, black 8%, transparent 12%, transparent 100%);
+  }
+  20% {
+    transform: scale(0.3);
+    -webkit-mask-image: radial-gradient(circle at center, black 0%, black 18%, transparent 22%, transparent 100%);
+    mask-image: radial-gradient(circle at center, black 0%, black 18%, transparent 22%, transparent 100%);
+  }
+  30% {
+    transform: scale(0.4);
+    -webkit-mask-image: radial-gradient(circle at center, black 0%, black 28%, transparent 32%, transparent 100%);
+    mask-image: radial-gradient(circle at center, black 0%, black 28%, transparent 32%, transparent 100%);
+  }
+  40% {
+    transform: scale(0.5);
+    -webkit-mask-image: radial-gradient(circle at center, transparent 0%, black 38%, transparent 42%, transparent 100%);
+    mask-image: radial-gradient(circle at center, transparent 0%, black 38%, transparent 42%, transparent 100%);
+  }
+  50% {
+    transform: scale(0.6);
+    -webkit-mask-image: radial-gradient(circle at center, transparent 0%, black 48%, transparent 52%, transparent 100%);
+    mask-image: radial-gradient(circle at center, transparent 0%, black 48%, transparent 52%, transparent 100%);
+  }
+  60% {
+    transform: scale(0.7);
+    -webkit-mask-image: radial-gradient(circle at center, transparent 0%, black 58%, transparent 62%, transparent 100%);
+    mask-image: radial-gradient(circle at center, transparent 0%, black 58%, transparent 62%, transparent 100%);
+  }
+  70% {
+    transform: scale(0.8);
+    -webkit-mask-image: radial-gradient(circle at center, transparent 0%, black 68%, transparent 72%, transparent 100%);
+    mask-image: radial-gradient(circle at center, transparent 0%, black 68%, transparent 72%, transparent 100%);
+  }
+  80% {
+    transform: scale(0.9);
+    -webkit-mask-image: radial-gradient(circle at center, transparent 0%, black 78%, transparent 82%, transparent 100%);
+    mask-image: radial-gradient(circle at center, transparent 0%, black 78%, transparent 82%, transparent 100%);
+  }
+  90% {
+    transform: scale(0.95);
+    -webkit-mask-image: radial-gradient(circle at center, transparent 0%, black 88%, transparent 92%, transparent 100%);
+    mask-image: radial-gradient(circle at center, transparent 0%, black 88%, transparent 92%, transparent 100%);
+  }
+  100% {
+    opacity: 0; background-size: 0 0; transform: scale(1);
+    -webkit-mask-image: radial-gradient(circle at center, transparent 0%, transparent 100%);
+    mask-image: radial-gradient(circle at center, transparent 0%, transparent 100%);
+  }
+}
+
+/* ── Mobile ── */
+@media (max-width: 900px) {
+  body.landing-v2 .hero-floaters { display: none; }
+}
+@media (max-width: 600px) {
+  body.landing-v2 #hero .hero-title { font-size: clamp(38px, 12vw, 58px); }
+  body.landing-v2 .hero-title-rotate { height: 1.2em; }
+  body.landing-v2 .hero-center .hero-actions { flex-direction: column; }
+  body.landing-v2 .hero-center .hero-actions a { width: 100%; justify-content: center; }
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  body.landing-v2 .hero-dot-bg::before { animation: none; opacity: 0; }
+  body.landing-v2 .hero-floater { animation: none; opacity: 1; transform: none; }
 }
