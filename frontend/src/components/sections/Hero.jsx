@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence, useMotionValue, useTransform, useSpring, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { AuroraEffect } from '../ui/AuroraEffect.jsx';
 
 const SCRIPT = [
@@ -38,21 +38,45 @@ export function Hero() {
     return () => clearInterval(id);
   }, [reduce]);
 
-  /* ── 3-D tilt (normalised to element size → full range at any edge) ── */
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
+  /* ── 3-D tilt — RAF+lerp, no library dependency ── */
+  const stageRef = useRef(null);
+  const rafRef   = useRef(null);
+  const tilt     = useRef({ tx: 0, ty: 0, cx: 0, cy: 0 });
 
-  /* Wide range + soft spring = very visible, cinematic tilt */
-  const rotY = useSpring(useTransform(mouseX, [-100, 100], [-24, 24]), { stiffness: 55, damping: 12 });
-  const rotX = useSpring(useTransform(mouseY, [-100, 100], [17, -17]), { stiffness: 55, damping: 12 });
+  function runTick() {
+    const t = tilt.current;
+    t.cx += (t.tx - t.cx) * 0.09;
+    t.cy += (t.ty - t.cy) * 0.09;
+    if (stageRef.current) {
+      stageRef.current.style.transform =
+        `rotateX(${t.cx}deg) rotateY(${t.cy}deg)`;
+    }
+    if (Math.abs(t.cx - t.tx) > 0.02 || Math.abs(t.cy - t.ty) > 0.02) {
+      rafRef.current = requestAnimationFrame(runTick);
+    } else {
+      rafRef.current = null;
+    }
+  }
+
+  function kickTick() {
+    if (!rafRef.current) rafRef.current = requestAnimationFrame(runTick);
+  }
 
   function handleMouseMove(e) {
     if (reduce) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    mouseX.set(((e.clientX - rect.left) / rect.width  - 0.5) * 200);
-    mouseY.set(((e.clientY - rect.top)  / rect.height - 0.5) * 200);
+    tilt.current.ty =  ((e.clientX - rect.left) / rect.width  - 0.5) * 52;
+    tilt.current.tx = -((e.clientY - rect.top)  / rect.height - 0.5) * 38;
+    kickTick();
   }
-  function handleMouseLeave() { mouseX.set(0); mouseY.set(0); }
+
+  function handleMouseLeave() {
+    tilt.current.tx = 0;
+    tilt.current.ty = 0;
+    kickTick();
+  }
+
+  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
 
   /* ── WhatsApp chat loop ── */
   useEffect(() => {
@@ -195,19 +219,16 @@ export function Hero() {
           {/* ── RIGHT: phone with dramatic 3-D tilt ── */}
           <div
             className="hero-visual"
-            style={{ perspective: '650px', perspectiveOrigin: '50% 50%' }}
+            style={{ perspective: '800px', perspectiveOrigin: '50% 45%' }}
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
           >
-            <motion.div
+            <div
+              ref={stageRef}
               className="hero-stage"
-              style={reduce ? {} : {
-                rotateX: rotX,
-                rotateY: rotY,
-                transformStyle: 'preserve-3d',
-              }}
+              style={{ transformStyle: 'preserve-3d', willChange: 'transform' }}
             >
-              <div className="hero-visual-wrap">
+              <div className="hero-visual-wrap" style={{ transformStyle: 'preserve-3d' }}>
                 <div className="phone-frame">
                   <div className="phone-notch">
                     <div className="phone-notch-dot" />
@@ -253,20 +274,20 @@ export function Hero() {
                   Respondiendo en vivo · <strong>24/7</strong>
                 </div>
 
-                <div className="float-card float-card-1" style={{ transform: 'translateZ(28px)' }}>
+                <div className="float-card float-card-1" style={{ transform: 'translateZ(80px)' }}>
                   <div className="float-icon green"><i className="fa-solid fa-calendar-check" style={{ color: 'var(--em)' }} /></div>
                   <div className="float-card-text"><strong>Cita confirmada</strong><small>Jueves 24 · 17:00h</small></div>
                 </div>
-                <div className="float-card float-card-2" style={{ transform: 'translateZ(36px)' }}>
+                <div className="float-card float-card-2" style={{ transform: 'translateZ(110px)' }}>
                   <div className="float-icon blue"><i className="fa-solid fa-bolt" style={{ color: '#60A5FA' }} /></div>
                   <div className="float-card-text"><strong style={{ color: 'var(--em)' }}>Respuesta: 1.2s</strong><small>Automática 24/7</small></div>
                 </div>
-                <div className="float-card float-card-3" style={{ transform: 'translateZ(22px)' }}>
+                <div className="float-card float-card-3" style={{ transform: 'translateZ(60px)' }}>
                   <div className="float-icon gold"><i className="fa-solid fa-star" style={{ color: 'var(--gold)' }} /></div>
                   <div className="float-card-text"><strong>4.9 valoración</strong><small>Media de clientes</small></div>
                 </div>
               </div>
-            </motion.div>
+            </div>
           </div>
 
         </div>

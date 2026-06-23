@@ -861,6 +861,24 @@ body.landing-v2::before {
 
 
 /* ══════════════════════════════════════════════════════════════
+   3D TILT FIX
+   backdrop-filter on .hero-stage (global.css) kills transform-style:
+   preserve-3d, making float-card translateZ values completely ignored.
+   Override it here with a more opaque solid background so the glass
+   look is maintained while the 3D context is restored.
+══════════════════════════════════════════════════════════════ */
+body.landing-v2 .hero-stage {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: linear-gradient(
+    155deg,
+    rgba(6, 10, 22, 0.94) 0%,
+    rgba(4, 7, 15, 0.91) 100%
+  ) !important;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
    V2 FULL REDESIGN — Nuvance-inspired adaptation
    Typography · Light sections · Bare stats · Numbered cards
    Testimonials v2 · White pricing card · FAQ accordion
