@@ -750,6 +750,7 @@ async function logWaMessage(row) {
   if (!isSupabaseConfigured()) return;
   try {
     await supabaseAdmin.from("wa_messages").insert({
+      customer_user_id: row.customer_user_id || null,
       phone_number_id: row.phone_number_id || null,
       wa_from: row.wa_from,
       wa_message_id: row.wa_message_id || null,
@@ -769,15 +770,21 @@ async function logWaMessage(row) {
  * overwrite existing values; nulls don't clobber prior known data. Increments
  * message_count and updates last_message_at + updated_at on every call.
  */
-async function upsertWaLead({ phoneNumberId, waFrom, extracted, inboundBody }) {
+async function upsertWaLead({ phoneNumberId, waFrom, extracted, inboundBody, customerId }) {
   if (!isSupabaseConfigured() || !waFrom) return;
   try {
-    const { data: existing } = await supabaseAdmin
+    let q = supabaseAdmin
       .from("wa_leads")
       .select("id,name,email,phone,intent,language,confidence,notes,message_count,first_seen_at")
       .eq("phone_number_id", phoneNumberId || "")
-      .eq("wa_from", waFrom)
-      .maybeSingle();
+      .eq("wa_from", waFrom);
+    // Scope lookup to the right customer so two customers never share a lead row.
+    if (customerId) {
+      q = q.eq("customer_user_id", customerId);
+    } else {
+      q = q.is("customer_user_id", null);
+    }
+    const { data: existing } = await q.maybeSingle();
 
     const now = new Date().toISOString();
     const fields = extracted || {};
@@ -799,6 +806,7 @@ async function upsertWaLead({ phoneNumberId, waFrom, extracted, inboundBody }) {
         .from("wa_leads")
         .update({
           ...merged,
+          customer_user_id: customerId || existing.customer_user_id || null,
           last_message_at: now,
           message_count: (existing.message_count || 0) + 1,
           updated_at: now
@@ -806,6 +814,7 @@ async function upsertWaLead({ phoneNumberId, waFrom, extracted, inboundBody }) {
         .eq("id", existing.id);
     } else {
       await supabaseAdmin.from("wa_leads").insert({
+        customer_user_id: customerId || null,
         phone_number_id: phoneNumberId || null,
         wa_from: waFrom,
         ...merged,
@@ -1253,7 +1262,7 @@ async function processCustomerWebhookInbound(inbound, customerCfg) {
     // customers are ES; the message is short and clear in either case).
     const renewMsg =
       "Hola 👋 Tu plan de Omnira ha expirado, por eso este asistente no puede responder ahora mismo. " +
-      "Renueva tu plan en https://omnira-saas-application.vercel.app/ para reactivar las respuestas automáticas. ¡Gracias!";
+      "Renueva tu plan en https://www.omnira.chat/ para reactivar las respuestas automáticas. ¡Gracias!";
     const out = await sendCustomerWhatsAppMessage(customerCfg, inbound.from, renewMsg);
     if (out?.ok) {
       await logWaMessage({
@@ -1329,7 +1338,8 @@ async function processCustomerWebhookInbound(inbound, customerCfg) {
       phoneNumberId: inbound.phoneNumberId,
       waFrom: inbound.from,
       extracted,
-      inboundBody: inbound.body
+      inboundBody: inbound.body,
+      customerId
     });
 
     // Booking detection: check the whole conversation for keywords
@@ -1338,18 +1348,6 @@ async function processCustomerWebhookInbound(inbound, customerCfg) {
       if (booking) {
         await saveBotBooking({ customerId, waFrom: inbound.from, booking });
       }
-    }
-
-    // Tag the lead row with the customer so /api/customer/leads sees it.
-    try {
-      await supabaseAdmin
-        .from("wa_leads")
-        .update({ customer_user_id: customerId })
-        .eq("phone_number_id", inbound.phoneNumberId)
-        .eq("wa_from", inbound.from)
-        .is("customer_user_id", null);
-    } catch {
-      /* ignore */
     }
   } catch (e) {
     console.error("[meta whatsapp] customer reply error", customerId, e?.message || e);

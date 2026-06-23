@@ -1765,11 +1765,20 @@ app.delete("/api/customer/calendar/connections/:id", requireCustomer, async (req
  * random visitor can't trigger the worker. Vercel cron will call this on a
  * 5-minute schedule (see vercel.json).
  */
-app.post("/api/internal/calendar/drain", async (req, res) => {
+function verifyCronSecret(req) {
   const expected = String(process.env.CRON_SECRET || "").trim();
+  if (!expected) return false;
+  // Vercel cron sends: Authorization: Bearer <CRON_SECRET>
+  const authHeader = String(req.headers["authorization"] || "").trim();
+  if (authHeader === `Bearer ${expected}`) return true;
+  // Manual / CI call: X-Cron-Token header or ?token= query param
   const given = String(req.headers["x-cron-token"] || req.query.token || "").trim();
-  // Reject if CRON_SECRET is not set OR the token doesn't match.
-  if (!expected || given !== expected) {
+  return given === expected;
+}
+
+// Vercel cron always sends GET — register both GET and POST so manual triggers work too.
+async function handleCalendarDrain(req, res) {
+  if (!verifyCronSecret(req)) {
     return res.status(401).json({ ok: false, message: "Unauthorized" });
   }
   try {
@@ -1778,7 +1787,9 @@ app.post("/api/internal/calendar/drain", async (req, res) => {
   } catch (error) {
     return res.status(500).json({ ok: false, message: error.message });
   }
-});
+}
+app.get("/api/internal/calendar/drain", handleCalendarDrain);
+app.post("/api/internal/calendar/drain", handleCalendarDrain);
 
 /**
  * Customer bookings/calendar. Replaces the prior localStorage stub at /api/events.
@@ -3946,13 +3957,28 @@ app.post("/api/twilio/whatsapp/webhook", express.urlencoded({ extended: false })
     }
     const customerId = assignment.customer_user_id;
 
-    // Load customer plan for rate limiting.
+    // Load customer row — need subscription status and plan for all checks below.
     const { data: customerRow } = await supabaseAdmin
       .from("customer_users")
-      .select("subscription_plan_id")
+      .select("subscription_plan_id, subscription_ends_at")
       .eq("id", customerId)
       .maybeSingle();
     const planId = customerRow?.subscription_plan_id || "monthly";
+
+    // Check subscription is still active. If expired, send a renewal nudge and bail.
+    const subActive = Boolean(
+      customerRow?.subscription_ends_at && new Date(customerRow.subscription_ends_at) > new Date()
+    );
+    if (!subActive) {
+      console.warn(`[twilio] subscription expired for customer ${customerId} — sending renewal nudge`);
+      await sendTwilioWhatsAppMessage(
+        toPhone,
+        fromPhone,
+        "Hola 👋 Tu plan de Omnira ha expirado, por eso este asistente no puede responder ahora mismo. " +
+          "Renueva tu plan en https://www.omnira.chat/ para reactivar las respuestas automáticas. ¡Gracias!"
+      );
+      return res.send("<Response></Response>");
+    }
 
     // Check monthly conversation limit (Plan A: OMNIRA absorbs Twilio cost).
     const limitCheck = await checkAndIncrementConversation(customerId, fromPhone, planId);
@@ -4170,6 +4196,46 @@ app.get("/api/customer/twilio-conversations", requireCustomer, async (req, res) 
 });
 
 /** Admin: release numbers for all customers whose subscription has expired. */
+/**
+ * Internal cron: release Twilio numbers from customers whose subscription has
+ * expired. Protected by X-Cron-Token === CRON_SECRET (same pattern as
+ * /api/internal/calendar/drain). Vercel cron calls this daily at 02:00 UTC.
+ */
+async function handleTwilioReleaseExpired(req, res) {
+  if (!verifyCronSecret(req)) {
+    return res.status(401).json({ ok: false, message: "Unauthorized" });
+  }
+  try {
+    const now = new Date().toISOString();
+    // Find customers whose subscription has expired AND who still have an assigned number.
+    const { data: expiredCustomers } = await supabaseAdmin
+      .from("twilio_number_pool")
+      .select("customer_user_id")
+      .eq("status", "assigned")
+      .not("customer_user_id", "is", null);
+
+    const released = [];
+    for (const row of expiredCustomers || []) {
+      const { data: u } = await supabaseAdmin
+        .from("customer_users")
+        .select("subscription_ends_at")
+        .eq("id", row.customer_user_id)
+        .maybeSingle();
+      const expired = !u?.subscription_ends_at || new Date(u.subscription_ends_at) <= new Date();
+      if (expired) {
+        const r = await releaseCustomerNumber(row.customer_user_id);
+        if (r.ok) released.push(row.customer_user_id);
+      }
+    }
+    console.log(`[twilio cron] released ${released.length} expired numbers`);
+    return res.status(200).json({ ok: true, released: released.length, ids: released });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+}
+app.get("/api/internal/twilio/release-expired", handleTwilioReleaseExpired);
+app.post("/api/internal/twilio/release-expired", handleTwilioReleaseExpired);
+
 app.post("/api/admin/twilio/release-expired", requireAdmin, async (req, res) => {
   try {
     const now = new Date().toISOString();
