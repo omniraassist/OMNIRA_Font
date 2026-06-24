@@ -35,7 +35,8 @@ import {
   conversationHasBookingKeywords,
   loadCustomerBotConfig,
   loadCustomerBusiness,
-  buildCustomerSystemPrompt
+  buildCustomerSystemPrompt,
+  sendCustomerWhatsAppTemplate
 } from "./metaWhatsAppWebhook.js";
 import { getAdapter, providerStatus } from "./calendar/registry.js";
 import { createOAuthState, verifyOAuthState } from "./calendar/oauthState.js";
@@ -1037,6 +1038,87 @@ app.get("/api/customer/wa-messages", requireCustomer, async (req, res) => {
     return res.status(200).json({ ok: true, messages: data || [] });
   } catch (error) {
     return res.status(500).json({ ok: false, message: `Customer wa-messages failed: ${error.message}` });
+  }
+});
+
+/** List WhatsApp templates stored in DB for this customer's WABA. */
+app.get("/api/customer/whatsapp/templates", requireCustomer, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("whatsapp_message_templates")
+      .select("id, template_name, category, status, language_code, body_text, last_synced_at, created_at")
+      .order("template_name");
+    if (error) throw error;
+    return res.json({ ok: true, templates: data || [] });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** Sync approved templates from Meta Graph API into DB. */
+app.post("/api/customer/whatsapp/templates/sync", requireCustomer, async (req, res) => {
+  try {
+    const cfg = await findCustomerConfigByPhoneNumberId(null, req.customerId);
+    if (!cfg?.meta_access_token || !cfg?.meta_waba_id) {
+      return res.status(400).json({ ok: false, message: "Configura primero tu cuenta de WhatsApp Business (token + WABA ID)." });
+    }
+    const gv = String(cfg.meta_graph_version || "v19.0");
+    const versionTag = gv.startsWith("v") ? gv : `v${gv}`;
+    const url = `https://graph.facebook.com/${versionTag}/${cfg.meta_waba_id}/message_templates?fields=name,category,status,language,components&limit=100`;
+    const metaRes = await fetch(url, { headers: { Authorization: `Bearer ${cfg.meta_access_token}` } });
+    if (!metaRes.ok) {
+      const t = await metaRes.text().catch(() => "");
+      return res.status(502).json({ ok: false, message: `Meta API error: ${t.slice(0, 200)}` });
+    }
+    const metaData = await metaRes.json();
+    const templates = metaData?.data || [];
+    let synced = 0;
+    for (const tpl of templates) {
+      const bodyComp = (tpl.components || []).find((c) => c.type === "BODY");
+      await supabaseAdmin.from("whatsapp_message_templates").upsert({
+        template_name: tpl.name,
+        category: tpl.category || "UTILITY",
+        status: tpl.status || "UNKNOWN",
+        language_code: tpl.language || "es",
+        body_text: bodyComp?.text || null,
+        last_synced_at: new Date().toISOString()
+      }, { onConflict: "template_name" });
+      synced++;
+    }
+    return res.json({ ok: true, synced });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** Send a template to one or more leads by wa_from number. */
+app.post("/api/customer/whatsapp/templates/send", requireCustomer, rateLimit({ max: 20, windowMs: 60 * 1000 }), async (req, res) => {
+  try {
+    const templateName = String(req.body?.template_name || "").trim();
+    const recipients = Array.isArray(req.body?.recipients) ? req.body.recipients : [];
+    const languageCode = String(req.body?.language_code || "es").trim();
+    const components = Array.isArray(req.body?.components) ? req.body.components : [];
+    if (!templateName || recipients.length === 0) {
+      return res.status(400).json({ ok: false, message: "template_name y al menos un recipient son obligatorios." });
+    }
+    if (recipients.length > 50) {
+      return res.status(400).json({ ok: false, message: "Máximo 50 destinatarios por envío." });
+    }
+    const cfg = await findCustomerConfigByPhoneNumberId(null, req.customerId);
+    if (!cfg?.meta_access_token) {
+      return res.status(400).json({ ok: false, message: "Configura primero tu cuenta de WhatsApp Business." });
+    }
+    const results = [];
+    for (const phone of recipients) {
+      const digits = String(phone).replace(/\D/g, "");
+      const result = await sendCustomerWhatsAppTemplate(cfg, digits, templateName, languageCode, components);
+      results.push({ phone: digits, ok: result.ok, error: result.ok ? null : result.snippet });
+    }
+    const sent = results.filter((r) => r.ok).length;
+    const failed = results.filter((r) => !r.ok).length;
+    return res.json({ ok: true, sent, failed, results });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
   }
 });
 

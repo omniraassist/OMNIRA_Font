@@ -1355,6 +1355,46 @@ async function processCustomerWebhookInbound(inbound, customerCfg) {
 }
 
 // Shared helpers re-exported for the Twilio webhook handler (index.js).
+/**
+ * Send a WhatsApp template message to a recipient.
+ * components: array of { type: "body"|"header"|"button", parameters: [...] }
+ */
+export async function sendCustomerWhatsAppTemplate(customerConfig, toE164Digits, templateName, languageCode = "es", components = []) {
+  const token = String(customerConfig?.meta_access_token || "").trim();
+  const phoneNumberId = String(customerConfig?.meta_phone_number_id || "").trim();
+  if (!token || !phoneNumberId || !toE164Digits || !templateName) {
+    return { ok: false, status: 0, snippet: "missing credentials or template name" };
+  }
+  const gv = String(customerConfig?.meta_graph_version || "").trim() || (await graphVersion());
+  const versionTag = gv.startsWith("v") ? gv : `v${gv}`;
+  const url = `https://graph.facebook.com/${versionTag}/${phoneNumberId}/messages`;
+  const body = {
+    messaging_product: "whatsapp",
+    to: toE164Digits,
+    type: "template",
+    template: {
+      name: templateName,
+      language: { code: languageCode },
+      ...(components.length ? { components } : {})
+    }
+  };
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const text = await res.text().catch(() => "");
+    if (!res.ok) {
+      console.warn("[meta whatsapp] template send failed", res.status, text.slice(0, 300));
+      return { ok: false, status: res.status, snippet: text.slice(0, 300) };
+    }
+    return { ok: true, status: res.status, snippet: "" };
+  } catch (e) {
+    return { ok: false, status: 0, snippet: e?.message || "network" };
+  }
+}
+
 export {
   callOpenAiWithRetry,
   extractLeadFromConversation,
