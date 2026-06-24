@@ -224,6 +224,101 @@ function TemplatesPage({ leads, showToast, page }) {
   );
 }
 
+function BotTestPage() {
+  const [testHistory, setTestHistory] = React.useState([]);
+  const [testInput, setTestInput] = React.useState('');
+  const [testLoading, setTestLoading] = React.useState(false);
+  const chatEndRef = React.useRef(null);
+
+  React.useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [testHistory, testLoading]);
+
+  async function sendTestMessage() {
+    const msg = testInput.trim();
+    if (!msg || testLoading) return;
+    const newHistory = [...testHistory, { role: 'user', content: msg }];
+    setTestHistory(newHistory);
+    setTestInput('');
+    setTestLoading(true);
+    try {
+      const data = await apiCall('/api/customer/bot/test', {
+        method: 'POST',
+        body: JSON.stringify({ message: msg, history: testHistory })
+      });
+      setTestHistory([...newHistory, { role: 'assistant', content: data.reply }]);
+    } catch {
+      setTestHistory([...newHistory, { role: 'assistant', content: '⚠️ Error al conectar con el bot.' }]);
+    } finally {
+      setTestLoading(false);
+    }
+  }
+
+  return (
+    <div className="p-card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div style={{ height: 420, overflowY: 'auto', padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {testHistory.length === 0 && (
+          <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+            <i className="fa-solid fa-comments" style={{ fontSize: 32, marginBottom: 10, display: 'block', opacity: 0.3 }} />
+            Escribe un mensaje para ver cómo responde tu bot
+          </div>
+        )}
+        {testHistory.map((m, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+            <div style={{
+              maxWidth: '75%', padding: '10px 14px',
+              borderRadius: m.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+              background: m.role === 'user' ? 'var(--accent)' : 'var(--card-bg-2, rgba(255,255,255,0.06))',
+              color: m.role === 'user' ? '#fff' : 'var(--text)',
+              fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word'
+            }}>
+              {m.content}
+            </div>
+          </div>
+        ))}
+        {testLoading && (
+          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            <div style={{ padding: '10px 14px', borderRadius: '18px 18px 18px 4px', background: 'var(--card-bg-2, rgba(255,255,255,0.06))', fontSize: 13, color: 'var(--muted)' }}>
+              <i className="fa-solid fa-circle-notch fa-spin" style={{ marginRight: 6 }} />escribiendo…
+            </div>
+          </div>
+        )}
+        <div ref={chatEndRef} />
+      </div>
+      <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'flex', gap: 10 }}>
+        <input
+          className="form-input"
+          style={{ flex: 1, margin: 0 }}
+          placeholder="Escribe un mensaje de prueba..."
+          value={testInput}
+          onChange={(e) => setTestInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTestMessage(); } }}
+          disabled={testLoading}
+        />
+        <button
+          type="button"
+          className="btn-save-form"
+          style={{ margin: 0, padding: '0 20px', minWidth: 80 }}
+          onClick={sendTestMessage}
+          disabled={testLoading || !testInput.trim()}
+        >
+          Enviar
+        </button>
+        {testHistory.length > 0 && (
+          <button
+            type="button"
+            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '0 12px', cursor: 'pointer', color: 'var(--muted)', fontSize: 12 }}
+            onClick={() => setTestHistory([])}
+            title="Limpiar conversación"
+          >
+            <i className="fa-solid fa-trash" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function Dashboard({ mockData = null }) {
   const { user, handleLogout } = usePanel();
   const { plansByCheapest } = usePricing();
@@ -1486,106 +1581,7 @@ export function Dashboard({ mockData = null }) {
           <div id="page-bottest" className={`p-page${page === 'bottest' ? ' active' : ''}`}>
             <h1 className="p-page-title">Probar Bot</h1>
             <p className="p-page-sub">Prueba cómo responde tu agente sin enviar ningún WhatsApp real.</p>
-            {(() => {
-              const [testHistory, setTestHistory] = React.useState([]);
-              const [testInput, setTestInput] = React.useState('');
-              const [testLoading, setTestLoading] = React.useState(false);
-              const chatEndRef = React.useRef(null);
-
-              React.useEffect(() => {
-                chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-              }, [testHistory, testLoading]);
-
-              async function sendTestMessage() {
-                const msg = testInput.trim();
-                if (!msg || testLoading) return;
-                const newHistory = [...testHistory, { role: 'user', content: msg }];
-                setTestHistory(newHistory);
-                setTestInput('');
-                setTestLoading(true);
-                try {
-                  const data = await apiCall('/api/customer/bot/test', {
-                    method: 'POST',
-                    body: JSON.stringify({ message: msg, history: testHistory })
-                  });
-                  setTestHistory([...newHistory, { role: 'assistant', content: data.reply }]);
-                } catch {
-                  setTestHistory([...newHistory, { role: 'assistant', content: '⚠️ Error al conectar con el bot.' }]);
-                } finally {
-                  setTestLoading(false);
-                }
-              }
-
-              return (
-                <div className="p-card" style={{ padding: 0, overflow: 'hidden' }}>
-                  {/* Chat messages */}
-                  <div style={{ height: 420, overflowY: 'auto', padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {testHistory.length === 0 && (
-                      <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
-                        <i className="fa-solid fa-comments" style={{ fontSize: 32, marginBottom: 10, display: 'block', opacity: 0.3 }} />
-                        Escribe un mensaje para ver cómo responde tu bot
-                      </div>
-                    )}
-                    {testHistory.map((m, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                        <div style={{
-                          maxWidth: '75%',
-                          padding: '10px 14px',
-                          borderRadius: m.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                          background: m.role === 'user' ? 'var(--accent)' : 'var(--card-bg-2, rgba(255,255,255,0.06))',
-                          color: m.role === 'user' ? '#fff' : 'var(--text)',
-                          fontSize: 13,
-                          lineHeight: 1.5,
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word'
-                        }}>
-                          {m.content}
-                        </div>
-                      </div>
-                    ))}
-                    {testLoading && (
-                      <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                        <div style={{ padding: '10px 14px', borderRadius: '18px 18px 18px 4px', background: 'var(--card-bg-2, rgba(255,255,255,0.06))', fontSize: 13, color: 'var(--muted)' }}>
-                          <i className="fa-solid fa-circle-notch fa-spin" style={{ marginRight: 6 }} />escribiendo…
-                        </div>
-                      </div>
-                    )}
-                    <div ref={chatEndRef} />
-                  </div>
-                  {/* Input bar */}
-                  <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'flex', gap: 10 }}>
-                    <input
-                      className="form-input"
-                      style={{ flex: 1, margin: 0 }}
-                      placeholder="Escribe un mensaje de prueba..."
-                      value={testInput}
-                      onChange={(e) => setTestInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTestMessage(); } }}
-                      disabled={testLoading}
-                    />
-                    <button
-                      type="button"
-                      className="btn-save-form"
-                      style={{ margin: 0, padding: '0 20px', minWidth: 80 }}
-                      onClick={sendTestMessage}
-                      disabled={testLoading || !testInput.trim()}
-                    >
-                      Enviar
-                    </button>
-                    {testHistory.length > 0 && (
-                      <button
-                        type="button"
-                        style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '0 12px', cursor: 'pointer', color: 'var(--muted)', fontSize: 12 }}
-                        onClick={() => setTestHistory([])}
-                        title="Limpiar conversación"
-                      >
-                        <i className="fa-solid fa-trash" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
+            <BotTestPage />
           </div>
 
           {/* Single chatbot training page — greeting + instructions + knowledge base, one save */}
