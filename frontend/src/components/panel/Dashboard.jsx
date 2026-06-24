@@ -349,6 +349,7 @@ export function Dashboard({ mockData = null }) {
   const [events, setEvents] = useState([]);
   const [biz, setBiz] = useState({});
   const [bot, setBot] = useState({});
+  const [waIsActive, setWaIsActive] = useState(false);
   const [toast, setToast] = useState({ msg: '', type: '' });
   const [kbBusy, setKbBusy] = useState(false);
   const [kbErr, setKbErr] = useState('');
@@ -1052,6 +1053,61 @@ export function Dashboard({ mockData = null }) {
             );
           })()}
           <div id="page-dash" className={`p-page${page === 'dash' ? ' active' : ''}`}>
+            {/* Setup checklist — shown until all 3 steps are complete */}
+            {!mockData && (() => {
+              const setupItems = [
+                { key: 'biz', label: 'Info del negocio configurada', done: Boolean(biz.name), page: 'negocio', icon: 'fa-building' },
+                { key: 'bot', label: 'Bot personalizado', done: Boolean(bot.greeting || bot.instructions), page: 'knowledge', icon: 'fa-robot' },
+                { key: 'wa', label: 'Número de WhatsApp activo', done: Boolean(twilioNumber), page: 'whatsapp', icon: 'fa-brands fa-whatsapp' },
+              ];
+              const doneCount = setupItems.filter((i) => i.done).length;
+              if (doneCount === setupItems.length) return null;
+              const pct = Math.round((doneCount / setupItems.length) * 100);
+              return (
+                <div className="p-card" style={{ marginBottom: 20, background: 'linear-gradient(135deg, rgba(96,165,250,0.06) 0%, rgba(0,229,160,0.04) 100%)', borderColor: 'rgba(96,165,250,0.22)' }}>
+                  <div className="p-card-header" style={{ marginBottom: 10 }}>
+                    <span className="p-card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <i className="fa-solid fa-rocket" style={{ color: 'var(--em)', fontSize: 14 }} />
+                      Completa tu configuración
+                    </span>
+                    <span style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'monospace' }}>{doneCount}/{setupItems.length} pasos</span>
+                  </div>
+                  <div style={{ height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.06)', marginBottom: 14, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${pct}%`, borderRadius: 999, background: 'linear-gradient(90deg, var(--em), #93c5fd)', transition: 'width .5s ease' }} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {setupItems.map((item) => (
+                      <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{
+                          width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: item.done ? 'rgba(0,229,160,0.15)' : 'rgba(255,255,255,0.04)',
+                          border: `1.5px solid ${item.done ? 'rgba(0,229,160,0.40)' : 'rgba(255,255,255,0.08)'}`,
+                          fontSize: 12,
+                          color: item.done ? 'var(--em)' : 'var(--muted)',
+                        }}>
+                          {item.done
+                            ? <i className="fa-solid fa-check" />
+                            : <i className={`fa-solid ${item.icon}`} />}
+                        </div>
+                        <span style={{ flex: 1, fontSize: 13, color: item.done ? 'var(--soft)' : 'var(--text)', textDecoration: item.done ? 'line-through' : 'none', opacity: item.done ? 0.6 : 1 }}>
+                          {item.label}
+                        </span>
+                        {!item.done && (
+                          <button
+                            type="button"
+                            onClick={() => showPage(item.page)}
+                            style={{ background: 'none', border: '1px solid rgba(0,229,160,0.30)', borderRadius: 7, padding: '3px 10px', color: 'var(--em)', fontSize: 12, cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}
+                          >
+                            Configurar →
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
             <div id="dashUpgradeBanner" className="upgrade-banner" style={{ display: isPro ? 'none' : 'flex' }}>
               <div className="upgrade-text">
                 <h4>Activa el bot de WhatsApp para tu negocio</h4>

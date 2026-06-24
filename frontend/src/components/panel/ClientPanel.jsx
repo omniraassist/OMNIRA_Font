@@ -4,9 +4,9 @@ import { AuthForgot } from './AuthForgot.jsx';
 import { AuthLogin } from './AuthLogin.jsx';
 import { AuthRegister } from './AuthRegister.jsx';
 import { Dashboard } from './Dashboard.jsx';
+import { OnboardingWizard } from './OnboardingWizard.jsx';
 import { PostLoginPaymentStep } from './PostLoginPaymentStep.jsx';
 import { PostLoginPlanHome } from './PostLoginPlanHome.jsx';
-import { PostLoginTwilioAssigning } from './PostLoginTwilioAssigning.jsx';
 
 export function ClientPanel() {
   const { open, view, setView, user } = usePanel();
@@ -30,7 +30,7 @@ export function ClientPanel() {
       {view === 'forgot' && <AuthForgot />}
       {view === 'planHome' && <PostLoginPlanHome />}
       {view === 'paymentStep' && <PostLoginPaymentStep />}
-      {view === 'onboarding' && <PostLoginTwilioAssigning onDone={() => setView('dashboard')} />}
+      {view === 'onboarding' && <OnboardingWizard onDone={() => setView('dashboard')} />}
       {view === 'dashboard' && <Dashboard />}
     </div>
   );
