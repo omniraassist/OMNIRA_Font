@@ -8,7 +8,7 @@
   "crons": [
     {
       "path": "/api/internal/calendar/drain",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/internal/twilio/release-expired",
