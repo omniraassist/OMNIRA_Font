@@ -283,3 +283,107 @@ export async function applyPaidPaymentIntent(pi) {
 
   return { ok: true, planId, subscription_ends_at: newEnd };
 }
+
+/**
+ * Called on invoice.payment_succeeded for a subscription invoice.
+ * Handles both initial payment (billing_reason=subscription_create) and renewals.
+ */
+export async function applySubscriptionInvoicePaid(invoice) {
+  const subscriptionId = typeof invoice.subscription === "string"
+    ? invoice.subscription
+    : invoice.subscription?.id || null;
+  if (!subscriptionId) return { ok: false, reason: "no_subscription_id" };
+
+  const stripe = getStripe();
+  if (!stripe) return { ok: false, reason: "no_stripe" };
+
+  const sub = await stripe.subscriptions.retrieve(subscriptionId);
+  const userId = String(sub.metadata?.customer_user_id || "").trim();
+  const planId = String(sub.metadata?.plan_id || "").trim();
+
+  let customerId = userId;
+  if (!customerId) {
+    const stripeCustomerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id;
+    if (stripeCustomerId) {
+      const { data: cu } = await supabaseAdmin
+        .from("customer_users").select("id").eq("stripe_customer_id", stripeCustomerId).maybeSingle();
+      customerId = cu?.id || "";
+    }
+  }
+  if (!customerId) return { ok: false, reason: "customer_not_found" };
+
+  const newEnd = new Date(sub.current_period_end * 1000).toISOString();
+  const invoiceId = invoice.id;
+  const piId = typeof invoice.payment_intent === "string"
+    ? invoice.payment_intent
+    : invoice.payment_intent?.id || null;
+
+  const dedupKey = piId || invoiceId;
+  const { data: dup } = await supabaseAdmin
+    .from("customer_payments").select("id")
+    .eq("stripe_payment_intent_id", dedupKey).maybeSingle();
+  if (dup) return { ok: true, duplicate: true };
+
+  const { error: upErr } = await supabaseAdmin
+    .from("customer_users")
+    .update({
+      ...(planId ? { subscription_plan_id: planId } : {}),
+      subscription_ends_at: newEnd,
+      stripe_subscription_id: subscriptionId,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", customerId);
+  if (upErr) return { ok: false, reason: upErr.message };
+
+  await supabaseAdmin.from("customer_payments").insert({
+    customer_user_id: customerId,
+    plan_id: planId || null,
+    stripe_checkout_session_id: null,
+    stripe_payment_intent_id: piId,
+    amount_cents: invoice.amount_paid || 0,
+    currency: String(invoice.currency || "eur").toLowerCase(),
+    period_days: null,
+    subscription_end_after: newEnd
+  });
+
+  if (invoice.billing_reason === "subscription_cycle") {
+    await insertPurchaseNotification({
+      customerId,
+      planLabel: planId || null,
+      newEnd,
+      dedupKey: `system:renewal:inv:${invoiceId}`
+    });
+  }
+
+  return { ok: true, subscription_ends_at: newEnd };
+}
+
+/**
+ * Called on customer.subscription.deleted — clears stripe_subscription_id but
+ * leaves subscription_ends_at so the customer keeps access until period end.
+ */
+export async function applySubscriptionDeleted(subscription) {
+  const subscriptionId = subscription.id;
+  if (!subscriptionId) return { ok: false, reason: "no_id" };
+
+  const userId = String(subscription.metadata?.customer_user_id || "").trim();
+  let customerId = userId;
+  if (!customerId) {
+    const stripeCustomerId = typeof subscription.customer === "string"
+      ? subscription.customer : subscription.customer?.id;
+    if (stripeCustomerId) {
+      const { data: cu } = await supabaseAdmin
+        .from("customer_users").select("id").eq("stripe_customer_id", stripeCustomerId).maybeSingle();
+      customerId = cu?.id || "";
+    }
+  }
+  if (!customerId) return { ok: false, reason: "customer_not_found" };
+
+  await supabaseAdmin
+    .from("customer_users")
+    .update({ stripe_subscription_id: null, updated_at: new Date().toISOString() })
+    .eq("id", customerId)
+    .eq("stripe_subscription_id", subscriptionId);
+
+  return { ok: true };
+}

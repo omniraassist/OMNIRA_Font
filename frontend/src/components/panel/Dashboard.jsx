@@ -1273,15 +1273,44 @@ export function Dashboard({ mockData = null }) {
               </div>
               <div className="p-card">
                 <div className="p-card-header">
-                  <span className="p-card-title">Próxima renovación</span>
+                  <span className="p-card-title">Renovación</span>
+                  {user?.stripe_subscription_id && (
+                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: '#10b98122', color: '#10b981', fontWeight: 600 }}>
+                      Auto-renovación activa
+                    </span>
+                  )}
                 </div>
                 <div style={{ padding: '20px 0' }}>
-                  <div style={{ fontSize: 13, color: 'var(--soft)', marginBottom: 6 }}>Acceso hasta</div>
+                  <div style={{ fontSize: 13, color: 'var(--soft)', marginBottom: 6 }}>
+                    {user?.stripe_subscription_id ? 'Se renueva el' : 'Acceso hasta'}
+                  </div>
                   <div style={{ fontSize: 20, color: 'var(--text)', fontWeight: 700 }}>
                     {user?.subscription_ends_at
                       ? new Date(user.subscription_ends_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
                       : 'Sin suscripción activa'}
                   </div>
+                  {user?.stripe_subscription_id ? (
+                    <div style={{ marginTop: 16 }}>
+                      <button
+                        type="button"
+                        style={{ fontSize: 12, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                        onClick={async () => {
+                          if (!window.confirm('¿Cancelar la renovación automática? Tu plan seguirá activo hasta la fecha de vencimiento.')) return;
+                          try {
+                            await apiCall('/api/customer/stripe/subscription/cancel', { method: 'POST' });
+                            showToast('Renovación cancelada. Tu plan sigue activo hasta la fecha indicada.', 'ok');
+                            await loadData();
+                          } catch { showToast('Error al cancelar. Inténtalo de nuevo.', 'error'); }
+                        }}
+                      >
+                        Cancelar renovación automática
+                      </button>
+                    </div>
+                  ) : user?.subscriptionActive ? (
+                    <div style={{ marginTop: 16, fontSize: 12, color: 'var(--muted)' }}>
+                      Pago único · No se renueva automáticamente
+                    </div>
+                  ) : null}
                   <div style={{ height: 1, background: 'var(--border)', margin: '18px 0' }} />
                   <div style={{ fontSize: 13, color: 'var(--soft)', marginBottom: 6 }}>Último pago</div>
                   {latestPayment ? (

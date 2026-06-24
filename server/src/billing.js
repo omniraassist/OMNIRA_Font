@@ -40,7 +40,7 @@ export async function getCheckoutPlans() {
   try {
     const { data, error } = await supabaseAdmin
       .from("pricing_plans")
-      .select("id, label, period_text, amount_cents, duration_days, currency, is_active, sort_order")
+      .select("id, label, period_text, amount_cents, duration_days, currency, is_active, sort_order, stripe_price_id")
       .eq("is_active", true)
       .order("sort_order", { ascending: true });
     if (error) throw error;
@@ -57,7 +57,8 @@ export async function getCheckoutPlans() {
         label: String(row.label),
         periodText: String(row.period_text || ""),
         currency: String(row.currency || "eur"),
-        sortOrder: Number(row.sort_order || 0)
+        sortOrder: Number(row.sort_order || 0),
+        stripePriceId: row.stripe_price_id || null
       };
     }
     _cache = map;

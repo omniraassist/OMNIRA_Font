@@ -7,7 +7,7 @@ import { supabaseAdmin } from "./config/supabase.js";
 import { signCustomerToken, requireCustomer, verifyCustomerToken, signAdminToken, requireAdmin } from "./customerJwt.js";
 import { getCheckoutPlans, getCheckoutPlan, computeNewSubscriptionEnd, invalidatePricingCache } from "./billing.js";
 import { getPlatformSetting, invalidatePlatformSettingsCache, maskSecret } from "./platformSettings.js";
-import { getStripe, applyPaidCheckoutSession, applyPaidPaymentIntent, OMNIRA_PAYMENT_INTENT_FLOW } from "./stripeSync.js";
+import { getStripe, applyPaidCheckoutSession, applyPaidPaymentIntent, OMNIRA_PAYMENT_INTENT_FLOW, applySubscriptionInvoicePaid, applySubscriptionDeleted } from "./stripeSync.js";
 import { invoiceNumberFor, getInvoiceById } from "./invoice.js";
 import { verifyEmailTransport, isEmailConfigured, sendEmail, emailConfigDiagnostics } from "./email.js";
 import {
@@ -129,12 +129,26 @@ app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async
       if (session.mode === "payment") {
         await applyPaidCheckoutSession(session);
       }
+      // Subscription checkout: invoice.payment_succeeded handles the actual grant
     }
     if (event.type === "payment_intent.succeeded") {
       const pi = event.data.object;
       if (String(pi.metadata?.omnira_flow || "").trim() === OMNIRA_PAYMENT_INTENT_FLOW) {
         await applyPaidPaymentIntent(pi);
       }
+    }
+    if (event.type === "invoice.payment_succeeded") {
+      const invoice = event.data.object;
+      if (invoice.subscription) {
+        await applySubscriptionInvoicePaid(invoice);
+      }
+    }
+    if (
+      event.type === "customer.subscription.deleted" ||
+      (event.type === "customer.subscription.updated" &&
+        event.data.object.status === "canceled")
+    ) {
+      await applySubscriptionDeleted(event.data.object);
     }
     return res.json({ received: true });
   } catch (e) {
@@ -227,6 +241,7 @@ function buildCustomerUserPayload(row) {
     businessName: biz,
     subscription_plan_id: row.subscription_plan_id,
     subscription_ends_at: row.subscription_ends_at,
+    stripe_subscription_id: row.stripe_subscription_id || null,
     subscriptionActive
   };
 }
@@ -235,7 +250,7 @@ app.get("/api/customer/me", requireCustomer, async (req, res) => {
   try {
     const { data: user, error } = await supabaseAdmin
       .from("customer_users")
-      .select("id, email, first_name, last_name, phone, subscription_plan_id, subscription_ends_at")
+      .select("id, email, first_name, last_name, phone, subscription_plan_id, subscription_ends_at, stripe_subscription_id")
       .eq("id", req.customerId)
       .maybeSingle();
     if (error || !user) {
@@ -259,32 +274,47 @@ app.post("/api/customer/stripe/checkout", requireCustomer, async (req, res) => {
       return res.status(503).json({ ok: false, message: "STRIPE_SECRET_KEY not configured on server." });
     }
     const base = publicAppUrl();
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      payment_method_types: ["card"],
-      customer_email: req.customerEmail || undefined,
-      line_items: [
-        {
-          price_data: {
-            currency: plan.currency || "eur",
-            unit_amount: plan.amountCents,
-            product_data: {
-              name: `Omnira — ${plan.label}`,
-              description: `Acceso al panel (${plan.label}).`
-            }
-          },
-          quantity: 1
-        }
-      ],
-      success_url: `${base}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${base}/?checkout=canceled`,
-      metadata: {
-        customer_user_id: String(req.customerId),
-        plan_id: planId
-      },
-      client_reference_id: String(req.customerId)
-    });
-    return res.status(200).json({ ok: true, url: session.url });
+    const metadata = { customer_user_id: String(req.customerId), plan_id: planId };
+
+    // If plan has a Stripe Price ID, use subscription mode for auto-renewal
+    const stripePriceId = plan.stripePriceId || null;
+    let session;
+    if (stripePriceId) {
+      session = await stripe.checkout.sessions.create({
+        mode: "subscription",
+        customer_email: req.customerEmail || undefined,
+        line_items: [{ price: stripePriceId, quantity: 1 }],
+        success_url: `${base}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${base}/?checkout=canceled`,
+        metadata,
+        subscription_data: { metadata },
+        client_reference_id: String(req.customerId)
+      });
+    } else {
+      session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        payment_method_types: ["card"],
+        customer_email: req.customerEmail || undefined,
+        line_items: [
+          {
+            price_data: {
+              currency: plan.currency || "eur",
+              unit_amount: plan.amountCents,
+              product_data: {
+                name: `Omnira — ${plan.label}`,
+                description: `Acceso al panel (${plan.label}).`
+              }
+            },
+            quantity: 1
+          }
+        ],
+        success_url: `${base}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${base}/?checkout=canceled`,
+        metadata,
+        client_reference_id: String(req.customerId)
+      });
+    }
+    return res.status(200).json({ ok: true, url: session.url, mode: session.mode });
   } catch (error) {
     return res.status(500).json({ ok: false, message: error.message || "Checkout error." });
   }
@@ -315,7 +345,7 @@ app.post("/api/customer/stripe/confirm", requireCustomer, async (req, res) => {
     }
     const { data: user } = await supabaseAdmin
       .from("customer_users")
-      .select("id, email, first_name, last_name, phone, subscription_plan_id, subscription_ends_at")
+      .select("id, email, first_name, last_name, phone, subscription_plan_id, subscription_ends_at, stripe_subscription_id")
       .eq("id", req.customerId)
       .maybeSingle();
     return res.status(200).json({
@@ -436,7 +466,7 @@ app.post("/api/customer/stripe/payment-intent/sync", requireCustomer, async (req
     }
     const { data: user } = await supabaseAdmin
       .from("customer_users")
-      .select("id, email, first_name, last_name, phone, subscription_plan_id, subscription_ends_at")
+      .select("id, email, first_name, last_name, phone, subscription_plan_id, subscription_ends_at, stripe_subscription_id")
       .eq("id", req.customerId)
       .maybeSingle();
     return res.status(200).json({
@@ -482,7 +512,7 @@ app.post("/api/customer/subscription/simulate", requireCustomer, async (req, res
         updated_at: new Date().toISOString()
       })
       .eq("id", req.customerId)
-      .select("id, email, first_name, last_name, phone, subscription_plan_id, subscription_ends_at")
+      .select("id, email, first_name, last_name, phone, subscription_plan_id, subscription_ends_at, stripe_subscription_id")
       .maybeSingle();
     if (error || !user) {
       return res.status(500).json({ ok: false, message: error?.message || "Update failed." });
@@ -508,6 +538,48 @@ app.post("/api/customer/subscription/simulate", requireCustomer, async (req, res
     } catch { /* ignore */ }
 
     return res.status(200).json({ ok: true, user: buildCustomerUserPayload(user) });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** Cancel auto-renewal at period end — the customer keeps access until subscription_ends_at. */
+app.post("/api/customer/stripe/subscription/cancel", requireCustomer, async (req, res) => {
+  try {
+    const { data: cu } = await supabaseAdmin
+      .from("customer_users")
+      .select("stripe_subscription_id")
+      .eq("id", req.customerId)
+      .maybeSingle();
+    const subId = cu?.stripe_subscription_id;
+    if (!subId) {
+      return res.status(400).json({ ok: false, message: "No hay suscripción activa para cancelar." });
+    }
+    const stripe = getStripe();
+    if (!stripe) return res.status(503).json({ ok: false, message: "Stripe no configurado." });
+    await stripe.subscriptions.update(subId, { cancel_at_period_end: true });
+    return res.json({ ok: true, message: "Renovación automática cancelada. Tu plan sigue activo hasta la fecha de vencimiento." });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** Reactivate auto-renewal if the customer changes their mind before period end. */
+app.post("/api/customer/stripe/subscription/reactivate", requireCustomer, async (req, res) => {
+  try {
+    const { data: cu } = await supabaseAdmin
+      .from("customer_users")
+      .select("stripe_subscription_id")
+      .eq("id", req.customerId)
+      .maybeSingle();
+    const subId = cu?.stripe_subscription_id;
+    if (!subId) {
+      return res.status(400).json({ ok: false, message: "No hay suscripción para reactivar." });
+    }
+    const stripe = getStripe();
+    if (!stripe) return res.status(503).json({ ok: false, message: "Stripe no configurado." });
+    await stripe.subscriptions.update(subId, { cancel_at_period_end: false });
+    return res.json({ ok: true, message: "Renovación automática reactivada." });
   } catch (error) {
     return res.status(500).json({ ok: false, message: error.message });
   }
@@ -3807,7 +3879,7 @@ app.post("/api/customer/signup", signupLimit, async (req, res) => {
         last_name: lastName,
         phone
       })
-      .select("id, email, first_name, last_name, phone, subscription_plan_id, subscription_ends_at")
+      .select("id, email, first_name, last_name, phone, subscription_plan_id, subscription_ends_at, stripe_subscription_id")
       .single();
 
     if (error) throw error;
