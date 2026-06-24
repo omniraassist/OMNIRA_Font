@@ -3310,7 +3310,7 @@ app.get("/api/admin/pricing", async (_req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from("pricing_plans")
-      .select("id, label, period_text, amount_cents, duration_days, currency, sort_order, is_active, updated_at")
+      .select("id, label, period_text, amount_cents, duration_days, currency, sort_order, is_active, stripe_price_id, updated_at")
       .order("sort_order", { ascending: true });
     if (error) throw error;
     return res.status(200).json({ ok: true, plans: data || [] });
@@ -3334,6 +3334,7 @@ app.patch("/api/admin/pricing/:id", async (req, res) => {
     if (typeof req.body?.period_text === "string") patch.period_text = req.body.period_text.slice(0, 32);
     if (typeof req.body?.sort_order === "number") patch.sort_order = req.body.sort_order;
     if (typeof req.body?.is_active === "boolean") patch.is_active = req.body.is_active;
+    if (typeof req.body?.stripe_price_id === "string") patch.stripe_price_id = req.body.stripe_price_id.trim() || null;
     if (Object.keys(patch).length === 0) {
       return res.status(400).json({ ok: false, message: "No editable fields supplied." });
     }

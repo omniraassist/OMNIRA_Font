@@ -239,6 +239,7 @@ export function PricingPage() {
           label: p.label || '',
           period_text: p.period_text || '',
           is_active: !!p.is_active,
+          stripe_price_id: p.stripe_price_id || '',
         };
       }
       setDrafts(next);
@@ -265,7 +266,8 @@ export function PricingPage() {
       Number(euroToCents(d.amount_euro)) !== Number(plan.amount_cents) ||
       d.label !== (plan.label || '') ||
       d.period_text !== (plan.period_text || '') ||
-      !!d.is_active !== !!plan.is_active
+      !!d.is_active !== !!plan.is_active ||
+      d.stripe_price_id !== (plan.stripe_price_id || '')
     );
   };
 
@@ -286,6 +288,7 @@ export function PricingPage() {
           label: d.label,
           period_text: d.period_text,
           is_active: !!d.is_active,
+          stripe_price_id: d.stripe_price_id || null,
         }),
       });
       setPlans((all) => all.map((p) => (p.id === plan.id ? res.plan : p)));
@@ -305,6 +308,7 @@ export function PricingPage() {
         label: plan.label || '',
         period_text: plan.period_text || '',
         is_active: !!plan.is_active,
+        stripe_price_id: plan.stripe_price_id || '',
       },
     }));
   };
@@ -437,6 +441,17 @@ export function PricingPage() {
                       />
                     </div>
 
+                    <div className="pr-row">
+                      <label>Stripe Price ID (suscripción)</label>
+                      <input
+                        type="text"
+                        value={d.stripe_price_id || ''}
+                        onChange={(e) => updateField(plan.id, 'stripe_price_id', e.target.value)}
+                        placeholder="price_1… (déjalo vacío para pago único)"
+                        style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}
+                      />
+                    </div>
+
                     <label className="pr-checkbox">
                       <input
                         type="checkbox"
@@ -468,7 +483,12 @@ export function PricingPage() {
 
                   <div className="pr-foot">
                     {plan.duration_days} días fijados
-                    {dirtyNow ? <span className="dirty">● cambios pendientes</span> : ''}
+                    {plan.stripe_price_id ? (
+                      <span style={{ marginLeft: 8, color: '#10b981' }}>● suscripción recurrente</span>
+                    ) : (
+                      <span style={{ marginLeft: 8, color: 'var(--muted)' }}>pago único</span>
+                    )}
+                    {dirtyNow ? <span className="dirty"> ● cambios pendientes</span> : ''}
                   </div>
                 </article>
               );

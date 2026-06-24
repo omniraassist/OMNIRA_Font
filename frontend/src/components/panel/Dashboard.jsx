@@ -1093,7 +1093,8 @@ export function Dashboard({ mockData = null }) {
                     setLeadsExporting(true);
                     try {
                       const token = localStorage.getItem('omnira_customer_token');
-                      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/customer/leads/export`, {
+                      const { API_BASE } = await import('../../constants/site.js');
+                      const res = await fetch(`${API_BASE}/api/customer/leads/export`, {
                         headers: { Authorization: `Bearer ${token}` }
                       });
                       if (!res.ok) throw new Error('Export failed');
