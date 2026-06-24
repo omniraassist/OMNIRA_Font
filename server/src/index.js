@@ -1521,6 +1521,46 @@ app.patch("/api/customer/bot-config", requireCustomer, async (req, res) => {
   }
 });
 
+/** Test the customer's bot with a message — returns the AI reply without sending any WhatsApp. */
+app.post("/api/customer/bot/test", requireCustomer, rateLimit({ max: 30, windowMs: 60 * 1000 }), async (req, res) => {
+  try {
+    const message = String(req.body?.message || "").trim().slice(0, 1000);
+    if (!message) return res.status(400).json({ ok: false, message: "message is required." });
+
+    // history: array of { role: "user"|"assistant", content: string }
+    const rawHistory = Array.isArray(req.body?.history) ? req.body.history : [];
+    const history = rawHistory
+      .slice(-20) // max 20 turns
+      .filter((m) => m?.role && m?.content)
+      .map((m) => ({ role: String(m.role), content: String(m.content).slice(0, 2000) }));
+
+    const customerId = req.customerId;
+    const [customerBot, business] = await Promise.all([
+      loadCustomerBotConfig(customerId),
+      loadCustomerBusiness(customerId)
+    ]);
+    const systemPrompt = buildCustomerSystemPrompt(customerBot, business);
+
+    const messages = [
+      { role: "system", content: systemPrompt },
+      ...history,
+      { role: "user", content: message }
+    ];
+
+    const completion = await callOpenAiWithRetry({
+      model: "gpt-4o-mini",
+      messages,
+      max_tokens: 600,
+      temperature: 0.7
+    });
+
+    const reply = completion?.choices?.[0]?.message?.content?.trim() || "";
+    return res.json({ ok: true, reply });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
 /**
  * Aggregated dashboard data for the customer's "Resumen" screen. Real numbers
  * only — pulled from wa_messages, wa_leads, customer_events and
