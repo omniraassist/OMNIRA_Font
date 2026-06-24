@@ -3541,7 +3541,60 @@ app.patch("/api/admin/platform-settings/:key", async (req, res) => {
   }
 });
 
-app.post("/api/admin/login", async (req, res) => {
+// ---------------------------------------------------------------------------
+// Rate limiting — in-process, IP-based. Protects auth endpoints against
+// brute-force. Works on Vercel because warm instances are reused for rapid
+// bursts; a future Redis store can replace the Map without changing callers.
+// ---------------------------------------------------------------------------
+
+const _rlStore = new Map(); // ip:route → { count, resetAt }
+
+function getClientIp(req) {
+  return (
+    String(req.headers["x-forwarded-for"] || "").split(",")[0].trim() ||
+    req.socket?.remoteAddress ||
+    "unknown"
+  );
+}
+
+function rateLimit({ max, windowMs }) {
+  return (req, res, next) => {
+    const key = `${getClientIp(req)}:${req.path}`;
+    const now = Date.now();
+    const entry = _rlStore.get(key);
+
+    if (!entry || now > entry.resetAt) {
+      _rlStore.set(key, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
+    if (entry.count >= max) {
+      const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
+      res.set("Retry-After", String(retryAfter));
+      return res.status(429).json({
+        ok: false,
+        message: `Demasiados intentos. Inténtalo de nuevo en ${retryAfter} segundos.`
+      });
+    }
+    entry.count += 1;
+    return next();
+  };
+}
+
+// Purge expired entries every 10 minutes to prevent unbounded memory growth.
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, val] of _rlStore) {
+    if (now > val.resetAt) _rlStore.delete(key);
+  }
+}, 10 * 60 * 1000);
+
+const loginLimit  = rateLimit({ max: 10, windowMs: 15 * 60 * 1000 }); // 10 / 15 min
+const signupLimit = rateLimit({ max: 5,  windowMs: 60 * 60 * 1000 }); // 5 / hora
+const resetLimit  = rateLimit({ max: 5,  windowMs: 60 * 60 * 1000 }); // 5 / hora
+
+// ---------------------------------------------------------------------------
+
+app.post("/api/admin/login", loginLimit, async (req, res) => {
   try {
     const email = normalizeEmail(req.body?.email);
     const password = req.body?.password;
@@ -3587,7 +3640,7 @@ app.post("/api/admin/login", async (req, res) => {
   }
 });
 
-app.post("/api/admin/reset/request", async (req, res) => {
+app.post("/api/admin/reset/request", resetLimit, async (req, res) => {
   try {
     const email = normalizeEmail(req.body?.email);
     if (!email) {
@@ -3641,7 +3694,7 @@ app.post("/api/admin/reset/request", async (req, res) => {
   }
 });
 
-app.post("/api/admin/reset/confirm", async (req, res) => {
+app.post("/api/admin/reset/confirm", resetLimit, async (req, res) => {
   try {
     const token = String(req.body?.token || "").trim();
     const newPassword = req.body?.newPassword;
@@ -3687,7 +3740,7 @@ app.post("/api/admin/reset/confirm", async (req, res) => {
   }
 });
 
-app.post("/api/customer/signup", async (req, res) => {
+app.post("/api/customer/signup", signupLimit, async (req, res) => {
   try {
     const email = normalizeEmail(req.body?.email);
     const password = req.body?.password;
@@ -3738,7 +3791,7 @@ app.post("/api/customer/signup", async (req, res) => {
   }
 });
 
-app.post("/api/customer/login", async (req, res) => {
+app.post("/api/customer/login", loginLimit, async (req, res) => {
   try {
     const email = normalizeEmail(req.body?.email);
     const password = req.body?.password;
@@ -3781,7 +3834,7 @@ app.post("/api/customer/login", async (req, res) => {
   }
 });
 
-app.post("/api/customer/reset/request", async (req, res) => {
+app.post("/api/customer/reset/request", resetLimit, async (req, res) => {
   try {
     const email = normalizeEmail(req.body?.email);
     if (!email) {
@@ -3835,7 +3888,7 @@ app.post("/api/customer/reset/request", async (req, res) => {
   }
 });
 
-app.post("/api/customer/reset/confirm", async (req, res) => {
+app.post("/api/customer/reset/confirm", resetLimit, async (req, res) => {
   try {
     const token = String(req.body?.token || "").trim();
     const newPassword = req.body?.newPassword;
