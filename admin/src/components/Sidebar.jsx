@@ -178,6 +178,14 @@ export function Sidebar({ onNavigate, mobileOpen, collapsed, onToggleCollapse })
         </NavLink>
 
         <div className="adm-nav-section-label">Plataforma</div>
+        <NavLink to="/audit-log" className={linkClass} onClick={wrap}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+            <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M9 12h6M9 16h4" strokeLinecap="round" />
+          </svg>
+          <span>Audit Log</span>
+          <span className="adm-nav-tip">Audit Log · Acciones admin</span>
+        </NavLink>
         <NavLink to="/pricing" className={linkClass} onClick={wrap}>
           <IconPricing />
           <span>Precios</span>

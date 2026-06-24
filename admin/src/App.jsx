@@ -16,6 +16,7 @@ import { ProfilePage } from './pages/ProfilePage.jsx';
 import { NotificationsPage } from './pages/NotificationsPage.jsx';
 import { InvoicesPage } from './pages/InvoicesPage.jsx';
 import { CalendarPage } from './pages/CalendarPage.jsx';
+import { AuditLogPage } from './pages/AuditLogPage.jsx';
 import { EmailFullScreen } from './layouts/EmailFullScreen.jsx';
 
 function ProtectedRoute({ children }) {
@@ -61,6 +62,7 @@ export default function App() {
         <Route path="sessions" element={<SessionsPage />} />
         <Route path="whatsapp" element={<WhatsAppSettingsPage />} />
         <Route path="calendar" element={<CalendarPage />} />
+        <Route path="audit-log" element={<AuditLogPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
