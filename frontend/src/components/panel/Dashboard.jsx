@@ -86,6 +86,144 @@ function ResList({ list }) {
   });
 }
 
+function TemplatesPage({ leads, showToast, page }) {
+  const [templates, setTemplates] = React.useState([]);
+  const [tplLoading, setTplLoading] = React.useState(false);
+  const [syncing, setSyncing] = React.useState(false);
+  const [selectedTpl, setSelectedTpl] = React.useState(null);
+  const [selectedLeads, setSelectedLeads] = React.useState([]);
+  const [sending, setSending] = React.useState(false);
+
+  React.useEffect(() => {
+    if (page !== 'templates') return;
+    setTplLoading(true);
+    apiCall('/api/customer/whatsapp/templates')
+      .then((d) => setTemplates(Array.isArray(d?.templates) ? d.templates : []))
+      .catch(() => {})
+      .finally(() => setTplLoading(false));
+  }, [page]);
+
+  async function syncTemplates() {
+    setSyncing(true);
+    try {
+      const d = await apiCall('/api/customer/whatsapp/templates/sync', { method: 'POST' });
+      showToast(`${d.synced} plantillas sincronizadas`, 'ok');
+      const d2 = await apiCall('/api/customer/whatsapp/templates');
+      setTemplates(Array.isArray(d2?.templates) ? d2.templates : []);
+    } catch (e) { showToast(e?.message || 'Error al sincronizar', 'error'); }
+    finally { setSyncing(false); }
+  }
+
+  async function sendTemplate() {
+    if (!selectedTpl || selectedLeads.length === 0) return;
+    setSending(true);
+    try {
+      const d = await apiCall('/api/customer/whatsapp/templates/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          template_name: selectedTpl.template_name,
+          language_code: selectedTpl.language_code || 'es',
+          recipients: selectedLeads
+        })
+      });
+      showToast(`Enviado: ${d.sent} ok · ${d.failed} fallidos`, 'ok');
+      setSelectedLeads([]);
+    } catch (e) { showToast(e?.message || 'Error al enviar', 'error'); }
+    finally { setSending(false); }
+  }
+
+  const approvedTpls = templates.filter((t) => t.status === 'APPROVED');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="p-card">
+        <div className="p-card-header">
+          <span className="p-card-title">Plantillas aprobadas ({approvedTpls.length})</span>
+          <button type="button" className="p-btn-sm" onClick={syncTemplates} disabled={syncing}>
+            <i className={`fa-solid fa-rotate${syncing ? ' fa-spin' : ''}`} />
+            {syncing ? ' Sincronizando…' : ' Sincronizar con Meta'}
+          </button>
+        </div>
+        {tplLoading ? (
+          <div style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Cargando…</div>
+        ) : approvedTpls.length === 0 ? (
+          <div className="p-empty">
+            <i className="fa-brands fa-whatsapp" />
+            <p>No hay plantillas aprobadas. Crea y aprueba plantillas en Meta Business Manager, luego pulsa "Sincronizar".</p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+            {approvedTpls.map((t) => (
+              <div
+                key={t.id}
+                onClick={() => setSelectedTpl(selectedTpl?.id === t.id ? null : t)}
+                style={{
+                  padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
+                  border: `1px solid ${selectedTpl?.id === t.id ? 'var(--accent)' : 'var(--border)'}`,
+                  background: selectedTpl?.id === t.id ? 'var(--accent)11' : 'transparent'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'monospace' }}>{t.template_name}</span>
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: '#10b98122', color: '#10b981', fontWeight: 600 }}>{t.category}</span>
+                </div>
+                {t.body_text && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, lineHeight: 1.4 }}>{t.body_text.slice(0, 120)}{t.body_text.length > 120 ? '…' : ''}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {selectedTpl && (
+        <div className="p-card">
+          <div className="p-card-header">
+            <span className="p-card-title">Enviar "{selectedTpl.template_name}" a leads</span>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
+            Selecciona los leads a los que quieres enviar esta plantilla:
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
+            {leads.length === 0 ? (
+              <div style={{ color: 'var(--muted)', fontSize: 13 }}>No hay leads todavía.</div>
+            ) : leads.map((l) => {
+              const checked = selectedLeads.includes(l.wa_from);
+              return (
+                <label key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '6px 0' }}>
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => setSelectedLeads(checked
+                      ? selectedLeads.filter((x) => x !== l.wa_from)
+                      : [...selectedLeads, l.wa_from]
+                    )}
+                  />
+                  <span style={{ fontSize: 13 }}>{l.name || `+${l.wa_from}`}</span>
+                  <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>+{l.wa_from}</span>
+                </label>
+              );
+            })}
+          </div>
+          <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
+            <button
+              type="button"
+              className="btn-save-form"
+              style={{ margin: 0 }}
+              disabled={selectedLeads.length === 0 || sending}
+              onClick={sendTemplate}
+            >
+              {sending ? 'Enviando…' : `Enviar a ${selectedLeads.length} lead${selectedLeads.length !== 1 ? 's' : ''}`}
+            </button>
+            <button type="button" style={{ fontSize: 12, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}
+              onClick={() => setSelectedLeads(leads.map((l) => l.wa_from))}>
+              Seleccionar todos
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Dashboard({ mockData = null }) {
   const { user, handleLogout } = usePanel();
   const { plansByCheapest } = usePricing();
@@ -1341,145 +1479,7 @@ export function Dashboard({ mockData = null }) {
           <div id="page-templates" className={`p-page${page === 'templates' ? ' active' : ''}`}>
             <h1 className="p-page-title">Plantillas WhatsApp</h1>
             <p className="p-page-sub">Envía mensajes proactivos a tus leads usando plantillas aprobadas por Meta.</p>
-            {(() => {
-              const [templates, setTemplates] = React.useState([]);
-              const [tplLoading, setTplLoading] = React.useState(false);
-              const [syncing, setSyncing] = React.useState(false);
-              const [selectedTpl, setSelectedTpl] = React.useState(null);
-              const [selectedLeads, setSelectedLeads] = React.useState([]);
-              const [sending, setSending] = React.useState(false);
-
-              React.useEffect(() => {
-                if (page !== 'templates') return;
-                setTplLoading(true);
-                apiCall('/api/customer/whatsapp/templates')
-                  .then((d) => setTemplates(Array.isArray(d?.templates) ? d.templates : []))
-                  .catch(() => {})
-                  .finally(() => setTplLoading(false));
-              }, [page]);
-
-              async function syncTemplates() {
-                setSyncing(true);
-                try {
-                  const d = await apiCall('/api/customer/whatsapp/templates/sync', { method: 'POST' });
-                  showToast(`${d.synced} plantillas sincronizadas`, 'ok');
-                  const d2 = await apiCall('/api/customer/whatsapp/templates');
-                  setTemplates(Array.isArray(d2?.templates) ? d2.templates : []);
-                } catch (e) { showToast(e?.message || 'Error al sincronizar', 'error'); }
-                finally { setSyncing(false); }
-              }
-
-              async function sendTemplate() {
-                if (!selectedTpl || selectedLeads.length === 0) return;
-                setSending(true);
-                try {
-                  const d = await apiCall('/api/customer/whatsapp/templates/send', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                      template_name: selectedTpl.template_name,
-                      language_code: selectedTpl.language_code || 'es',
-                      recipients: selectedLeads
-                    })
-                  });
-                  showToast(`✅ Enviado: ${d.sent} ok · ${d.failed} fallidos`, 'ok');
-                  setSelectedLeads([]);
-                } catch (e) { showToast(e?.message || 'Error al enviar', 'error'); }
-                finally { setSending(false); }
-              }
-
-              const approvedTpls = templates.filter((t) => t.status === 'APPROVED');
-
-              return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  {/* Sync button */}
-                  <div className="p-card">
-                    <div className="p-card-header">
-                      <span className="p-card-title">Plantillas aprobadas ({approvedTpls.length})</span>
-                      <button type="button" className="p-btn-sm" onClick={syncTemplates} disabled={syncing}>
-                        <i className={`fa-solid fa-rotate${syncing ? ' fa-spin' : ''}`} />
-                        {syncing ? ' Sincronizando…' : ' Sincronizar con Meta'}
-                      </button>
-                    </div>
-                    {tplLoading ? (
-                      <div style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Cargando…</div>
-                    ) : approvedTpls.length === 0 ? (
-                      <div className="p-empty">
-                        <i className="fa-brands fa-whatsapp" />
-                        <p>No hay plantillas aprobadas. Crea y aprueba plantillas en Meta Business Manager, luego pulsa "Sincronizar".</p>
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-                        {approvedTpls.map((t) => (
-                          <div
-                            key={t.id}
-                            onClick={() => setSelectedTpl(selectedTpl?.id === t.id ? null : t)}
-                            style={{
-                              padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
-                              border: `1px solid ${selectedTpl?.id === t.id ? 'var(--accent)' : 'var(--border)'}`,
-                              background: selectedTpl?.id === t.id ? 'var(--accent)11' : 'transparent'
-                            }}
-                          >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'monospace' }}>{t.template_name}</span>
-                              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: '#10b98122', color: '#10b981', fontWeight: 600 }}>{t.category}</span>
-                            </div>
-                            {t.body_text && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, lineHeight: 1.4 }}>{t.body_text.slice(0, 120)}{t.body_text.length > 120 ? '…' : ''}</div>}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Send to leads */}
-                  {selectedTpl && (
-                    <div className="p-card">
-                      <div className="p-card-header">
-                        <span className="p-card-title">Enviar "{selectedTpl.template_name}" a leads</span>
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
-                        Selecciona los leads a los que quieres enviar esta plantilla:
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
-                        {leads.length === 0 ? (
-                          <div style={{ color: 'var(--muted)', fontSize: 13 }}>No hay leads todavía.</div>
-                        ) : leads.map((l) => {
-                          const checked = selectedLeads.includes(l.wa_from);
-                          return (
-                            <label key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '6px 0' }}>
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={() => setSelectedLeads(checked
-                                  ? selectedLeads.filter((x) => x !== l.wa_from)
-                                  : [...selectedLeads, l.wa_from]
-                                )}
-                              />
-                              <span style={{ fontSize: 13 }}>{l.name || `+${l.wa_from}`}</span>
-                              <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>+{l.wa_from}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                      <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
-                        <button
-                          type="button"
-                          className="btn-save-form"
-                          style={{ margin: 0 }}
-                          disabled={selectedLeads.length === 0 || sending}
-                          onClick={sendTemplate}
-                        >
-                          {sending ? 'Enviando…' : `Enviar a ${selectedLeads.length} lead${selectedLeads.length !== 1 ? 's' : ''}`}
-                        </button>
-                        <button type="button" style={{ fontSize: 12, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}
-                          onClick={() => setSelectedLeads(leads.map((l) => l.wa_from))}>
-                          Seleccionar todos
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+            <TemplatesPage leads={leads} showToast={showToast} page={page} />
           </div>
 
           {/* Bot testing tool — live chat simulation */}
