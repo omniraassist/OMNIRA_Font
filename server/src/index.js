@@ -1646,12 +1646,15 @@ app.post("/api/customer/bot/test", requireCustomer, rateLimit({ max: 30, windowM
       { role: "user", content: message }
     ];
 
-    const completion = await callOpenAiWithRetry({
-      model: "gpt-4o-mini",
-      messages,
-      max_tokens: 600,
-      temperature: 0.7
-    });
+    const completion = await callOpenAiWithRetry(
+      "https://api.openai.com/v1/chat/completions",
+      (apiKey) => ({
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({ model: "gpt-4o-mini", messages, max_tokens: 600, temperature: 0.7 })
+      }),
+      "bot-test"
+    );
 
     const reply = completion?.choices?.[0]?.message?.content?.trim() || "";
     return res.json({ ok: true, reply });
