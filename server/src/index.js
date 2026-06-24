@@ -974,6 +974,38 @@ app.get("/api/customer/leads", requireCustomer, async (req, res) => {
   }
 });
 
+function escapeCsvField(val) {
+  if (val == null) return "";
+  const s = String(val);
+  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+app.get("/api/customer/leads/export", requireCustomer, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("wa_leads")
+      .select("name, email, phone, wa_from, intent, language, status, confidence, notes, message_count, first_seen_at, last_message_at")
+      .eq("customer_user_id", req.customerId)
+      .order("last_message_at", { ascending: false });
+    if (error) throw error;
+
+    const cols = ["name", "email", "phone", "wa_from", "intent", "language", "status", "confidence", "notes", "message_count", "first_seen_at", "last_message_at"];
+    const header = cols.join(",");
+    const rows = (data || []).map(r => cols.map(c => escapeCsvField(r[c])).join(","));
+    const csv = [header, ...rows].join("\r\n");
+
+    const date = new Date().toISOString().slice(0, 10);
+    res.set("Content-Type", "text/csv; charset=utf-8");
+    res.set("Content-Disposition", `attachment; filename="omnira-leads-${date}.csv"`);
+    return res.send("﻿" + csv); // BOM para que Excel abra bien en español
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `Leads export failed: ${error.message}` });
+  }
+});
+
 /**
  * Customer-side WhatsApp credentials: each paying customer provides their own
  * Meta Cloud API setup (access token, phone_number_id, app secret, verify token,

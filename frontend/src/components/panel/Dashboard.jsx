@@ -102,6 +102,8 @@ export function Dashboard({ mockData = null }) {
   const [upcomingBookings, setUpcomingBookings] = useState([]);
   const [latestPayment, setLatestPayment] = useState(null);
   const [recentConversations, setRecentConversations] = useState([]);
+  const [leads, setLeads] = useState([]);
+  const [leadsExporting, setLeadsExporting] = useState(false);
   const [twilioNumber, setTwilioNumber] = useState(null);
   const [twilioUsage, setTwilioUsage] = useState(null);
   const [twilioConversations, setTwilioConversations] = useState([]);
@@ -197,6 +199,11 @@ export function Dashboard({ mockData = null }) {
     } catch {
       /* ignore */
     }
+    // Leads list
+    try {
+      const l = await apiCall('/api/customer/leads?limit=200');
+      setLeads(Array.isArray(l?.leads) ? l.leads : []);
+    } catch { /* ignore */ }
     // Twilio virtual number + usage + conversations
     try {
       const n = await apiCall('/api/customer/twilio-number');
@@ -523,6 +530,9 @@ export function Dashboard({ mockData = null }) {
               </button>
               <button type="button" className={`p-nav-item${page === 'convs' ? ' active' : ''}`} onClick={() => openNavPage('convs')}>
                 <i className="fa-brands fa-whatsapp" /> Conversaciones
+              </button>
+              <button type="button" className={`p-nav-item${page === 'leads' ? ' active' : ''}`} onClick={() => openNavPage('leads')}>
+                <i className="fa-solid fa-users" /> Leads
               </button>
               <button type="button" className={`p-nav-item${page === 'stats' ? ' active' : ''}`} onClick={() => openNavPage('stats')}>
                 <i className="fa-solid fa-chart-line" /> Estadísticas
@@ -1061,6 +1071,79 @@ export function Dashboard({ mockData = null }) {
                 </div>
               );
             })()}
+          </div>
+
+          <div id="page-leads" className={`p-page${page === 'leads' ? ' active' : ''}`}>
+            <h1 className="p-page-title">Leads</h1>
+            <p className="p-page-sub">Contactos captados automáticamente por tu bot de WhatsApp.</p>
+            <div className="p-card">
+              <div className="p-card-header">
+                <span className="p-card-title">{leads.length} leads</span>
+                <button
+                  type="button"
+                  className="p-btn-sm"
+                  disabled={leadsExporting || leads.length === 0}
+                  onClick={async () => {
+                    setLeadsExporting(true);
+                    try {
+                      const token = localStorage.getItem('omnira_customer_token');
+                      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/customer/leads/export`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                      });
+                      if (!res.ok) throw new Error('Export failed');
+                      const blob = await res.blob();
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `omnira-leads-${new Date().toISOString().slice(0,10)}.csv`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    } catch {
+                      showToast('Error al exportar leads', 'error');
+                    } finally {
+                      setLeadsExporting(false);
+                    }
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  <i className="fa-solid fa-download" />
+                  {leadsExporting ? 'Exportando…' : 'Exportar CSV'}
+                </button>
+              </div>
+              {leads.length === 0 ? (
+                <div className="p-empty">
+                  <i className="fa-solid fa-users" />
+                  <p>Los leads aparecerán cuando tu bot capture contactos en WhatsApp</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {leads.map((l) => {
+                    const display = l.name || `+${l.wa_from}`;
+                    const initials = display.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+                    const statusColor = { new: '#6b7280', contacted: '#3b82f6', qualified: '#f59e0b', converted: '#10b981', lost: '#ef4444' }[l.status] || '#6b7280';
+                    return (
+                      <div key={l.id} className="p-res-item" style={{ alignItems: 'flex-start' }}>
+                        <div className="p-res-av">{initials}</div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div className="p-res-name">{display}</div>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 3, fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
+                            {l.email && <span>{l.email}</span>}
+                            {l.phone && <span>{l.phone}</span>}
+                            {!l.email && !l.phone && <span>+{l.wa_from}</span>}
+                            {l.intent && <><span>·</span><span>{l.intent}</span></>}
+                            {l.language && <><span>·</span><span>{l.language}</span></>}
+                            <span>·</span><span>{l.message_count} msg</span>
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: statusColor + '22', color: statusColor, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          {l.status}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           <div id="page-stats" className={`p-page${page === 'stats' ? ' active' : ''}`}>
