@@ -26,7 +26,16 @@ import {
   getMetaWhatsAppDeployDiagnostics,
   invalidateBotConfigCache,
   sendWelcomeWhatsAppMessage,
-  findCustomerConfigByPhoneNumberId
+  findCustomerConfigByPhoneNumberId,
+  callOpenAiWithRetry,
+  extractLeadFromConversation,
+  upsertWaLead,
+  extractBookingFromConversation,
+  saveBotBooking,
+  conversationHasBookingKeywords,
+  loadCustomerBotConfig,
+  loadCustomerBusiness,
+  buildCustomerSystemPrompt
 } from "./metaWhatsAppWebhook.js";
 import { getAdapter, providerStatus } from "./calendar/registry.js";
 import { createOAuthState, verifyOAuthState } from "./calendar/oauthState.js";
@@ -4002,70 +4011,50 @@ app.post("/api/twilio/whatsapp/webhook", express.urlencoded({ extended: false })
       twilio_sid: sid
     });
 
-    // Load customer bot config.
-    const { data: botCfg } = await supabaseAdmin
-      .from("bot_configs")
-      .select("system_prompt, knowledge_base, greeting, is_active")
-      .eq("scope", "customer")
-      .eq("customer_user_id", customerId)
-      .maybeSingle();
+    // Load bot config + business context (same as Meta webhook — includes
+    // system prompt, knowledge base, greeting, and business info).
+    const [customerBot, business] = await Promise.all([
+      loadCustomerBotConfig(customerId),
+      loadCustomerBusiness(customerId)
+    ]);
+    const systemPrompt = buildCustomerSystemPrompt(customerBot, business);
 
-    // Load recent conversation history (last 20 messages).
-    const { data: history } = await supabaseAdmin
+    // Load recent conversation history from twilio_messages (last 20 turns).
+    const { data: historyRows } = await supabaseAdmin
       .from("twilio_messages")
       .select("direction, body")
       .eq("customer_user_id", customerId)
       .eq("wa_from", fromPhone)
       .order("created_at", { ascending: false })
       .limit(20);
-
-    const messages = (history || []).reverse().map(m => ({
+    const history = (historyRows || []).reverse().map(m => ({
       role: m.direction === "inbound" ? "user" : "assistant",
-      content: m.body
+      content: String(m.body || "")
     }));
 
-    // Build system prompt.
-    const defaultPrompt =
-      "Eres el asistente virtual de este negocio en WhatsApp. " +
-      "Responde siempre en el idioma del cliente, de forma amable, concisa y profesional. " +
-      "Si no tienes información sobre algo, di que lo consultarás y que se pondrán en contacto. " +
-      "No inventes precios, horarios ni servicios que no conozcas.";
-    let systemPrompt = botCfg?.system_prompt || defaultPrompt;
-    if (botCfg?.knowledge_base) {
-      systemPrompt += `\n\n# Información del negocio\n${botCfg.knowledge_base}`;
-    }
-
-    // Call OpenAI.
-    const openaiKey = String(process.env.OPENAI_API_KEY || "").trim();
-    const model     = String(process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini").trim();
-    let replyText   = botCfg?.greeting || "Hola, ¿en qué puedo ayudarte?";
-
-    if (openaiKey) {
-      try {
-        const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${openaiKey}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: "system", content: systemPrompt },
-              ...messages,
-              { role: "user", content: body }
-            ],
-            max_tokens: 500
-          }),
-          signal: AbortSignal.timeout(25000)
-        });
-        const aiJson = await aiRes.json();
-        const choice = aiJson?.choices?.[0]?.message?.content;
-        if (choice) replyText = String(choice).trim();
-      } catch (e) {
-        console.error("[twilio] OpenAI call failed:", e?.message || e);
-      }
-    }
+    // Call OpenAI via the shared key pool (with automatic rotation on 401/429).
+    const model = String(await getPlatformSetting("OPENAI_CHAT_MODEL", "gpt-4o-mini")).trim() || "gpt-4o-mini";
+    const fallback = customerBot?.greeting?.trim() || "Hola, ¿en qué puedo ayudarte?";
+    const aiData = await callOpenAiWithRetry(
+      "https://api.openai.com/v1/chat/completions",
+      (apiKey) => ({
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...history.slice(-10),
+            { role: "user", content: body }
+          ],
+          temperature: 0.55,
+          max_tokens: 700
+        })
+      }),
+      `twilio reply customer/${customerId}`
+    );
+    const aiReply = aiData?.choices?.[0]?.message?.content;
+    const replyText = (typeof aiReply === "string" && aiReply.trim()) ? aiReply.trim().slice(0, 4090) : fallback;
 
     // Send reply via Twilio.
     const sent = await sendTwilioWhatsAppMessage(toPhone, fromPhone, replyText);
@@ -4078,35 +4067,28 @@ app.post("/api/twilio/whatsapp/webhook", express.urlencoded({ extended: false })
       direction: "outbound",
       body: replyText,
       twilio_sid: sent.sid || null,
-      openai_used: Boolean(openaiKey)
+      openai_used: true
     });
 
-    // Update/upsert lead.
-    const { data: existingLead } = await supabaseAdmin
-      .from("wa_leads")
-      .select("id, message_count")
-      .eq("customer_user_id", customerId)
-      .eq("wa_from", fromPhone)
-      .maybeSingle();
-
-    if (existingLead) {
-      await supabaseAdmin
-        .from("wa_leads")
-        .update({
-          message_count: (existingLead.message_count || 0) + 1,
-          last_message_at: new Date().toISOString()
-        })
-        .eq("id", existingLead.id);
-    } else {
-      await supabaseAdmin.from("wa_leads").insert({
-        customer_user_id: customerId,
-        phone_number_id: toPhone,
-        wa_from: fromPhone,
-        status: "new",
-        message_count: 1,
-        first_seen_at: new Date().toISOString(),
-        last_message_at: new Date().toISOString()
-      });
+    // Lead extraction + booking detection (same pipeline as Meta webhook).
+    const conversation = [
+      ...history.slice(-10),
+      { role: "user", content: body },
+      { role: "assistant", content: replyText }
+    ];
+    const extracted = await extractLeadFromConversation(conversation);
+    await upsertWaLead({
+      phoneNumberId: toPhone,
+      waFrom: fromPhone,
+      extracted,
+      inboundBody: body,
+      customerId
+    });
+    if (conversationHasBookingKeywords(conversation)) {
+      const booking = await extractBookingFromConversation(conversation);
+      if (booking) {
+        await saveBotBooking({ customerId, waFrom: fromPhone, booking });
+      }
     }
   } catch (e) {
     console.error("[twilio] webhook handler error:", e?.message || e);

@@ -1353,3 +1353,16 @@ async function processCustomerWebhookInbound(inbound, customerCfg) {
     console.error("[meta whatsapp] customer reply error", customerId, e?.message || e);
   }
 }
+
+// Shared helpers re-exported for the Twilio webhook handler (index.js).
+export {
+  callOpenAiWithRetry,
+  extractLeadFromConversation,
+  upsertWaLead,
+  extractBookingFromConversation,
+  saveBotBooking,
+  conversationHasBookingKeywords,
+  loadCustomerBotConfig,
+  loadCustomerBusiness,
+  buildCustomerSystemPrompt
+};
