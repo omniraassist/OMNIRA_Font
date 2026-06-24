@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiCall } from '../api/client.js';
 
 // Exactly the keys the admin needs to manage from this page. Anything else
@@ -555,6 +555,170 @@ export function WhatsAppSettingsPage() {
           </button>
         </div>
       </div>
+
+      <TemplatesSection />
     </>
+  );
+}
+
+/* ─── Templates section ─── */
+const TPL_STATUS_COLORS = {
+  APPROVED: { bg: 'rgba(0,229,160,0.10)',  text: '#6ee7b7' },
+  REJECTED: { bg: 'rgba(239,68,68,0.10)',  text: '#fca5a5' },
+  PENDING:  { bg: 'rgba(251,191,36,0.10)', text: '#fde68a' },
+};
+
+function TemplatesSection() {
+  const [templates, setTemplates] = useState([]);
+  const [tplLoading, setTplLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [tplError, setTplError] = useState('');
+  const [tplInfo, setTplInfo] = useState('');
+  const loadedRef = useRef(false);
+
+  const loadTemplates = useCallback(async () => {
+    setTplLoading(true); setTplError('');
+    try {
+      const res = await apiCall('/api/admin/whatsapp/templates');
+      setTemplates(res.templates || []);
+    } catch (e) {
+      setTplError(e?.message || 'Error al cargar plantillas');
+    } finally {
+      setTplLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!loadedRef.current) { loadedRef.current = true; loadTemplates(); }
+  }, [loadTemplates]);
+
+  const sync = async () => {
+    setSyncing(true); setTplError(''); setTplInfo('');
+    try {
+      const res = await apiCall('/api/admin/whatsapp/templates/sync', { method: 'POST' });
+      setTplInfo(`Sincronizadas ${res.synced} plantillas desde Meta.`);
+      await loadTemplates();
+    } catch (e) {
+      setTplError(e?.message || 'Error al sincronizar');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const approved = templates.filter((t) => t.status === 'APPROVED').length;
+  const lastSync = templates.reduce((latest, t) => {
+    if (!t.last_synced_at) return latest;
+    return !latest || t.last_synced_at > latest ? t.last_synced_at : latest;
+  }, null);
+
+  return (
+    <section style={{ marginTop: 8 }}>
+      <style>{`
+        .tpl-hero {
+          background: linear-gradient(180deg, var(--surf2) 0%, var(--surf) 100%);
+          border: 1px solid var(--border); border-radius: var(--r-lg);
+          padding: 20px 22px; margin-bottom: 14px;
+          display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+        }
+        .tpl-hero-left h2 { margin: 0 0 4px; font-family: var(--font-display); font-size: 17px; color: var(--text); }
+        .tpl-hero-left p { margin: 0; font-size: 12px; color: var(--soft); }
+        .tpl-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+        .tpl-stat {
+          display: inline-flex; align-items: center; gap: 6px;
+          background: rgba(0,0,0,0.25); border: 1px solid var(--border);
+          border-radius: 999px; padding: 4px 12px; font-size: 11px; color: var(--muted);
+        }
+        .tpl-stat strong { color: var(--text); font-family: 'JetBrains Mono', monospace; }
+        .tpl-btn {
+          background: linear-gradient(180deg, var(--em) 0%, var(--em2) 100%);
+          color: #00120a; font-weight: 700; border: 0; border-radius: 10px;
+          padding: 9px 18px; cursor: pointer; font-size: 13px;
+          display: inline-flex; align-items: center; gap: 6px; transition: filter .15s;
+          white-space: nowrap;
+        }
+        .tpl-btn:disabled { filter: grayscale(.5) brightness(.7); cursor: not-allowed; }
+        .tpl-btn:not(:disabled):hover { filter: brightness(1.08); }
+        .tpl-table-wrap { border-radius: 10px; border: 1px solid var(--border); overflow: hidden; }
+        .tpl-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .tpl-table thead th {
+          padding: 9px 13px; text-align: left;
+          font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+          color: var(--muted); border-bottom: 1px solid var(--border);
+          background: rgba(0,0,0,0.15);
+        }
+        .tpl-table tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04); }
+        .tpl-table tbody tr:last-child { border-bottom: none; }
+        .tpl-table td { padding: 9px 13px; vertical-align: middle; color: var(--soft); }
+        .tpl-table td.mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text); }
+        .tpl-badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 10px; font-weight: 700; }
+        .tpl-body { font-size: 12px; color: var(--muted); max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tpl-banner { padding: 10px 14px; border-radius: 10px; font-size: 13px; margin-bottom: 10px; }
+        .tpl-banner.err { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.30); color: #fecaca; }
+        .tpl-banner.ok  { background: rgba(34,197,94,0.08);  border: 1px solid rgba(34,197,94,0.30);  color: #bbf7d0; }
+        .tpl-empty { padding: 28px; text-align: center; color: var(--muted); font-size: 13px; background: linear-gradient(180deg, var(--surf2) 0%, var(--surf) 100%); border: 1px solid var(--border); border-radius: var(--r-md); }
+      `}</style>
+
+      <div className="tpl-hero">
+        <div className="tpl-hero-left">
+          <h2>Plantillas de WhatsApp</h2>
+          <p>Plantillas aprobadas por Meta en tu WABA. Úsalas para mensajes proactivos.</p>
+          <div className="tpl-stats">
+            <span className="tpl-stat"><strong>{templates.length}</strong> en total</span>
+            <span className="tpl-stat"><strong>{approved}</strong> aprobadas</span>
+            {lastSync && (
+              <span className="tpl-stat">
+                última sync · <strong>{new Date(lastSync).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</strong>
+              </span>
+            )}
+          </div>
+        </div>
+        <button type="button" className="tpl-btn" onClick={sync} disabled={syncing || tplLoading}>
+          {syncing ? 'Sincronizando…' : '↻ Sincronizar con Meta'}
+        </button>
+      </div>
+
+      {tplError && <div className="tpl-banner err"><strong>Error:</strong> {tplError}</div>}
+      {tplInfo  && <div className="tpl-banner ok">{tplInfo}</div>}
+
+      {tplLoading && !templates.length ? (
+        <div className="tpl-empty">Cargando plantillas…</div>
+      ) : !templates.length ? (
+        <div className="tpl-empty">
+          No hay plantillas en la base de datos. Pulsa <strong>Sincronizar con Meta</strong> para importarlas.
+        </div>
+      ) : (
+        <div className="tpl-table-wrap">
+          <table className="tpl-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Categoría</th>
+                <th>Estado</th>
+                <th>Idioma</th>
+                <th>Vista previa</th>
+              </tr>
+            </thead>
+            <tbody>
+              {templates.map((t) => {
+                const sc = TPL_STATUS_COLORS[t.status] || { bg: 'rgba(148,163,184,0.10)', text: 'var(--soft)' };
+                return (
+                  <tr key={t.id}>
+                    <td className="mono">{t.template_name}</td>
+                    <td><span style={{ fontSize: 11, color: 'var(--muted)' }}>{t.category || '—'}</span></td>
+                    <td>
+                      <span className="tpl-badge" style={{ background: sc.bg, color: sc.text }}>
+                        {t.status || '—'}
+                      </span>
+                    </td>
+                    <td><span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>{t.language_code || '—'}</span></td>
+                    <td><span className="tpl-body">{t.body_text || <em style={{ color: 'var(--border)' }}>sin texto</em>}</span></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }

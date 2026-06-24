@@ -2738,7 +2738,7 @@ app.get("/api/admin/clients/:clientId", async (req, res) => {
       supabaseAdmin
         .from("customer_users")
         .select(
-          "id, email, first_name, last_name, phone, is_active, subscription_plan_id, subscription_ends_at, created_at, updated_at"
+          "id, email, first_name, last_name, phone, is_active, subscription_plan_id, subscription_ends_at, stripe_subscription_id, created_at, updated_at"
         )
         .eq("id", clientId)
         .maybeSingle(),
@@ -2747,7 +2747,7 @@ app.get("/api/admin/clients/:clientId", async (req, res) => {
     if (error) throw error;
     if (!data) return res.status(404).json({ ok: false, message: "Client not found" });
 
-    const [{ data: payments }, { count: messagesThisMonth }, { count: messagesTotal }, { count: leadsTotal }] =
+    const [{ data: payments }, { count: messagesThisMonth }, { count: messagesTotal }, { count: leadsTotal }, { data: recentLeads }] =
       await Promise.all([
         supabaseAdmin
           .from("customer_payments")
@@ -2766,7 +2766,13 @@ app.get("/api/admin/clients/:clientId", async (req, res) => {
         supabaseAdmin
           .from("wa_leads")
           .select("*", { count: "exact", head: true })
+          .eq("customer_user_id", clientId),
+        supabaseAdmin
+          .from("wa_leads")
+          .select("id, name, phone, email, status, created_at")
           .eq("customer_user_id", clientId)
+          .order("created_at", { ascending: false })
+          .limit(5)
       ]);
 
     const planInfo = planSummaryFromMap(planMap, data.subscription_plan_id);
@@ -2785,6 +2791,8 @@ app.get("/api/admin/clients/:clientId", async (req, res) => {
         plan: data.subscription_plan_id || null,
         planLabel: planInfo.planLabel,
         monthlyEuro: planInfo.monthlyEuro,
+        isActive: !!data.is_active,
+        stripeSubscriptionId: data.stripe_subscription_id || null,
         status: subscriptionActive ? "active" : data.is_active ? "free" : "blocked",
         renewsAt: ends ? ends.slice(0, 10) : null,
         paymentsCount: (payments || []).length,
@@ -2792,6 +2800,7 @@ app.get("/api/admin/clients/:clientId", async (req, res) => {
         messagesThisMonth: messagesThisMonth || 0,
         messagesTotal: messagesTotal || 0,
         leadsTotal: leadsTotal || 0,
+        recentLeads: recentLeads || [],
         createdAt: data.created_at,
         payments: (payments || []).map((p) => ({
           id: p.id,
@@ -3803,6 +3812,60 @@ app.patch("/api/admin/platform-settings/:key", async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ ok: false, message: `Setting update failed: ${error.message}` });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────────────────
+   ADMIN WHATSAPP TEMPLATES — list and sync platform-level WABA templates
+   ───────────────────────────────────────────────────────────────────────── */
+
+app.get("/api/admin/whatsapp/templates", requireAdmin, async (_req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("whatsapp_message_templates")
+      .select("id, template_name, category, status, language_code, body_text, last_synced_at, created_at")
+      .order("template_name");
+    if (error) throw error;
+    return res.json({ ok: true, templates: data || [] });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+app.post("/api/admin/whatsapp/templates/sync", requireAdmin, async (req, res) => {
+  try {
+    const [token, wabaId, gvRaw] = await Promise.all([
+      getPlatformSetting("META_WABA_ACCESS_TOKEN", ""),
+      getPlatformSetting("META_WABA_BUSINESS_ACCOUNT_ID", ""),
+      getPlatformSetting("META_WABA_GRAPH_VERSION", "v21.0")
+    ]);
+    if (!token || !wabaId) {
+      return res.status(400).json({ ok: false, message: "Configura META_WABA_ACCESS_TOKEN y META_WABA_BUSINESS_ACCOUNT_ID en Ajustes de plataforma." });
+    }
+    const versionTag = String(gvRaw).startsWith("v") ? gvRaw : `v${gvRaw}`;
+    const url = `https://graph.facebook.com/${versionTag}/${wabaId}/message_templates?fields=name,category,status,language,components&limit=100`;
+    const metaRes = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!metaRes.ok) {
+      const t = await metaRes.text().catch(() => "");
+      return res.status(502).json({ ok: false, message: `Meta API error: ${t.slice(0, 200)}` });
+    }
+    const metaData = await metaRes.json();
+    const templates = metaData?.data || [];
+    for (const tpl of templates) {
+      const bodyComp = (tpl.components || []).find((c) => c.type === "BODY");
+      await supabaseAdmin.from("whatsapp_message_templates").upsert({
+        template_name: tpl.name,
+        category: tpl.category || "UTILITY",
+        status: tpl.status || "UNKNOWN",
+        language_code: tpl.language || "es",
+        body_text: bodyComp?.text || null,
+        last_synced_at: new Date().toISOString()
+      }, { onConflict: "template_name" });
+    }
+    await auditLog(req, "whatsapp.templates.sync", { detail: { synced: templates.length } });
+    return res.json({ ok: true, synced: templates.length });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
   }
 });
 
