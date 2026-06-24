@@ -87,14 +87,14 @@ function ResList({ list }) {
 }
 
 function TemplatesPage({ leads, showToast, page }) {
-  const [templates, setTemplates] = React.useState([]);
-  const [tplLoading, setTplLoading] = React.useState(false);
-  const [syncing, setSyncing] = React.useState(false);
-  const [selectedTpl, setSelectedTpl] = React.useState(null);
-  const [selectedLeads, setSelectedLeads] = React.useState([]);
-  const [sending, setSending] = React.useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [tplLoading, setTplLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [selectedTpl, setSelectedTpl] = useState(null);
+  const [selectedLeads, setSelectedLeads] = useState([]);
+  const [sending, setSending] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (page !== 'templates') return;
     setTplLoading(true);
     apiCall('/api/customer/whatsapp/templates')
@@ -225,12 +225,12 @@ function TemplatesPage({ leads, showToast, page }) {
 }
 
 function BotTestPage() {
-  const [testHistory, setTestHistory] = React.useState([]);
-  const [testInput, setTestInput] = React.useState('');
-  const [testLoading, setTestLoading] = React.useState(false);
-  const chatEndRef = React.useRef(null);
+  const [testHistory, setTestHistory] = useState([]);
+  const [testInput, setTestInput] = useState('');
+  const [testLoading, setTestLoading] = useState(false);
+  const chatEndRef = useRef(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [testHistory, testLoading]);
 
