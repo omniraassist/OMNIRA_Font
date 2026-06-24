@@ -636,6 +636,20 @@ function asIsoDate(value) {
   }
 }
 
+/** Write one row to admin_audit_log. Fire-and-forget — never throws. */
+async function auditLog(req, action, { entity, entityId, detail } = {}) {
+  try {
+    await supabaseAdmin.from("admin_audit_log").insert({
+      admin_email: req.adminEmail || req.headers["x-admin-email"] || null,
+      action,
+      entity: entity || null,
+      entity_id: entityId ? String(entityId) : null,
+      detail: detail || null,
+      ip: getClientIp(req)
+    });
+  } catch { /* best-effort */ }
+}
+
 // Protect all admin routes. These three paths are public (no token needed).
 const ADMIN_PUBLIC_PATHS = new Set([
   "/api/admin/login",
@@ -755,6 +769,7 @@ app.patch("/api/admin/users/:id/block", async (req, res) => {
       .maybeSingle();
     if (error) throw error;
     if (!data) return res.status(404).json({ ok: false, message: "User not found." });
+    await auditLog(req, blocked ? "user.block" : "user.unblock", { entity: "customer_user", entityId: id, detail: { email: data.email } });
     return res.status(200).json({ ok: true, user: data });
   } catch (error) {
     return res.status(500).json({ ok: false, message: `Block user failed: ${error.message}` });
@@ -764,8 +779,10 @@ app.patch("/api/admin/users/:id/block", async (req, res) => {
 app.delete("/api/admin/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    const { data: u } = await supabaseAdmin.from("customer_users").select("email").eq("id", id).maybeSingle();
     const { error } = await supabaseAdmin.from("customer_users").delete().eq("id", id);
     if (error) throw error;
+    await auditLog(req, "user.delete", { entity: "customer_user", entityId: id, detail: { email: u?.email } });
     return res.status(200).json({ ok: true, message: "User deleted." });
   } catch (error) {
     return res.status(500).json({ ok: false, message: `Delete user failed: ${error.message}` });
@@ -3245,6 +3262,7 @@ app.patch("/api/admin/pricing/:id", async (req, res) => {
     if (error) throw error;
     if (!data) return res.status(404).json({ ok: false, message: "Plan not found." });
     invalidatePricingCache();
+    await auditLog(req, "pricing.update", { entity: "pricing_plan", entityId: id, detail: patch });
     return res.status(200).json({ ok: true, plan: data });
   } catch (error) {
     return res.status(500).json({ ok: false, message: `Pricing update failed: ${error.message}` });
@@ -3537,6 +3555,22 @@ app.get("/api/admin/platform-settings", async (_req, res) => {
  * Each row tracks success_count / fail_count / last_failed_at so admins can see
  * which keys are healthy.
  */
+
+app.get("/api/admin/audit-log", async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query?.limit || 100), 500);
+    const { data, error } = await supabaseAdmin
+      .from("admin_audit_log")
+      .select("id, admin_email, action, entity, entity_id, detail, ip, created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return res.json({ ok: true, logs: data || [] });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
 app.get("/api/admin/openai-keys", async (_req, res) => {
   try {
     const { data, error } = await supabaseAdmin
@@ -3672,6 +3706,7 @@ app.patch("/api/admin/platform-settings/:key", async (req, res) => {
       .maybeSingle();
     if (error) throw error;
     invalidatePlatformSettingsCache();
+    await auditLog(req, "platform_setting.update", { entity: "platform_settings", entityId: key, detail: { key } });
     return res.status(200).json({
       ok: true,
       key: data.key,
