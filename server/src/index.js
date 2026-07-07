@@ -4570,6 +4570,26 @@ app.get("/api/customer/twilio-conversations", requireCustomer, async (req, res) 
   }
 });
 
+/** Customer: get individual Twilio messages for a specific contact. */
+app.get("/api/customer/twilio-messages", requireCustomer, async (req, res) => {
+  try {
+    const from = String(req.query.from || "").trim();
+    const limit = Math.min(500, Math.max(1, Number(req.query.limit) || 200));
+    let q = supabaseAdmin
+      .from("twilio_messages")
+      .select("id, twilio_number, wa_from, direction, body, created_at")
+      .eq("customer_user_id", req.customerId)
+      .order("created_at", { ascending: true })
+      .limit(limit);
+    if (from) q = q.eq("wa_from", from);
+    const { data, error } = await q;
+    if (error) throw error;
+    return res.status(200).json({ ok: true, messages: data || [] });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: `twilio-messages failed: ${error.message}` });
+  }
+});
+
 /** Admin: release numbers for all customers whose subscription has expired. */
 /**
  * Internal cron: release Twilio numbers from customers whose subscription has

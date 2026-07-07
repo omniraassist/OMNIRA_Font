@@ -340,6 +340,9 @@ export function Dashboard({ mockData = null }) {
   const [twilioNumber, setTwilioNumber] = useState(null);
   const [twilioUsage, setTwilioUsage] = useState(null);
   const [twilioConversations, setTwilioConversations] = useState([]);
+  const [selectedConv, setSelectedConv] = useState(null);
+  const [convMessages, setConvMessages] = useState([]);
+  const [convLoading, setConvLoading] = useState(false);
   const [allEvents, setAllEvents] = useState([]);
   const [calDate, setCalDate] = useState(() => {
     const d = new Date();
@@ -529,6 +532,20 @@ export function Dashboard({ mockData = null }) {
     const n = new Date();
     n.setDate(1);
     setCalDate(n);
+  };
+
+  const openConv = async (conv) => {
+    setSelectedConv(conv);
+    setConvMessages([]);
+    setConvLoading(true);
+    try {
+      const data = await apiCall(`/api/customer/twilio-messages?from=${encodeURIComponent(conv.wa_from)}&limit=200`);
+      setConvMessages(data.messages || []);
+    } catch {
+      setConvMessages([]);
+    } finally {
+      setConvLoading(false);
+    }
   };
 
   const openAddModal = (dateStr, timeStr) => {
@@ -1343,7 +1360,7 @@ export function Dashboard({ mockData = null }) {
                         const cname = c.lead?.name || `+${c.wa_from}`;
                         const cinits = cname.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
                         return (
-                          <div key={`${c.phone_number_id || ''}|${c.wa_from}`} className="p-res-item" style={{ alignItems: 'flex-start' }}>
+                          <div key={`${c.phone_number_id || ''}|${c.wa_from}`} className="p-res-item" style={{ alignItems: 'flex-start', cursor: 'pointer' }} onClick={() => openConv(c)}>
                             <div className="p-res-av">{cinits}</div>
                             <div style={{ minWidth: 0, flex: 1 }}>
                               <div className="p-res-name">{cname}</div>
@@ -1912,6 +1929,51 @@ export function Dashboard({ mockData = null }) {
             <button type="button" className="btn-cancel-modal" style={{ width: '100%' }} onClick={() => setUpgradeOpen(false)}>
               Ahora no, seguir con plan gratis
             </button>
+          </div>
+        </div>
+      )}
+
+      {selectedConv && (
+        <div className="modal-overlay active" style={{ zIndex: 10003 }} onClick={(e) => { if (e.target === e.currentTarget) setSelectedConv(null); }}>
+          <div className="modal-box" style={{ maxWidth: 540, height: '80vh', display: 'flex', flexDirection: 'column', padding: 0 }}>
+            <div className="modal-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+              <h3 className="modal-title" style={{ fontSize: 15 }}>
+                {selectedConv.lead?.name || `+${selectedConv.wa_from}`}
+                <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--muted)', marginLeft: 8 }}>+{selectedConv.wa_from}</span>
+              </h3>
+              <button type="button" className="modal-close-btn" onClick={() => setSelectedConv(null)}>
+                <i className="fa-solid fa-xmark" />
+              </button>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {convLoading ? (
+                <div style={{ textAlign: 'center', color: 'var(--muted)', paddingTop: 40 }}>Cargando mensajes…</div>
+              ) : convMessages.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--muted)', paddingTop: 40 }}>Sin mensajes</div>
+              ) : (
+                convMessages.map((m) => {
+                  const isOut = m.direction === 'outbound' || m.direction === 'outbound-reply';
+                  return (
+                    <div key={m.id} style={{ display: 'flex', justifyContent: isOut ? 'flex-end' : 'flex-start' }}>
+                      <div style={{
+                        maxWidth: '78%',
+                        padding: '8px 12px',
+                        borderRadius: isOut ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                        background: isOut ? 'var(--accent, #c8a96e)' : 'var(--card-bg, #1e1e2e)',
+                        color: isOut ? '#111' : 'var(--text)',
+                        fontSize: 13,
+                        lineHeight: 1.45,
+                      }}>
+                        <div>{m.body}</div>
+                        <div style={{ fontSize: 10, opacity: 0.6, marginTop: 4, textAlign: isOut ? 'right' : 'left' }}>
+                          {new Date(m.created_at).toLocaleString('es-ES', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
       )}
