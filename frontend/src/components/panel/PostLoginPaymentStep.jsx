@@ -66,6 +66,28 @@ export function PostLoginPaymentStep() {
     }
   }
 
+  /** Dev/QA: simulate payment without Stripe (backend must have OMNIRA_ALLOW_SUBSCRIPTION_SIMULATE=true) */
+  async function startSimulate() {
+    if (!plan?.id) return;
+    setErr('');
+    setBusy(true);
+    try {
+      const res = await apiCall('/api/customer/subscription/simulate', {
+        method: 'POST',
+        body: JSON.stringify({ plan_id: plan.id }),
+      });
+      if (res.ok && res.user) {
+        await persistUser(res.user);
+      } else {
+        setErr(res.message || 'Simulate no disponible.');
+      }
+    } catch (e) {
+      setErr(e.message || 'Error en simulate');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   /** Stripe-hosted Checkout (redirect) */
   async function startStripeRedirect() {
     if (!plan?.id) return;
@@ -198,6 +220,9 @@ export function PostLoginPaymentStep() {
                 </p>
                 <button type="button" className="btn-ghost" style={{ width: '100%', marginTop: 6 }} onClick={startStripeRedirect} disabled={busy || !plan?.id}>
                   Abrir Stripe Checkout (redirección)
+                </button>
+                <button type="button" className="btn-ghost" style={{ width: '100%', marginTop: 6, opacity: 0.5, fontSize: 12 }} onClick={startSimulate} disabled={busy || !plan?.id}>
+                  Test · skip payment
                 </button>
               </>
             ) : (
