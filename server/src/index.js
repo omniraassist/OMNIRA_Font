@@ -538,6 +538,18 @@ app.post("/api/customer/subscription/simulate", requireCustomer, async (req, res
       }
     } catch { /* ignore */ }
 
+    // Auto-assign Twilio number + create bot config (same as real payment flow).
+    try {
+      await assignNumberToCustomer(req.customerId);
+    } catch { /* ignore */ }
+    try {
+      const { data: existingCfg } = await supabaseAdmin
+        .from("bot_configs").select("id").eq("scope", "customer").eq("customer_user_id", req.customerId).maybeSingle();
+      if (!existingCfg) {
+        await supabaseAdmin.from("bot_configs").insert({ scope: "customer", customer_user_id: req.customerId });
+      }
+    } catch { /* ignore */ }
+
     return res.status(200).json({ ok: true, user: buildCustomerUserPayload(user) });
   } catch (error) {
     return res.status(500).json({ ok: false, message: error.message });
