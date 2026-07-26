@@ -24,10 +24,10 @@ export function invalidatePricingCache() {
  * 503s when pricing_plans is empty — Phase-1 customers still flow through).
  */
 const FALLBACK_PLANS = {
-  monthly:    { amountCents: 4900,  durationDays: 30,  label: "1 mes",   periodText: "/mes", currency: "eur" },
-  quarterly:  { amountCents: 12900, durationDays: 90,  label: "3 meses", periodText: "/mes", currency: "eur" },
-  semiannual: { amountCents: 22900, durationDays: 180, label: "6 meses", periodText: "/mes", currency: "eur" },
-  annual:     { amountCents: 39900, durationDays: 365, label: "12 meses", periodText: "/mes", currency: "eur" }
+  monthly:    { amountCents: 5900,  durationDays: 30,  label: "1 mes",    periodText: "/mes", currency: "eur" },
+  quarterly:  { amountCents: 15900, durationDays: 90,  label: "3 meses",  periodText: "/mes", currency: "eur" },
+  semiannual: { amountCents: 27900, durationDays: 180, label: "6 meses",  periodText: "/mes", currency: "eur" },
+  annual:     { amountCents: 47900, durationDays: 365, label: "12 meses", periodText: "/mes", currency: "eur" }
 };
 
 export async function getCheckoutPlans() {
@@ -80,6 +80,20 @@ export async function isValidPlanId(id) {
   if (!id) return false;
   const plans = await getCheckoutPlans();
   return Object.prototype.hasOwnProperty.call(plans, id);
+}
+
+// ---------------------------------------------------------------------------
+// Conversation packs (one-time purchases)
+// ---------------------------------------------------------------------------
+
+export const CONVERSATION_PACKS = {
+  pack_100: { conversations: 100, amountCents: 900,  label: "+100 conversaciones", currency: "eur" },
+  pack_300: { conversations: 300, amountCents: 2200, label: "+300 conversaciones", currency: "eur" },
+  pack_600: { conversations: 600, amountCents: 3900, label: "+600 conversaciones", currency: "eur" },
+};
+
+export function getConversationPack(packId) {
+  return CONVERSATION_PACKS[packId] || null;
 }
 
 export function computeNewSubscriptionEnd(currentEndsAtIso, durationDays) {

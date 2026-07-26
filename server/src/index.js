@@ -5,9 +5,9 @@ import crypto from "crypto";
 import { testSupabaseConnection, isSupabaseConfigured } from "./config/supabase.js";
 import { supabaseAdmin } from "./config/supabase.js";
 import { signCustomerToken, requireCustomer, verifyCustomerToken, signAdminToken, requireAdmin } from "./customerJwt.js";
-import { getCheckoutPlans, getCheckoutPlan, computeNewSubscriptionEnd, invalidatePricingCache } from "./billing.js";
+import { getCheckoutPlans, getCheckoutPlan, computeNewSubscriptionEnd, invalidatePricingCache, CONVERSATION_PACKS, getConversationPack } from "./billing.js";
 import { getPlatformSetting, invalidatePlatformSettingsCache, maskSecret } from "./platformSettings.js";
-import { getStripe, applyPaidCheckoutSession, applyPaidPaymentIntent, OMNIRA_PAYMENT_INTENT_FLOW, applySubscriptionInvoicePaid, applySubscriptionDeleted } from "./stripeSync.js";
+import { getStripe, applyPaidCheckoutSession, applyPaidPaymentIntent, OMNIRA_PAYMENT_INTENT_FLOW, applySubscriptionInvoicePaid, applySubscriptionDeleted, applyPaidConversationPack } from "./stripeSync.js";
 import { invoiceNumberFor, getInvoiceById } from "./invoice.js";
 import { verifyEmailTransport, isEmailConfigured, sendEmail, emailConfigDiagnostics } from "./email.js";
 import {
@@ -131,7 +131,11 @@ app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
       if (session.mode === "payment") {
-        await applyPaidCheckoutSession(session);
+        if (String(session.metadata?.omnira_flow || "") === "conversation_pack") {
+          await applyPaidConversationPack(session);
+        } else {
+          await applyPaidCheckoutSession(session);
+        }
       }
       // Subscription checkout: invoice.payment_succeeded handles the actual grant
     }
@@ -1651,6 +1655,82 @@ app.post("/api/customer/whatsapp-profile/photo", requireCustomer, async (req, re
     const profileBody = await profileRes.json();
     if (!profileRes.ok || !profileBody.success) return res.status(400).json({ ok: false, message: profileBody?.error?.message || "No se pudo actualizar la foto de perfil" });
     return res.json({ ok: true });
+  } catch (e) {
+    return res.status(500).json({ ok: false, message: e.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Conversation usage + pack purchases
+// ---------------------------------------------------------------------------
+
+app.get("/api/customer/conversation-usage", requireCustomer, async (req, res) => {
+  try {
+    const { data: user } = await supabaseAdmin
+      .from("customer_users")
+      .select("subscription_plan_id, extra_conversations_balance")
+      .eq("id", req.customerId)
+      .maybeSingle();
+    const planId = user?.subscription_plan_id || "monthly";
+    const limit = PLAN_CONVERSATION_LIMITS[planId] ?? 200;
+    const used = await getConversationUsage(req.customerId);
+    const extraBalance = Number(user?.extra_conversations_balance ?? 0);
+    return res.json({ ok: true, used, limit, extraBalance, planId });
+  } catch (e) {
+    return res.status(500).json({ ok: false, message: e.message });
+  }
+});
+
+app.get("/api/customer/conversation-packs", requireCustomer, async (_req, res) => {
+  return res.json({ ok: true, packs: CONVERSATION_PACKS });
+});
+
+app.post("/api/customer/conversation-pack/checkout", requireCustomer, async (req, res) => {
+  try {
+    const { packId } = req.body || {};
+    const pack = getConversationPack(packId);
+    if (!pack) return res.status(400).json({ ok: false, message: "Pack inválido" });
+
+    const stripe = getStripe();
+    if (!stripe) return res.status(503).json({ ok: false, message: "Stripe no configurado" });
+
+    const { data: user } = await supabaseAdmin
+      .from("customer_users")
+      .select("email, stripe_customer_id")
+      .eq("id", req.customerId)
+      .maybeSingle();
+
+    const appUrl = publicAppUrl();
+    const sessionParams = {
+      mode: "payment",
+      payment_method_types: ["card"],
+      line_items: [{
+        price_data: {
+          currency: "eur",
+          product_data: { name: pack.label, description: `Pack de conversaciones adicionales para OMNIRA` },
+          unit_amount: pack.amountCents
+        },
+        quantity: 1
+      }],
+      metadata: {
+        omnira_flow: "conversation_pack",
+        customer_user_id: req.customerId,
+        pack_id: packId,
+        conversations: String(pack.conversations),
+        amount_cents: String(pack.amountCents)
+      },
+      success_url: `${appUrl}/?pack_success=1`,
+      cancel_url: `${appUrl}/?pack_cancel=1`
+    };
+
+    if (user?.stripe_customer_id) {
+      sessionParams.customer = user.stripe_customer_id;
+    } else if (user?.email) {
+      sessionParams.customer_email = user.email;
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
+    return res.json({ ok: true, url: session.url });
   } catch (e) {
     return res.status(500).json({ ok: false, message: e.message });
   }
@@ -4649,13 +4729,14 @@ app.get("/api/customer/twilio-usage", requireCustomer, async (req, res) => {
   try {
     const { data: customerRow } = await supabaseAdmin
       .from("customer_users")
-      .select("subscription_plan_id")
+      .select("subscription_plan_id, extra_conversations_balance")
       .eq("id", req.customerId)
       .maybeSingle();
     const planId = customerRow?.subscription_plan_id || "monthly";
     const used = await getConversationUsage(req.customerId);
-    const limit = PLAN_CONVERSATION_LIMITS[planId] ?? 300;
-    return res.status(200).json({ ok: true, used, limit, plan: planId });
+    const limit = PLAN_CONVERSATION_LIMITS[planId] ?? 200;
+    const extraBalance = Number(customerRow?.extra_conversations_balance ?? 0);
+    return res.status(200).json({ ok: true, used, limit, plan: planId, extraBalance });
   } catch (error) {
     return res.status(500).json({ ok: false, message: error.message });
   }

@@ -1,6 +1,6 @@
 import Stripe from "stripe";
 import { supabaseAdmin } from "./config/supabase.js";
-import { getCheckoutPlan, computeNewSubscriptionEnd } from "./billing.js";
+import { getCheckoutPlan, computeNewSubscriptionEnd, getConversationPack } from "./billing.js";
 import { sendInvoiceForPayment } from "./invoice.js";
 import { assignNumberToCustomer } from "./twilio.js";
 
@@ -384,6 +384,77 @@ export async function applySubscriptionInvoicePaid(invoice) {
   }
 
   return { ok: true, subscription_ends_at: newEnd };
+}
+
+/**
+ * Idempotent: credits extra_conversations_balance when a conversation pack is paid.
+ * Called on checkout.session.completed with metadata.omnira_flow === "conversation_pack".
+ */
+export async function applyPaidConversationPack(session) {
+  if (!session || session.payment_status !== "paid") return { ok: false, reason: "not_paid" };
+  const userId  = String(session.metadata?.customer_user_id || "").trim();
+  const packId  = String(session.metadata?.pack_id || "").trim();
+  const convs   = Number(session.metadata?.conversations || 0);
+  const amount  = Number(session.metadata?.amount_cents || 0);
+  if (!userId || !packId || convs <= 0) return { ok: false, reason: "bad_metadata" };
+
+  const pack = getConversationPack(packId);
+  if (!pack) return { ok: false, reason: "unknown_pack" };
+
+  const sessionId = session.id;
+
+  // Idempotency check
+  const { data: dup } = await supabaseAdmin
+    .from("conversation_pack_purchases")
+    .select("id")
+    .eq("stripe_checkout_session_id", sessionId)
+    .maybeSingle();
+  if (dup) return { ok: true, duplicate: true };
+
+  // Fetch current balance and increment atomically
+  const { data: userRow } = await supabaseAdmin
+    .from("customer_users")
+    .select("extra_conversations_balance")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!userRow) return { ok: false, reason: "user_not_found" };
+
+  const newBalance = Number(userRow.extra_conversations_balance ?? 0) + convs;
+  await supabaseAdmin
+    .from("customer_users")
+    .update({ extra_conversations_balance: newBalance, updated_at: new Date().toISOString() })
+    .eq("id", userId);
+
+  // Audit log
+  await supabaseAdmin.from("conversation_pack_purchases").insert({
+    customer_user_id: userId,
+    pack_id: packId,
+    conversations_added: convs,
+    amount_cents: amount || pack.amountCents,
+    stripe_checkout_session_id: sessionId
+  });
+
+  // Notification
+  try {
+    const { data: u } = await supabaseAdmin.from("customer_users").select("email").eq("id", userId).maybeSingle();
+    if (u?.email) {
+      const { data: existing } = await supabaseAdmin.from("user_notifications")
+        .select("id").eq("created_by", `system:pack:${sessionId}`).maybeSingle();
+      if (!existing) {
+        await supabaseAdmin.from("user_notifications").insert({
+          target_email: u.email,
+          title: "✅ Pack de conversaciones activado",
+          message: `Se han añadido ${convs} conversaciones a tu cuenta. Saldo actual: ${newBalance} conversaciones extra.`,
+          created_by: `system:pack:${sessionId}`
+        });
+      }
+    }
+  } catch (e) {
+    console.warn("[stripeSync] pack notification failed:", e?.message || e);
+  }
+
+  console.log(`[stripeSync] pack ${packId}: +${convs} convs for customer ${userId} (balance: ${newBalance})`);
+  return { ok: true, conversationsAdded: convs, newBalance };
 }
 
 /**

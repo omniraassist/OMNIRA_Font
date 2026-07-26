@@ -427,13 +427,13 @@ export async function findCustomerByTwilioNumber(toRaw) {
 
 // Max unique contacts/month per plan tier.
 export const PLAN_CONVERSATION_LIMITS = {
-  monthly:    300,
-  quarterly:  500,
-  semiannual: 1000,
-  annual:     2000,
+  monthly:    200,
+  quarterly:  200,
+  semiannual: 250,
+  annual:     300,
 };
 
-const DEFAULT_LIMIT = 300; // fallback when plan is unknown
+const DEFAULT_LIMIT = 200; // fallback when plan is unknown
 
 function monthKey() {
   const d = new Date();
@@ -442,9 +442,11 @@ function monthKey() {
 
 /**
  * Checks whether a customer can receive a message from `fromPhone` this month.
- * If the contact is new this month and the customer is under their limit,
+ * If the contact is new this month and the customer is under their plan limit,
  * records the new conversation and returns { allowed: true }.
- * If the limit is reached, returns { allowed: false, used, limit }.
+ * If the plan limit is reached but extra_conversations_balance > 0,
+ * consumes one from the extra balance and allows the conversation.
+ * If both limits are exhausted, returns { allowed: false, used, limit }.
  */
 export async function checkAndIncrementConversation(customerId, fromPhone, planId) {
   const limit = PLAN_CONVERSATION_LIMITS[planId] ?? DEFAULT_LIMIT;
@@ -460,11 +462,10 @@ export async function checkAndIncrementConversation(customerId, fromPhone, planI
     .maybeSingle();
 
   if (existing) {
-    // Existing conversation — always allowed, no need to recount.
     return { allowed: true, existing: true };
   }
 
-  // New contact this month — check current count first.
+  // New contact this month — check current count.
   const { count } = await supabaseAdmin
     .from("twilio_conversation_windows")
     .select("id", { count: "exact", head: true })
@@ -472,21 +473,42 @@ export async function checkAndIncrementConversation(customerId, fromPhone, planI
     .eq("month_key", mk);
 
   const used = count ?? 0;
-  if (used >= limit) {
-    return { allowed: false, used, limit };
+
+  if (used < limit) {
+    // Under plan limit — record this new conversation.
+    await supabaseAdmin
+      .from("twilio_conversation_windows")
+      .upsert(
+        { customer_user_id: customerId, wa_from: fromPhone, month_key: mk },
+        { onConflict: "customer_user_id,wa_from,month_key", ignoreDuplicates: true }
+      );
+    return { allowed: true, existing: false, used: used + 1, limit };
   }
 
-  // Under limit — record this new conversation.
-  // upsert with ignoreDuplicates handles the concurrent-request race condition
-  // without throwing (Supabase v2 doesn't have .onConflict().ignore()).
-  await supabaseAdmin
-    .from("twilio_conversation_windows")
-    .upsert(
-      { customer_user_id: customerId, wa_from: fromPhone, month_key: mk },
-      { onConflict: "customer_user_id,wa_from,month_key", ignoreDuplicates: true }
-    );
+  // Plan limit reached — try to consume from extra balance.
+  const { data: userRow } = await supabaseAdmin
+    .from("customer_users")
+    .select("extra_conversations_balance")
+    .eq("id", customerId)
+    .maybeSingle();
 
-  return { allowed: true, existing: false, used: used + 1, limit };
+  const extraBalance = Number(userRow?.extra_conversations_balance ?? 0);
+  if (extraBalance > 0) {
+    // Decrement extra balance and record the conversation.
+    await supabaseAdmin
+      .from("customer_users")
+      .update({ extra_conversations_balance: extraBalance - 1, updated_at: new Date().toISOString() })
+      .eq("id", customerId);
+    await supabaseAdmin
+      .from("twilio_conversation_windows")
+      .upsert(
+        { customer_user_id: customerId, wa_from: fromPhone, month_key: mk },
+        { onConflict: "customer_user_id,wa_from,month_key", ignoreDuplicates: true }
+      );
+    return { allowed: true, existing: false, used: used + 1, limit, usedExtra: true, extraBalance: extraBalance - 1 };
+  }
+
+  return { allowed: false, used, limit, extraBalance: 0 };
 }
 
 /**

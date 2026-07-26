@@ -378,6 +378,8 @@ export function Dashboard({ mockData = null }) {
   const [waBizPhotoPreview, setWaBizPhotoPreview] = useState(null);
   const [waBizPhotoFile, setWaBizPhotoFile] = useState(null);
   const [waBizPhotoUploading, setWaBizPhotoUploading] = useState(false);
+  const [convPackBuying, setConvPackBuying] = useState(false);
+  const [showPackModal, setShowPackModal] = useState(false);
 
   const name = user?.businessName || user?.name || 'Cliente';
   const initials = name
@@ -505,6 +507,18 @@ export function Dashboard({ mockData = null }) {
 
   useEffect(() => () => clearTimeout(toastTimerRef.current), []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('pack_success') === '1') {
+      showToast('¡Pack de conversaciones activado! Ya puedes usarlas.', 'success');
+      window.history.replaceState({}, '', window.location.pathname);
+      loadConvUsage();
+    } else if (params.get('pack_cancel') === '1') {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const loadWaBizProfile = useCallback(async () => {
     setWaBizProfileLoading(true);
     try {
@@ -525,9 +539,34 @@ export function Dashboard({ mockData = null }) {
     setWaBizProfileLoading(false);
   }, []);
 
+  const loadConvUsage = useCallback(async () => {
+    try {
+      const data = await apiCall('/api/customer/twilio-usage');
+      if (data?.ok) setTwilioUsage(data);
+    } catch { /* ignore */ }
+  }, []);
+
   useEffect(() => {
-    if (page === 'whatsapp') loadWaBizProfile();
-  }, [page, loadWaBizProfile]);
+    if (page === 'whatsapp') { loadWaBizProfile(); loadConvUsage(); }
+  }, [page, loadWaBizProfile, loadConvUsage]);
+
+  const buyConvPack = async (packId) => {
+    setConvPackBuying(true);
+    try {
+      const data = await apiCall('/api/customer/conversation-pack/checkout', {
+        method: 'POST',
+        body: JSON.stringify({ packId }),
+      });
+      if (data?.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        showToast(data?.message || 'Error al procesar el pago', 'error');
+      }
+    } catch (e) {
+      showToast(e.message || 'Error al conectar con el servidor', 'error');
+    }
+    setConvPackBuying(false);
+  };
 
   const saveWaBizProfile = async (e) => {
     e.preventDefault();
@@ -1881,27 +1920,52 @@ export function Dashboard({ mockData = null }) {
                   <div style={{ fontSize: 13, color: 'var(--soft)', lineHeight: 1.6, marginBottom: 16 }}>
                     Comparte este número en tu web, Instagram o tarjeta de visita. Todos los mensajes que reciba serán respondidos por tu agente Omnira.
                   </div>
-                  {twilioUsage && (
-                    <div style={{ maxWidth: 360 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--soft)', marginBottom: 6 }}>
-                        <span>Conversaciones este mes</span>
-                        <span style={{ fontFamily: 'monospace', color: 'var(--text)', fontWeight: 600 }}>{twilioUsage.used} / {twilioUsage.limit}</span>
+                  {twilioUsage && (() => {
+                    const pct = Math.min(100, Math.round((twilioUsage.used / twilioUsage.limit) * 100));
+                    const isNear = pct >= 80;
+                    const isOver = twilioUsage.used >= twilioUsage.limit;
+                    return (
+                      <div style={{ maxWidth: 400 }}>
+                        {isOver && (
+                          <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 12, color: '#f87171', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                            <i className="fa-solid fa-triangle-exclamation" style={{ marginTop: 2, flexShrink: 0 }} />
+                            <span>Has alcanzado el límite de conversaciones de tu plan. {twilioUsage.extraBalance > 0 ? `Tienes ${twilioUsage.extraBalance} conversaciones extra disponibles.` : 'Compra un pack para seguir atendiendo nuevos contactos.'}</span>
+                          </div>
+                        )}
+                        {isNear && !isOver && (
+                          <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 12, color: '#fbbf24', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                            <i className="fa-solid fa-circle-exclamation" style={{ marginTop: 2, flexShrink: 0 }} />
+                            <span>Llevas el {pct}% de las conversaciones de tu plan. Compra un pack antes de llegar al límite.</span>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: 'var(--soft)', marginBottom: 6 }}>
+                          <span>Conversaciones este mes</span>
+                          <span style={{ fontFamily: 'monospace', color: 'var(--text)', fontWeight: 600 }}>{twilioUsage.used} / {twilioUsage.limit}</span>
+                        </div>
+                        <div style={{ height: 8, borderRadius: 999, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+                          <div style={{
+                            height: '100%', borderRadius: 999,
+                            background: isOver ? '#ef4444' : isNear ? 'linear-gradient(90deg, #f59e0b, #ef4444)' : 'linear-gradient(90deg, var(--em), #34d399)',
+                            width: `${pct}%`,
+                            transition: 'width .5s ease'
+                          }} />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                            Se reinicia el 1 de cada mes
+                            {twilioUsage.extraBalance > 0 && <span style={{ color: 'var(--em)', marginLeft: 6 }}>· +{twilioUsage.extraBalance} extra</span>}
+                          </div>
+                          <button
+                            type="button"
+                            style={{ background: 'rgba(0,229,160,0.12)', border: '1px solid var(--em)', color: 'var(--em)', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
+                            onClick={() => setShowPackModal(true)}
+                          >
+                            <i className="fa-solid fa-plus" /> Comprar pack
+                          </button>
+                        </div>
                       </div>
-                      <div style={{ height: 8, borderRadius: 999, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
-                        <div style={{
-                          height: '100%', borderRadius: 999,
-                          background: twilioUsage.used / twilioUsage.limit > 0.85
-                            ? 'linear-gradient(90deg, #f59e0b, #ef4444)'
-                            : 'linear-gradient(90deg, var(--em), #34d399)',
-                          width: `${Math.min(100, Math.round((twilioUsage.used / twilioUsage.limit) * 100))}%`,
-                          transition: 'width .5s ease'
-                        }} />
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
-                        Se reinicia el 1 de cada mes · Plan {twilioUsage.plan}
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               ) : (
                 <div className="p-empty">
@@ -2215,6 +2279,41 @@ export function Dashboard({ mockData = null }) {
                   );
                 })
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPackModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }} onClick={() => setShowPackModal(false)}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 28, maxWidth: 440, width: '92%', position: 'relative' }} onClick={e => e.stopPropagation()}>
+            <button type="button" onClick={() => setShowPackModal(false)} style={{ position: 'absolute', top: 14, right: 16, background: 'none', border: 'none', color: 'var(--muted)', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}>×</button>
+            <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--text)', marginBottom: 4 }}>Packs de conversaciones</div>
+            <div style={{ fontSize: 13, color: 'var(--soft)', marginBottom: 20 }}>
+              Las conversaciones extra no caducan y se usan cuando superas el límite de tu plan.
+            </div>
+            {[
+              { id: 'pack_100', label: '+100 conversaciones', price: '9€', desc: '0,09€ por conversación' },
+              { id: 'pack_300', label: '+300 conversaciones', price: '22€', desc: '0,07€ por conversación · Ahorra 25%' },
+              { id: 'pack_600', label: '+600 conversaciones', price: '39€', desc: '0,065€ por conversación · Ahorro máximo' },
+            ].map(pack => (
+              <div key={pack.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px', marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)', marginBottom: 2 }}>{pack.label}</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>{pack.desc}</div>
+                </div>
+                <button
+                  type="button"
+                  disabled={convPackBuying}
+                  onClick={() => buyConvPack(pack.id)}
+                  style={{ background: 'var(--em)', color: '#00120a', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 700, fontSize: 13, cursor: convPackBuying ? 'not-allowed' : 'pointer', opacity: convPackBuying ? 0.7 : 1, flexShrink: 0, marginLeft: 12 }}
+                >
+                  {convPackBuying ? <i className="fa-solid fa-circle-notch fa-spin" /> : pack.price}
+                </button>
+              </div>
+            ))}
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8, textAlign: 'center' }}>
+              Pago único · Las conversaciones se añaden inmediatamente tras el pago
             </div>
           </div>
         </div>
