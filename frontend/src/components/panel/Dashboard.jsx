@@ -371,7 +371,7 @@ export function Dashboard({ mockData = null }) {
     source: 'manual',
   });
   const [waBizProfile, setWaBizProfile] = useState(null);
-  const [waBizProfileReason, setWaBizProfileReason] = useState(null);
+  const [waBizProfileSource, setWaBizProfileSource] = useState(null);
   const [waBizProfileForm, setWaBizProfileForm] = useState({ about: '', description: '', address: '', email: '', website: '', vertical: '' });
   const [waBizProfileLoading, setWaBizProfileLoading] = useState(false);
   const [waBizProfileSaving, setWaBizProfileSaving] = useState(false);
@@ -509,19 +509,17 @@ export function Dashboard({ mockData = null }) {
     setWaBizProfileLoading(true);
     try {
       const data = await apiCall('/api/customer/whatsapp-profile');
-      if (data?.ok && data.profile) {
-        setWaBizProfile(data.profile);
-        setWaBizProfileReason(null);
+      if (data?.ok) {
+        setWaBizProfile(data.profile || {});
+        setWaBizProfileSource(data.source || null);
         setWaBizProfileForm({
-          about: data.profile.about || '',
-          description: data.profile.description || '',
-          address: data.profile.address || '',
-          email: data.profile.email || '',
-          website: data.profile.websites?.[0] || '',
-          vertical: data.profile.vertical || '',
+          about: data.profile?.about || '',
+          description: data.profile?.description || '',
+          address: data.profile?.address || '',
+          email: data.profile?.email || '',
+          website: data.profile?.websites?.[0] || '',
+          vertical: data.profile?.vertical || '',
         });
-      } else {
-        setWaBizProfileReason(data?.reason || data?.error || null);
       }
     } catch { /* ignore */ }
     setWaBizProfileLoading(false);
@@ -547,9 +545,13 @@ export function Dashboard({ mockData = null }) {
         }),
       });
       if (data?.ok) {
-        showToast('Perfil de WhatsApp Business actualizado', 'success');
+        if (data.synced) {
+          showToast('Perfil sincronizado con WhatsApp Business', 'success');
+        } else {
+          showToast(data.warning || 'Guardado localmente', 'success');
+        }
       } else {
-        showToast(data?.message || 'Error al actualizar el perfil', 'error');
+        showToast(data?.message || 'Error al guardar el perfil', 'error');
       }
     } catch {
       showToast('Error al guardar el perfil', 'error');
@@ -1913,13 +1915,13 @@ export function Dashboard({ mockData = null }) {
                 <span className="p-card-title">Perfil de WhatsApp Business</span>
                 {waBizProfileLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}><i className="fa-solid fa-circle-notch fa-spin" /></span>}
               </div>
-              {waBizProfileReason === 'no_meta_credentials' ? (
-                <div className="p-empty">
-                  <i className="fa-brands fa-whatsapp" />
-                  <p>Configura tus credenciales de Meta en <strong>Ajustes de WhatsApp</strong> para gestionar tu perfil.</p>
+              {waBizProfileSource === 'local' && (
+                <div style={{ background: 'rgba(255,193,7,0.08)', border: '1px solid rgba(255,193,7,0.2)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#f0b400', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                  <i className="fa-solid fa-circle-info" style={{ marginTop: 2, flexShrink: 0 }} />
+                  <span>Los cambios se guardan localmente. Para sincronizarlos con WhatsApp Business, configura tus credenciales de Meta en <strong style={{ color: '#f5c518' }}>Ajustes de WhatsApp</strong>.</span>
                 </div>
-              ) : (
-                <form onSubmit={saveWaBizProfile}>
+              )}
+              <form onSubmit={saveWaBizProfile}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 20, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
                     <div
                       style={{ position: 'relative', cursor: 'pointer', flexShrink: 0 }}
@@ -2039,7 +2041,6 @@ export function Dashboard({ mockData = null }) {
                     </button>
                   </div>
                 </form>
-              )}
             </div>
 
             <div className="p-card">

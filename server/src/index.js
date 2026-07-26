@@ -1536,16 +1536,27 @@ async function getCustomerMetaCreds(customerId) {
 
 app.get("/api/customer/whatsapp-profile", requireCustomer, async (req, res) => {
   try {
+    await ensureCustomerWhatsAppConfig(req.customerId);
     const creds = await getCustomerMetaCreds(req.customerId);
-    if (!creds) return res.json({ ok: true, profile: null, reason: "no_meta_credentials" });
-    const r = await fetch(
-      `https://graph.facebook.com/${creds.version}/${creds.phoneNumberId}/whatsapp_business_profile?fields=about,address,description,email,profile_picture_url,websites,vertical`,
-      { headers: { Authorization: `Bearer ${creds.token}` } }
-    );
-    const body = await r.json();
-    if (!r.ok) return res.json({ ok: false, error: body?.error?.message || "Meta API error" });
-    const profile = Array.isArray(body?.data) ? body.data[0] : body;
-    return res.json({ ok: true, profile: profile || {} });
+    // If Meta credentials exist, fetch live from Meta API
+    if (creds) {
+      const r = await fetch(
+        `https://graph.facebook.com/${creds.version}/${creds.phoneNumberId}/whatsapp_business_profile?fields=about,address,description,email,profile_picture_url,websites,vertical`,
+        { headers: { Authorization: `Bearer ${creds.token}` } }
+      );
+      const body = await r.json();
+      if (r.ok) {
+        const profile = Array.isArray(body?.data) ? body.data[0] : body;
+        return res.json({ ok: true, profile: profile || {}, source: "meta" });
+      }
+    }
+    // Fallback: return locally stored profile
+    const { data } = await supabaseAdmin
+      .from("customer_whatsapp_configs")
+      .select("wa_profile")
+      .eq("customer_user_id", req.customerId)
+      .maybeSingle();
+    return res.json({ ok: true, profile: data?.wa_profile || {}, source: "local" });
   } catch (e) {
     return res.status(500).json({ ok: false, message: e.message });
   }
@@ -1553,20 +1564,32 @@ app.get("/api/customer/whatsapp-profile", requireCustomer, async (req, res) => {
 
 app.patch("/api/customer/whatsapp-profile", requireCustomer, async (req, res) => {
   try {
-    const creds = await getCustomerMetaCreds(req.customerId);
-    if (!creds) return res.status(400).json({ ok: false, message: "Credenciales Meta no configuradas. Ve a Ajustes de WhatsApp." });
+    await ensureCustomerWhatsAppConfig(req.customerId);
     const allowed = ["about", "address", "description", "email", "websites", "vertical"];
-    const payload = { messaging_product: "whatsapp" };
+    const profileData = {};
     for (const k of allowed) {
-      if (req.body?.[k] !== undefined) payload[k] = req.body[k];
+      if (req.body?.[k] !== undefined) profileData[k] = req.body[k];
     }
-    const r = await fetch(
-      `https://graph.facebook.com/${creds.version}/${creds.phoneNumberId}/whatsapp_business_profile`,
-      { method: "POST", headers: { Authorization: `Bearer ${creds.token}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) }
-    );
-    const body = await r.json();
-    if (!r.ok || !body.success) return res.status(400).json({ ok: false, message: body?.error?.message || "Meta API error" });
-    return res.json({ ok: true });
+    // Always save locally
+    await supabaseAdmin
+      .from("customer_whatsapp_configs")
+      .update({ wa_profile: profileData, updated_at: new Date().toISOString() })
+      .eq("customer_user_id", req.customerId);
+    // If Meta credentials exist, also sync to Meta API
+    const creds = await getCustomerMetaCreds(req.customerId);
+    if (creds) {
+      const payload = { messaging_product: "whatsapp", ...profileData };
+      const r = await fetch(
+        `https://graph.facebook.com/${creds.version}/${creds.phoneNumberId}/whatsapp_business_profile`,
+        { method: "POST", headers: { Authorization: `Bearer ${creds.token}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) }
+      );
+      const body = await r.json();
+      if (!r.ok || !body.success) {
+        return res.json({ ok: true, synced: false, warning: body?.error?.message || "Guardado localmente. Sincronización con Meta falló." });
+      }
+      return res.json({ ok: true, synced: true });
+    }
+    return res.json({ ok: true, synced: false, warning: "Guardado localmente. Conecta Meta WhatsApp para sincronizarlo con tu perfil de WhatsApp Business." });
   } catch (e) {
     return res.status(500).json({ ok: false, message: e.message });
   }
