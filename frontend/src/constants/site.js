@@ -1,5 +1,5 @@
-/** Public logo URL (favicon + navbar). Served from frontend/public/logo.png. */
-export const SITE_LOGO_URL = '/logo.png';
+/** Public logo URL (favicon + navbar). Served from frontend/public/logo-mark.svg. */
+export const SITE_LOGO_URL = '/logo-mark.svg';
 
 /** Deployed Express API (Vercel). Empty `VITE_API_BASE` falls back here — never rely on localhost in production builds. */
 const DEFAULT_BACKEND = 'https://omnira-server.vercel.app';

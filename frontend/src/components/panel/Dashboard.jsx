@@ -909,10 +909,7 @@ export function Dashboard({ mockData = null }) {
         <aside className="p-sidebar">
           <div className="p-sidebar-header">
             <div className="p-sidebar-logo">
-              <div className="p-sidebar-logo-icon">
-                <LogoMark size={38} alt="" />
-              </div>
-              <span className="p-sidebar-logo-text">Omnira</span>
+              <img src="/logo.svg" alt="Omnira" height={36} style={{ display: 'block' }} />
             </div>
           </div>
           <nav className="p-sidebar-nav">

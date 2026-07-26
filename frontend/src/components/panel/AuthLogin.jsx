@@ -33,10 +33,7 @@ export function AuthLogin() {
       <header className="auth-header">
         <div className="auth-header-inner">
           <button type="button" className="auth-header-brand" onClick={closeClientPanel}>
-            <span className="auth-header-mini-icon">
-              <LogoMark size={38} alt="" />
-            </span>
-            Omni<span>ra</span>
+            <img src="/logo.svg" alt="Omnira" height={32} style={{ display: 'block' }} />
           </button>
           <div className="auth-header-actions">
             <button type="button" className="auth-header-link" onClick={closeClientPanel}>
@@ -52,10 +49,7 @@ export function AuthLogin() {
             <div className="auth-card-wrap">
               <div className="auth-card">
                 <div className="auth-logo-row">
-                  <div className="auth-logo-icon">
-                    <LogoMark size={60} alt="" />
-                  </div>
-                  <span className="auth-logo-text">Omnira</span>
+                  <img src="/logo.svg" alt="Omnira" height={44} style={{ display: 'block', margin: '0 auto' }} />
                 </div>
                 <h1 className="auth-title">Bienvenido de vuelta</h1>
                 <p className="auth-subtitle">Accede al panel de tu negocio</p>
