@@ -1520,18 +1520,42 @@ app.post("/api/customer/whatsapp-config/verify", requireCustomer, async (req, re
 // ---------------------------------------------------------------------------
 
 async function getCustomerMetaCreds(customerId) {
+  // Priority 1: customer's own Meta credentials
   const { data } = await supabaseAdmin
     .from("customer_whatsapp_configs")
     .select("meta_access_token, meta_phone_number_id, meta_graph_version")
     .eq("customer_user_id", customerId)
     .maybeSingle();
-  if (!data?.meta_access_token || !data?.meta_phone_number_id) return null;
-  const version = String(data.meta_graph_version || "v21.0").trim();
-  return {
-    token: data.meta_access_token,
-    phoneNumberId: data.meta_phone_number_id,
-    version: version.startsWith("v") ? version : `v${version}`
-  };
+  if (data?.meta_access_token && data?.meta_phone_number_id) {
+    const version = String(data.meta_graph_version || "v21.0").trim();
+    return {
+      token: data.meta_access_token,
+      phoneNumberId: data.meta_phone_number_id,
+      version: version.startsWith("v") ? version : `v${version}`,
+      source: "customer"
+    };
+  }
+  // Priority 2: OMNIRA's credentials + the meta_phone_number_id stored on the pool number
+  const omniToken = String(process.env.META_WABA_ACCESS_TOKEN || "").trim();
+  const omniVersion = String(process.env.META_WABA_GRAPH_VERSION || "v21.0").trim();
+  if (omniToken) {
+    const { data: pool } = await supabaseAdmin
+      .from("twilio_number_pool")
+      .select("meta_phone_number_id")
+      .eq("customer_user_id", customerId)
+      .eq("status", "assigned")
+      .not("meta_phone_number_id", "is", null)
+      .maybeSingle();
+    if (pool?.meta_phone_number_id) {
+      return {
+        token: omniToken,
+        phoneNumberId: pool.meta_phone_number_id,
+        version: omniVersion.startsWith("v") ? omniVersion : `v${omniVersion}`,
+        source: "omnira"
+      };
+    }
+  }
+  return null;
 }
 
 app.get("/api/customer/whatsapp-profile", requireCustomer, async (req, res) => {
@@ -4961,6 +4985,75 @@ app.get("/api/admin/twilio/pool/:id/whatsapp-status", requireAdmin, async (req, 
     return res.status(200).json({ ok: true, status: result.status, webhookOk: result.webhookOk, reason: result.reason });
   } catch (error) {
     return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/**
+ * Admin: sync meta_phone_number_id for all pool numbers from OMNIRA's WABA.
+ * Fetches all phone numbers registered under META_WABA_BUSINESS_ACCOUNT_ID
+ * and matches them by phone number to update the pool.
+ */
+app.post("/api/admin/twilio/pool/sync-meta-ids", requireAdmin, async (req, res) => {
+  try {
+    const token = String(process.env.META_WABA_ACCESS_TOKEN || "").trim();
+    const wabaId = String(process.env.META_WABA_BUSINESS_ACCOUNT_ID || "").trim();
+    const version = String(process.env.META_WABA_GRAPH_VERSION || "v21.0").trim();
+    const vTag = version.startsWith("v") ? version : `v${version}`;
+    if (!token || !wabaId) return res.status(500).json({ ok: false, message: "META_WABA_ACCESS_TOKEN o META_WABA_BUSINESS_ACCOUNT_ID no configurados." });
+
+    // Fetch all phone numbers registered under OMNIRA's WABA
+    const r = await fetch(
+      `https://graph.facebook.com/${vTag}/${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const body = await r.json();
+    if (!r.ok) return res.status(502).json({ ok: false, message: body?.error?.message || "Error consultando Meta API" });
+
+    const metaNumbers = body?.data || [];
+    // Get all pool numbers
+    const { data: poolNumbers } = await supabaseAdmin
+      .from("twilio_number_pool")
+      .select("id, phone_number, meta_phone_number_id");
+
+    const updated = [];
+    for (const pool of poolNumbers || []) {
+      // Normalize phone number for comparison (strip spaces, keep + prefix)
+      const poolPhone = pool.phone_number.replace(/\s/g, "");
+      const match = metaNumbers.find((m) => {
+        const metaPhone = (m.display_phone_number || "").replace(/[\s\-()]/g, "");
+        return metaPhone === poolPhone || `+${metaPhone}` === poolPhone || metaPhone === poolPhone.replace("+", "");
+      });
+      if (match && match.id !== pool.meta_phone_number_id) {
+        await supabaseAdmin
+          .from("twilio_number_pool")
+          .update({ meta_phone_number_id: match.id, updated_at: new Date().toISOString() })
+          .eq("id", pool.id);
+        updated.push({ phone_number: pool.phone_number, meta_phone_number_id: match.id });
+      }
+    }
+
+    return res.json({ ok: true, meta_numbers: metaNumbers.length, pool_numbers: (poolNumbers || []).length, updated });
+  } catch (e) {
+    return res.status(500).json({ ok: false, message: e.message });
+  }
+});
+
+/**
+ * Admin: manually set meta_phone_number_id for a specific pool number.
+ */
+app.patch("/api/admin/twilio/pool/:id/meta-phone-id", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const metaPhoneNumberId = String(req.body?.meta_phone_number_id || "").trim();
+    if (!metaPhoneNumberId) return res.status(400).json({ ok: false, message: "meta_phone_number_id requerido" });
+    const { error } = await supabaseAdmin
+      .from("twilio_number_pool")
+      .update({ meta_phone_number_id: metaPhoneNumberId, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw error;
+    return res.json({ ok: true });
+  } catch (e) {
+    return res.status(500).json({ ok: false, message: e.message });
   }
 });
 
