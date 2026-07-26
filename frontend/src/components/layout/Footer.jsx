@@ -1,4 +1,4 @@
-import { LogoMark } from '../brand/LogoMark.jsx';
+import { Logo } from '../brand/Logo.jsx';
 
 export function Footer() {
   return (
@@ -7,12 +7,7 @@ export function Footer() {
         <div className="footer-top">
           <div className="footer-brand">
             <a href="#" className="nav-logo" style={{ marginBottom: '16px', display: 'inline-flex' }} onClick={(e) => e.preventDefault()}>
-              <div className="nav-logo-icon">
-                <LogoMark size={52} alt="" />
-              </div>
-              <span className="nav-logo-text">
-                Omni<span>ra</span>
-              </span>
+              <Logo height={34} />
             </a>
             <p>El asistente de WhatsApp con IA que automatiza tu agenda 24/7. Para clínicas, estética y negocios de bienestar.</p>
             <div className="footer-socials">
