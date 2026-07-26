@@ -355,6 +355,34 @@ export async function applySubscriptionInvoicePaid(invoice) {
     });
   }
 
+  // Auto-assign a Twilio number + create bot config on initial subscription payment.
+  if (invoice.billing_reason === "subscription_create") {
+    try {
+      const assigned = await assignNumberToCustomer(customerId);
+      if (!assigned.ok && assigned.reason !== "no_numbers_available") {
+        console.warn("[stripeSync] twilio assign (sub) failed:", assigned.reason);
+      }
+    } catch (e) {
+      console.warn("[stripeSync] twilio assign (sub) error:", e?.message || e);
+    }
+    try {
+      const { data: existingCfg } = await supabaseAdmin
+        .from("bot_configs").select("id").eq("scope", "customer").eq("customer_user_id", customerId).maybeSingle();
+      if (!existingCfg) {
+        await supabaseAdmin.from("bot_configs").insert({ scope: "customer", customer_user_id: customerId });
+      }
+    } catch (e) {
+      console.warn("[stripeSync] bot_config create (sub) error:", e?.message || e);
+    }
+
+    await insertPurchaseNotification({
+      customerId,
+      planLabel: planId || null,
+      newEnd,
+      dedupKey: `system:purchase:sub_create:${invoiceId}`
+    });
+  }
+
   return { ok: true, subscription_ends_at: newEnd };
 }
 

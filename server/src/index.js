@@ -53,7 +53,10 @@ import {
   shouldSkipTwilioSignature,
   checkAndIncrementConversation,
   getConversationUsage,
-  PLAN_CONVERSATION_LIMITS
+  PLAN_CONVERSATION_LIMITS,
+  getOrCreateMessagingService,
+  provisionAndActivate,
+  verifyWhatsAppStatus,
 } from "./twilio.js";
 
 const app = express();
@@ -4619,7 +4622,7 @@ async function handleTwilioReleaseExpired(req, res) {
       const expired = !u?.subscription_ends_at || new Date(u.subscription_ends_at) <= new Date();
       if (expired) {
         const r = await releaseCustomerNumber(row.customer_user_id);
-        if (r.ok) released.push(row.customer_user_id);
+        if (r.ok && r.released) released.push(row.customer_user_id);
       }
     }
     console.log(`[twilio cron] released ${released.length} expired numbers`);
@@ -4642,7 +4645,7 @@ app.post("/api/admin/twilio/release-expired", requireAdmin, async (req, res) => 
     const released = [];
     for (const u of expired || []) {
       const r = await releaseCustomerNumber(u.id);
-      if (r.ok) released.push(u.id);
+      if (r.ok && r.released) released.push(u.id);
     }
     return res.status(200).json({ ok: true, released: released.length, ids: released });
   } catch (error) {
@@ -4728,6 +4731,138 @@ app.post("/api/admin/twilio/release", async (req, res) => {
     if (!customerId) return res.status(400).json({ ok: false, message: "customer_user_id required." });
     const result = await releaseCustomerNumber(customerId);
     return res.status(result.ok ? 200 : 400).json(result);
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** Admin: search available phone numbers in Twilio for a given country (default ES). */
+app.get("/api/admin/twilio/search-numbers", requireAdmin, async (req, res) => {
+  try {
+    const client = getTwilioClient();
+    if (!client) return res.status(503).json({ ok: false, message: "Twilio no está configurado (TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN)." });
+
+    const country = String(req.query.country || "ES").toUpperCase().trim();
+    const limit   = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
+    const contains = String(req.query.contains || "").trim() || undefined;
+
+    const searchOpts = { limit, smsEnabled: true };
+    if (contains) searchOpts.contains = contains;
+
+    const available = await client.availablePhoneNumbers(country).local.list(searchOpts);
+    const numbers = available.map((n) => ({
+      phone_number:  n.phoneNumber,
+      friendly_name: n.friendlyName,
+      locality:      n.locality || null,
+      region:        n.region || null,
+      capabilities:  n.capabilities,
+    }));
+    return res.status(200).json({ ok: true, country, numbers });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/**
+ * Admin: one-shot purchase + webhook + messaging-service + WhatsApp activation.
+ * Body: { phone_number, friendly_name?, monthly_cost_cents? }
+ */
+app.post("/api/admin/twilio/provision", requireAdmin, async (req, res) => {
+  try {
+    const phoneNumber  = String(req.body?.phone_number  || "").trim();
+    const friendlyName = String(req.body?.friendly_name || "").trim() || undefined;
+    const costCents    = Number(req.body?.monthly_cost_cents) || 100;
+    if (!phoneNumber) return res.status(400).json({ ok: false, message: "phone_number es requerido." });
+
+    const webhookBase = String(process.env.PUBLIC_API_URL || "").replace(/\/$/, "");
+    const webhookUrl  = `${webhookBase}/api/twilio/whatsapp/webhook`;
+
+    const result = await provisionAndActivate({ phoneNumber, friendlyName, monthlyCostCents: costCents, webhookUrl });
+    if (!result.ok) return res.status(result.reason?.includes("rechazó") ? 400 : 500).json({ ok: false, message: result.reason });
+
+    return res.status(201).json({
+      ok: true,
+      poolId:         result.poolId,
+      phoneNumber:    result.phoneNumber,
+      twilioSid:      result.twilioSid,
+      whatsappStatus: result.whatsappStatus,
+      messagingService: result.messagingService,
+      needsConsoleSetup: result.needsConsoleSetup,
+      note: result.needsConsoleSetup
+        ? "Número comprado y configurado. Para activar WhatsApp ve a Twilio Console → Messaging → Senders → WhatsApp senders y añade este número."
+        : "Número listo para WhatsApp.",
+    });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** Admin: setup / retrieve the platform Messaging Service. */
+app.post("/api/admin/twilio/setup-messaging-service", requireAdmin, async (req, res) => {
+  try {
+    const webhookBase = String(process.env.PUBLIC_API_URL || "").replace(/\/$/, "");
+    const webhookUrl  = `${webhookBase}/api/twilio/whatsapp/webhook`;
+    const result = await getOrCreateMessagingService(webhookUrl);
+    if (!result.ok) return res.status(503).json({ ok: false, message: result.reason });
+    return res.status(200).json({ ok: true, sid: result.sid, created: result.created });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** Admin: re-attempt WhatsApp activation for a specific pool number. */
+app.post("/api/admin/twilio/pool/:id/activate-whatsapp", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data: row } = await supabaseAdmin
+      .from("twilio_number_pool")
+      .select("id, twilio_sid, phone_number, whatsapp_status")
+      .eq("id", id)
+      .maybeSingle();
+    if (!row) return res.status(404).json({ ok: false, message: "Número no encontrado." });
+
+    const { activateWhatsAppSender } = await import("./twilio.js");
+    const result = await activateWhatsAppSender(row.id, row.twilio_sid, row.phone_number);
+    return res.status(200).json({ ok: true, status: result.status, reason: result.reason });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** Admin: poll/verify WhatsApp status for a specific pool number. */
+app.get("/api/admin/twilio/pool/:id/whatsapp-status", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data: row } = await supabaseAdmin
+      .from("twilio_number_pool")
+      .select("id, twilio_sid, phone_number, whatsapp_status")
+      .eq("id", id)
+      .maybeSingle();
+    if (!row) return res.status(404).json({ ok: false, message: "Número no encontrado." });
+
+    const result = await verifyWhatsAppStatus(row.id, row.twilio_sid, row.phone_number);
+    return res.status(200).json({ ok: true, status: result.status, webhookOk: result.webhookOk, reason: result.reason });
+  } catch (error) {
+    return res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** Admin: remove a number from the pool (and optionally release from Twilio). */
+app.delete("/api/admin/twilio/pool/:id", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data: row } = await supabaseAdmin
+      .from("twilio_number_pool")
+      .select("id, twilio_sid, phone_number, status")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (!row) return res.status(404).json({ ok: false, message: "Número no encontrado." });
+    if (row.status === "assigned") return res.status(409).json({ ok: false, message: "El número está asignado a un cliente. Libéralo primero." });
+
+    const { error } = await supabaseAdmin.from("twilio_number_pool").delete().eq("id", id);
+    if (error) throw error;
+    return res.status(200).json({ ok: true, message: `Número ${row.phone_number} eliminado del pool.` });
   } catch (error) {
     return res.status(500).json({ ok: false, message: error.message });
   }

@@ -1,0 +1,72 @@
+/* Logo renders as a naked image — no background, no border, no shadow */
+.logo-mark {
+  object-fit: contain;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.nav-logo .nav-logo-icon {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0;
+  overflow: visible;
+  width: 52px;
+  height: 52px;
+}
+.nav-logo:hover .nav-logo-icon {
+  box-shadow: none !important;
+  transform: none !important;
+}
+.nav-logo .nav-logo-icon .logo-mark {
+  width: 52px;
+  height: 52px;
+  display: block;
+}
+
+.footer-brand .logo-mark {
+  width: 52px;
+  height: 52px;
+}
+
+.auth-header-mini-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+}
+.auth-header-mini-icon .logo-mark {
+  width: 38px;
+  height: 38px;
+}
+.auth-logo-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+}
+.auth-logo-icon .logo-mark {
+  width: 60px;
+  height: 60px;
+}
+.p-sidebar-logo-icon {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+}
+.p-sidebar-logo-icon .logo-mark {
+  width: 42px;
+  height: 42px;
+}

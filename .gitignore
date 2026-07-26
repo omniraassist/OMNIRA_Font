@@ -42,3 +42,5 @@ temp/
 # Local HTTPS (mkcert / custom PEMs) — do not commit
 dev-certs/
 
+.vercel
+.env*

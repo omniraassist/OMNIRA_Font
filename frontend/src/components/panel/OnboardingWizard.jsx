@@ -293,6 +293,7 @@ export function OnboardingWizard({ onDone }) {
   // Step 3 — Show the Twilio number that was auto-assigned at payment time
   const [twilioNumber, setTwilioNumber] = useState(null);
   const [twilioLoading, setTwilioLoading] = useState(false);
+  const [copied, setCopied] = useState('');
 
   const loadTwilioNumber = useCallback(async () => {
     setTwilioLoading(true);

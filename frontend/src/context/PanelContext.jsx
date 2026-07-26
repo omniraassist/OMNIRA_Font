@@ -72,7 +72,11 @@ export function PanelProvider({ children }) {
   }, []);
 
   const completePaymentStep = useCallback(() => {
-    setView('onboarding');
+    setView('twilioAssigning');
+  }, []);
+
+  const completeTwilioAssigning = useCallback(() => {
+    setView('twilioReady');
   }, []);
 
   const completeWhatsAppSetup = useCallback(() => {
@@ -115,7 +119,7 @@ export function PanelProvider({ children }) {
             if (r.ok && r.user) {
               writeSessionUser(r.user);
               setUser(r.user);
-              setView('onboarding');
+              setView('twilioAssigning');
               return;
             }
           } catch {
@@ -218,6 +222,7 @@ export function PanelProvider({ children }) {
       completeCustomerAuth,
       completePlanSelection,
       completePaymentStep,
+      completeTwilioAssigning,
       completeWhatsAppSetup,
       handleLogout,
       refreshCustomerUser,
@@ -236,6 +241,7 @@ export function PanelProvider({ children }) {
       completeCustomerAuth,
       completePlanSelection,
       completePaymentStep,
+      completeTwilioAssigning,
       completeWhatsAppSetup,
       handleLogout,
       refreshCustomerUser,

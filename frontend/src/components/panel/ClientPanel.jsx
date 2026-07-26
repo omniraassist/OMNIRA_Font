@@ -7,9 +7,11 @@ import { Dashboard } from './Dashboard.jsx';
 import { OnboardingWizard } from './OnboardingWizard.jsx';
 import { PostLoginPaymentStep } from './PostLoginPaymentStep.jsx';
 import { PostLoginPlanHome } from './PostLoginPlanHome.jsx';
+import { PostLoginTwilioAssigning } from './PostLoginTwilioAssigning.jsx';
+import { PostLoginTwilioReady } from './PostLoginTwilioReady.jsx';
 
 export function ClientPanel() {
-  const { open, view, setView, user } = usePanel();
+  const { open, view, setView, user, completeTwilioAssigning } = usePanel();
 
   // Safety net: if somehow the dashboard is reached without a paid subscription,
   // redirect to planHome so the user can purchase a plan.
@@ -30,6 +32,8 @@ export function ClientPanel() {
       {view === 'forgot' && <AuthForgot />}
       {view === 'planHome' && <PostLoginPlanHome />}
       {view === 'paymentStep' && <PostLoginPaymentStep />}
+      {view === 'twilioAssigning' && <PostLoginTwilioAssigning onDone={completeTwilioAssigning} />}
+      {view === 'twilioReady' && <PostLoginTwilioReady />}
       {view === 'onboarding' && <OnboardingWizard onDone={() => setView('dashboard')} />}
       {view === 'dashboard' && <Dashboard />}
     </div>

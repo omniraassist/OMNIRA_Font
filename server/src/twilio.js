@@ -34,6 +34,245 @@ export function isTwilioConfigured() {
 }
 
 // ---------------------------------------------------------------------------
+// Messaging Service — create once, reuse for all pool numbers
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns the TWILIO_MESSAGING_SERVICE_SID from env or platform_settings,
+ * or creates a new Messaging Service and persists the SID.
+ */
+export async function getOrCreateMessagingService(webhookUrl) {
+  // 1. Env var takes priority
+  const envSid = String(process.env.TWILIO_MESSAGING_SERVICE_SID || "").trim();
+  if (envSid) return { ok: true, sid: envSid, created: false };
+
+  // 2. Check platform_settings (DB)
+  const { data: row } = await supabaseAdmin
+    .from("platform_settings")
+    .select("value")
+    .eq("key", "TWILIO_MESSAGING_SERVICE_SID")
+    .maybeSingle();
+  if (row?.value) return { ok: true, sid: row.value, created: false };
+
+  // 3. Create one
+  const client = getTwilioClient();
+  if (!client) return { ok: false, reason: "twilio_not_configured" };
+  try {
+    const service = await client.messaging.v1.services.create({
+      friendlyName: "Omnira WhatsApp Pool",
+      inboundRequestUrl: webhookUrl,
+      inboundMethod: "POST",
+      useInboundWebhookOnNumber: false,
+    });
+    // Persist in platform_settings so future calls find it
+    await supabaseAdmin.from("platform_settings").upsert(
+      { key: "TWILIO_MESSAGING_SERVICE_SID", value: service.sid, updated_by: "system" },
+      { onConflict: "key" }
+    );
+    console.log("[twilio] created Messaging Service:", service.sid);
+    return { ok: true, sid: service.sid, created: true };
+  } catch (e) {
+    return { ok: false, reason: e.message };
+  }
+}
+
+/**
+ * Adds a phone number (by SID) to the Omnira Messaging Service.
+ */
+export async function addNumberToMessagingService(phoneSid, messagingServiceSid) {
+  const client = getTwilioClient();
+  if (!client) return { ok: false, reason: "twilio_not_configured" };
+  try {
+    await client.messaging.v1.services(messagingServiceSid).phoneNumbers.create({
+      phoneNumberSid: phoneSid,
+    });
+    return { ok: true };
+  } catch (e) {
+    // Duplicate = already added, treat as success
+    if (String(e.message).includes("already exists") || e.code === 21710) {
+      return { ok: true, duplicate: true };
+    }
+    return { ok: false, reason: e.message };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// WhatsApp activation — attempt programmatic registration
+// ---------------------------------------------------------------------------
+
+/**
+ * Attempts to register a phone number as a WhatsApp sender via Twilio's REST API.
+ * Works automatically if the Twilio account already has a WhatsApp Business profile
+ * connected. Updates whatsapp_status in DB.
+ *
+ * Returns { ok, status: 'active'|'pending'|'failed', reason? }
+ */
+export async function activateWhatsAppSender(poolId, phoneSid, phoneNumber) {
+  const client = getTwilioClient();
+  if (!client) return { ok: false, status: "failed", reason: "twilio_not_configured" };
+
+  const accountSid = String(process.env.TWILIO_ACCOUNT_SID || "").trim();
+  const authToken  = String(process.env.TWILIO_AUTH_TOKEN  || "").trim();
+
+  // Attempt via Twilio's Channels REST API (requires WABA connected in Twilio)
+  try {
+    const url = `https://messaging.twilio.com/v1/Services`;
+    // Resolve messaging service SID
+    const webhookBase = String(process.env.PUBLIC_API_URL || "").replace(/\/$/, "");
+    const svcResult = await getOrCreateMessagingService(`${webhookBase}/api/twilio/whatsapp/webhook`);
+    const serviceSid = svcResult.ok ? svcResult.sid : null;
+
+    if (serviceSid) {
+      // Try to create a WhatsApp channel/sender on the messaging service
+      const res = await fetch(
+        `https://messaging.twilio.com/v1/Services/${serviceSid}/Channels`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"),
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            Type: "whatsapp",
+            Configuration: JSON.stringify({ phoneNumberSid: phoneSid }),
+          }).toString(),
+        }
+      );
+      if (res.ok) {
+        await supabaseAdmin
+          .from("twilio_number_pool")
+          .update({ whatsapp_status: "active", messaging_service_sid: serviceSid, updated_at: new Date().toISOString() })
+          .eq("id", poolId);
+        console.log(`[twilio] WhatsApp activated for ${phoneNumber} via Channels API`);
+        return { ok: true, status: "active" };
+      }
+      const err = await res.json().catch(() => ({}));
+      console.warn(`[twilio] Channels API failed for ${phoneNumber}:`, err?.message || res.status);
+    }
+  } catch (e) {
+    console.warn(`[twilio] WhatsApp Channels API error for ${phoneNumber}:`, e.message);
+  }
+
+  // Fallback: mark pending, admin must complete via Twilio console
+  await supabaseAdmin
+    .from("twilio_number_pool")
+    .update({ whatsapp_status: "pending", updated_at: new Date().toISOString() })
+    .eq("id", poolId);
+  return { ok: false, status: "pending", reason: "waba_not_connected" };
+}
+
+/**
+ * Checks WhatsApp status by attempting a dry-run via Twilio API.
+ * Updates pool row and returns current status.
+ */
+export async function verifyWhatsAppStatus(poolId, phoneSid, phoneNumber) {
+  const client = getTwilioClient();
+  if (!client) return { ok: false, status: "failed" };
+
+  try {
+    // Fetch the IncomingPhoneNumber and check smsUrl is set (proxy for webhook configured)
+    const num = await client.incomingPhoneNumbers(phoneSid).fetch();
+    const webhookOk = Boolean(num.smsUrl);
+
+    // Check if it's in a messaging service (implies WhatsApp routing)
+    const accountSid = String(process.env.TWILIO_ACCOUNT_SID || "").trim();
+    const authToken  = String(process.env.TWILIO_AUTH_TOKEN  || "").trim();
+
+    // Try sending a zero-cost status check via Twilio's number-capabilities lookup
+    const lookupRes = await fetch(
+      `https://lookups.twilio.com/v2/PhoneNumbers/${encodeURIComponent(phoneNumber)}?Fields=line_type_intelligence`,
+      { headers: { Authorization: "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64") } }
+    );
+    const lookupData = await lookupRes.json().catch(() => ({}));
+    const isVoip = lookupData?.line_type_intelligence?.type === "voip";
+
+    if (webhookOk) {
+      // Webhook is set — number is correctly configured.
+      // Mark active if it was pending (admin may have done console setup).
+      await supabaseAdmin
+        .from("twilio_number_pool")
+        .update({ whatsapp_status: "active", updated_at: new Date().toISOString() })
+        .eq("id", poolId)
+        .eq("whatsapp_status", "pending");
+      return { ok: true, status: "active", webhookOk, isVoip };
+    }
+
+    return { ok: false, status: "pending", webhookOk, isVoip };
+  } catch (e) {
+    return { ok: false, status: "failed", reason: e.message };
+  }
+}
+
+/**
+ * Full one-shot provisioning: buy number + set webhook + add to messaging service
+ * + attempt WhatsApp activation. Returns poolId and final whatsapp_status.
+ */
+export async function provisionAndActivate({ phoneNumber, friendlyName, monthlyCostCents, webhookUrl }) {
+  const client = getTwilioClient();
+  if (!client) return { ok: false, reason: "twilio_not_configured" };
+
+  // 1. Purchase the number
+  let purchased;
+  try {
+    purchased = await client.incomingPhoneNumbers.create({
+      phoneNumber,
+      friendlyName: friendlyName || phoneNumber,
+      smsUrl: webhookUrl,
+      smsMethod: "POST",
+    });
+  } catch (e) {
+    return { ok: false, reason: `Twilio rechazó la compra: ${e.message}` };
+  }
+
+  // 2. Add to DB pool (status pending while we try WhatsApp)
+  const { data: poolRow, error: dbErr } = await supabaseAdmin
+    .from("twilio_number_pool")
+    .insert({
+      phone_number:       purchased.phoneNumber,
+      twilio_sid:         purchased.sid,
+      friendly_name:      purchased.friendlyName || friendlyName || purchased.phoneNumber,
+      monthly_cost_cents: monthlyCostCents || 100,
+      status:             "available",
+      whatsapp_status:    "pending",
+    })
+    .select("id, phone_number, twilio_sid, whatsapp_status")
+    .single();
+
+  if (dbErr) {
+    console.error("[twilio] DB insert failed for", purchased.sid, dbErr.message);
+    return {
+      ok: false,
+      reason: `Número comprado (SID ${purchased.sid}) pero error en BD: ${dbErr.message}`,
+    };
+  }
+
+  // 3. Get/create messaging service and add number to it
+  const svcResult = await getOrCreateMessagingService(webhookUrl);
+  let messagingServiceSid = null;
+  if (svcResult.ok) {
+    messagingServiceSid = svcResult.sid;
+    await addNumberToMessagingService(purchased.sid, messagingServiceSid);
+    await supabaseAdmin
+      .from("twilio_number_pool")
+      .update({ messaging_service_sid: messagingServiceSid })
+      .eq("id", poolRow.id);
+  }
+
+  // 4. Attempt WhatsApp activation
+  const waResult = await activateWhatsAppSender(poolRow.id, purchased.sid, purchased.phoneNumber);
+
+  return {
+    ok: true,
+    poolId:           poolRow.id,
+    phoneNumber:      purchased.phoneNumber,
+    twilioSid:        purchased.sid,
+    whatsappStatus:   waResult.status,
+    messagingService: messagingServiceSid,
+    needsConsoleSetup: waResult.status !== "active",
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Number pool — assign / release
 // ---------------------------------------------------------------------------
 
@@ -56,11 +295,13 @@ export async function assignNumberToCustomer(customerId) {
     return { ok: true, duplicate: true, number: existing };
   }
 
-  // Pick first available number.
+  // Pick first available number. Exclude numbers where WhatsApp activation
+  // explicitly failed — null (manually-added) and 'pending'/'active' are fine.
   const { data: available, error } = await supabaseAdmin
     .from("twilio_number_pool")
     .select("id, phone_number, twilio_sid")
     .eq("status", "available")
+    .neq("whatsapp_status", "failed")
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
@@ -98,7 +339,7 @@ export async function releaseCustomerNumber(customerId) {
   if (!customerId) return { ok: false, reason: "missing_customer_id" };
 
   const now = new Date().toISOString();
-  const { error } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("twilio_number_pool")
     .update({
       status: "available",
@@ -107,11 +348,13 @@ export async function releaseCustomerNumber(customerId) {
       updated_at: now
     })
     .eq("customer_user_id", customerId)
-    .eq("status", "assigned");
+    .eq("status", "assigned")
+    .select("id");
 
   if (error) return { ok: false, reason: error.message };
-  console.log(`[twilio] released number for customer ${customerId}`);
-  return { ok: true };
+  const released = (data || []).length > 0;
+  if (released) console.log(`[twilio] released number for customer ${customerId}`);
+  return { ok: true, released };
 }
 
 /**

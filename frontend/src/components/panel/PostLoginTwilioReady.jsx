@@ -162,10 +162,29 @@ export function PostLoginTwilioReady({ previewMode = false }) {
 
   useEffect(() => {
     if (previewMode) return;
-    apiCall('/api/customer/twilio-number')
-      .then(res => setNumber(res.number || null))
-      .catch(() => setNumber(null))
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    async function fetchWithRetry() {
+      const MAX_ATTEMPTS = 4;
+      const DELAY_MS = 2000;
+      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        if (attempt > 0) await new Promise(r => setTimeout(r, DELAY_MS));
+        if (cancelled) return;
+        try {
+          const res = await apiCall('/api/customer/twilio-number');
+          if (cancelled) return;
+          if (res.number) {
+            setNumber(res.number);
+            setLoading(false);
+            return;
+          }
+        } catch {
+          if (cancelled) return;
+        }
+      }
+      if (!cancelled) setLoading(false);
+    }
+    fetchWithRetry();
+    return () => { cancelled = true; };
   }, [previewMode]);
 
   const firstName = user?.first_name || user?.businessName || 'cliente';

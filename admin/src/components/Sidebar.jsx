@@ -201,6 +201,16 @@ export function Sidebar({ onNavigate, mobileOpen, collapsed, onToggleCollapse })
           <span>WhatsApp</span>
           <span className="adm-nav-tip">WhatsApp</span>
         </NavLink>
+        <NavLink to="/twilio-pool" className={linkClass} onClick={wrap}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+            <rect x="5" y="2" width="14" height="20" rx="2" strokeLinejoin="round" />
+            <path d="M9 7h6M9 11h6M9 15h4" strokeLinecap="round" />
+            <circle cx="16" cy="17" r="3" fill="none" />
+            <path d="M16 15.5v1.5l1 1" strokeLinecap="round" />
+          </svg>
+          <span>Pool Twilio</span>
+          <span className="adm-nav-tip">Pool de números Twilio</span>
+        </NavLink>
       </nav>
 
       <div className="adm-sidebar-foot">

@@ -17,6 +17,7 @@ import { NotificationsPage } from './pages/NotificationsPage.jsx';
 import { InvoicesPage } from './pages/InvoicesPage.jsx';
 import { CalendarPage } from './pages/CalendarPage.jsx';
 import { AuditLogPage } from './pages/AuditLogPage.jsx';
+import { TwilioPoolPage } from './pages/TwilioPoolPage.jsx';
 import { EmailFullScreen } from './layouts/EmailFullScreen.jsx';
 
 function ProtectedRoute({ children }) {
@@ -61,6 +62,7 @@ export default function App() {
         <Route path="profile" element={<ProfilePage />} />
         <Route path="sessions" element={<SessionsPage />} />
         <Route path="whatsapp" element={<WhatsAppSettingsPage />} />
+        <Route path="twilio-pool" element={<TwilioPoolPage />} />
         <Route path="calendar" element={<CalendarPage />} />
         <Route path="audit-log" element={<AuditLogPage />} />
       </Route>
