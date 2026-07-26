@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { usePanel } from '../../context/PanelContext.jsx';
 import { useNavbarScroll } from '../../hooks/useNavbarScroll.js';
-import { Logo } from '../brand/Logo.jsx';
+import { LogoMark } from '../brand/LogoMark.jsx';
 
 export function Navbar() {
   const scrolled = useNavbarScroll();
@@ -16,7 +16,12 @@ export function Navbar() {
       <div className="container">
         <div className="nav-inner">
           <a href="#" className="nav-logo" onClick={(e) => e.preventDefault()}>
-            <Logo height={34} />
+            <div className="nav-logo-icon">
+              <LogoMark size={52} alt="" />
+            </div>
+            <span className="nav-logo-text">
+              Omni<span>ra</span>
+            </span>
           </a>
           <div className="nav-links">
             <a href="#problema">El problema</a>

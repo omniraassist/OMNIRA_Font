@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { apiCall } from '../../api/client.js';
 import { LogoMark } from '../brand/LogoMark.jsx';
-import { Logo } from '../brand/Logo.jsx';
 import { usePanel } from '../../context/PanelContext.jsx';
 
 export function AuthLogin() {
@@ -34,7 +33,10 @@ export function AuthLogin() {
       <header className="auth-header">
         <div className="auth-header-inner">
           <button type="button" className="auth-header-brand" onClick={closeClientPanel}>
-            <Logo height={32} />
+            <span className="auth-header-mini-icon">
+              <LogoMark size={38} alt="" />
+            </span>
+            Omni<span>ra</span>
           </button>
           <div className="auth-header-actions">
             <button type="button" className="auth-header-link" onClick={closeClientPanel}>
@@ -50,7 +52,10 @@ export function AuthLogin() {
             <div className="auth-card-wrap">
               <div className="auth-card">
                 <div className="auth-logo-row">
-                  <Logo height={44} />
+                  <div className="auth-logo-icon">
+                    <LogoMark size={60} alt="" />
+                  </div>
+                  <span className="auth-logo-text">Omnira</span>
                 </div>
                 <h1 className="auth-title">Bienvenido de vuelta</h1>
                 <p className="auth-subtitle">Accede al panel de tu negocio</p>

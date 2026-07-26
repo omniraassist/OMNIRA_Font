@@ -6,7 +6,6 @@ import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { apiCall } from '../../api/client.js';
 import { canAccessDashboardPage } from '../../constants/plans.js';
 import { LogoMark } from '../brand/LogoMark.jsx';
-import { Logo } from '../brand/Logo.jsx';
 import { ModernCalendar } from './ModernCalendar.jsx';
 import { usePanel } from '../../context/PanelContext.jsx';
 import { usePricing } from '../../hooks/usePricing.js';
@@ -910,7 +909,10 @@ export function Dashboard({ mockData = null }) {
         <aside className="p-sidebar">
           <div className="p-sidebar-header">
             <div className="p-sidebar-logo">
-              <Logo height={36} />
+              <div className="p-sidebar-logo-icon">
+                <LogoMark size={38} alt="" />
+              </div>
+              <span className="p-sidebar-logo-text">Omnira</span>
             </div>
           </div>
           <nav className="p-sidebar-nav">
