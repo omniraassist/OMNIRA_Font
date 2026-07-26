@@ -6,6 +6,7 @@ import { ProblemSection } from '../components/sections/ProblemSection.jsx';
 import { SolutionSection } from '../components/sections/SolutionSection.jsx';
 import { BenefitsSection } from '../components/sections/BenefitsSection.jsx';
 import { HowItWorksSection } from '../components/sections/HowItWorksSection.jsx';
+import { WhatsappSimulatorSection } from '../components/sections/WhatsappSimulatorSection.jsx';
 import { CaseStudiesSection } from '../components/sections/CaseStudiesSection.jsx';
 import { PricingSection } from '../components/sections/PricingSection.jsx';
 import { FaqSection } from '../components/sections/FaqSection.jsx';
@@ -28,6 +29,8 @@ export function LandingPageV2() {
       <BenefitsSection />
       <div className="divider" />
       <HowItWorksSection />
+      <div className="divider" />
+      <WhatsappSimulatorSection />
       <div className="divider" />
       <CaseStudiesSection />
       <div className="divider" />
