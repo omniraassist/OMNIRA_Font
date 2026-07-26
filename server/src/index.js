@@ -189,7 +189,7 @@ function metaWhatsappParseJson(req, res, next) {
 app.get("/api/meta/whatsapp/webhook", handleMetaWhatsAppGet);
 app.post("/api/meta/whatsapp/webhook", metaWhatsappRaw, metaWhatsappParseJson, handleMetaWhatsAppPost);
 
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
 
 app.get("/", async (_req, res) => {
   const meta = await getMetaWhatsAppDeployDiagnostics();
@@ -1512,6 +1512,100 @@ app.post("/api/customer/whatsapp-config/verify", requireCustomer, async (req, re
     });
   } catch (error) {
     return res.status(500).json({ ok: false, verified: false, message: `Verify failed: ${error.message}` });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// WhatsApp Business Profile (Meta Graph API)
+// ---------------------------------------------------------------------------
+
+async function getCustomerMetaCreds(customerId) {
+  const { data } = await supabaseAdmin
+    .from("customer_whatsapp_configs")
+    .select("meta_access_token, meta_phone_number_id, meta_graph_version")
+    .eq("customer_user_id", customerId)
+    .maybeSingle();
+  if (!data?.meta_access_token || !data?.meta_phone_number_id) return null;
+  const version = String(data.meta_graph_version || "v21.0").trim();
+  return {
+    token: data.meta_access_token,
+    phoneNumberId: data.meta_phone_number_id,
+    version: version.startsWith("v") ? version : `v${version}`
+  };
+}
+
+app.get("/api/customer/whatsapp-profile", requireCustomer, async (req, res) => {
+  try {
+    const creds = await getCustomerMetaCreds(req.customerId);
+    if (!creds) return res.json({ ok: true, profile: null, reason: "no_meta_credentials" });
+    const r = await fetch(
+      `https://graph.facebook.com/${creds.version}/${creds.phoneNumberId}/whatsapp_business_profile?fields=about,address,description,email,profile_picture_url,websites,vertical`,
+      { headers: { Authorization: `Bearer ${creds.token}` } }
+    );
+    const body = await r.json();
+    if (!r.ok) return res.json({ ok: false, error: body?.error?.message || "Meta API error" });
+    const profile = Array.isArray(body?.data) ? body.data[0] : body;
+    return res.json({ ok: true, profile: profile || {} });
+  } catch (e) {
+    return res.status(500).json({ ok: false, message: e.message });
+  }
+});
+
+app.patch("/api/customer/whatsapp-profile", requireCustomer, async (req, res) => {
+  try {
+    const creds = await getCustomerMetaCreds(req.customerId);
+    if (!creds) return res.status(400).json({ ok: false, message: "Credenciales Meta no configuradas. Ve a Ajustes de WhatsApp." });
+    const allowed = ["about", "address", "description", "email", "websites", "vertical"];
+    const payload = { messaging_product: "whatsapp" };
+    for (const k of allowed) {
+      if (req.body?.[k] !== undefined) payload[k] = req.body[k];
+    }
+    const r = await fetch(
+      `https://graph.facebook.com/${creds.version}/${creds.phoneNumberId}/whatsapp_business_profile`,
+      { method: "POST", headers: { Authorization: `Bearer ${creds.token}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) }
+    );
+    const body = await r.json();
+    if (!r.ok || !body.success) return res.status(400).json({ ok: false, message: body?.error?.message || "Meta API error" });
+    return res.json({ ok: true });
+  } catch (e) {
+    return res.status(500).json({ ok: false, message: e.message });
+  }
+});
+
+app.post("/api/customer/whatsapp-profile/photo", requireCustomer, async (req, res) => {
+  try {
+    const { imageBase64, mimeType } = req.body || {};
+    if (!imageBase64 || !mimeType) return res.status(400).json({ ok: false, message: "imageBase64 y mimeType son requeridos" });
+    const creds = await getCustomerMetaCreds(req.customerId);
+    if (!creds) return res.status(400).json({ ok: false, message: "Credenciales Meta no configuradas." });
+    const appId = process.env.META_APP_ID;
+    if (!appId) return res.status(500).json({ ok: false, message: "META_APP_ID no configurado en el servidor. Contacta con soporte." });
+    const imageBuffer = Buffer.from(imageBase64, "base64");
+    // Step 1: Create upload session
+    const sessionRes = await fetch(
+      `https://graph.facebook.com/${creds.version}/${appId}/uploads?file_length=${imageBuffer.length}&file_type=${encodeURIComponent(mimeType)}&file_name=profile.jpg`,
+      { method: "POST", headers: { Authorization: `Bearer ${creds.token}` } }
+    );
+    const sessionBody = await sessionRes.json();
+    if (!sessionBody.id) return res.status(400).json({ ok: false, message: sessionBody.error?.message || "No se pudo crear la sesión de subida" });
+    // Step 2: Upload binary data
+    const uploadRes = await fetch(`https://upload.facebook.com/${creds.version}/${sessionBody.id}`, {
+      method: "POST",
+      headers: { Authorization: `OAuth ${creds.token}`, file_offset: "0", "Content-Type": mimeType },
+      body: imageBuffer
+    });
+    const uploadBody = await uploadRes.json();
+    if (!uploadBody.h) return res.status(400).json({ ok: false, message: uploadBody.error?.message || "La subida falló" });
+    // Step 3: Set profile picture handle
+    const profileRes = await fetch(
+      `https://graph.facebook.com/${creds.version}/${creds.phoneNumberId}/whatsapp_business_profile`,
+      { method: "POST", headers: { Authorization: `Bearer ${creds.token}`, "Content-Type": "application/json" }, body: JSON.stringify({ messaging_product: "whatsapp", profile_picture_handle: uploadBody.h }) }
+    );
+    const profileBody = await profileRes.json();
+    if (!profileRes.ok || !profileBody.success) return res.status(400).json({ ok: false, message: profileBody?.error?.message || "No se pudo actualizar la foto de perfil" });
+    return res.json({ ok: true });
+  } catch (e) {
+    return res.status(500).json({ ok: false, message: e.message });
   }
 });
 

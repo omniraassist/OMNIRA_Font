@@ -370,6 +370,14 @@ export function Dashboard({ mockData = null }) {
     notes: '',
     source: 'manual',
   });
+  const [waBizProfile, setWaBizProfile] = useState(null);
+  const [waBizProfileReason, setWaBizProfileReason] = useState(null);
+  const [waBizProfileForm, setWaBizProfileForm] = useState({ about: '', description: '', address: '', email: '', website: '', vertical: '' });
+  const [waBizProfileLoading, setWaBizProfileLoading] = useState(false);
+  const [waBizProfileSaving, setWaBizProfileSaving] = useState(false);
+  const [waBizPhotoPreview, setWaBizPhotoPreview] = useState(null);
+  const [waBizPhotoFile, setWaBizPhotoFile] = useState(null);
+  const [waBizPhotoUploading, setWaBizPhotoUploading] = useState(false);
 
   const name = user?.businessName || user?.name || 'Cliente';
   const initials = name
@@ -488,6 +496,7 @@ export function Dashboard({ mockData = null }) {
   }, [page, calDate]);
 
   const toastTimerRef = useRef(null);
+  const waBizPhotoInputRef = useRef(null);
   const showToast = useCallback((msg, type = 'success') => {
     clearTimeout(toastTimerRef.current);
     setToast({ msg, type });
@@ -495,6 +504,104 @@ export function Dashboard({ mockData = null }) {
   }, []);
 
   useEffect(() => () => clearTimeout(toastTimerRef.current), []);
+
+  const loadWaBizProfile = useCallback(async () => {
+    setWaBizProfileLoading(true);
+    try {
+      const data = await apiCall('/api/customer/whatsapp-profile');
+      if (data?.ok && data.profile) {
+        setWaBizProfile(data.profile);
+        setWaBizProfileReason(null);
+        setWaBizProfileForm({
+          about: data.profile.about || '',
+          description: data.profile.description || '',
+          address: data.profile.address || '',
+          email: data.profile.email || '',
+          website: data.profile.websites?.[0] || '',
+          vertical: data.profile.vertical || '',
+        });
+      } else {
+        setWaBizProfileReason(data?.reason || data?.error || null);
+      }
+    } catch { /* ignore */ }
+    setWaBizProfileLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (page === 'whatsapp') loadWaBizProfile();
+  }, [page, loadWaBizProfile]);
+
+  const saveWaBizProfile = async (e) => {
+    e.preventDefault();
+    setWaBizProfileSaving(true);
+    try {
+      const data = await apiCall('/api/customer/whatsapp-profile', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          about: waBizProfileForm.about,
+          description: waBizProfileForm.description,
+          address: waBizProfileForm.address,
+          email: waBizProfileForm.email,
+          websites: waBizProfileForm.website ? [waBizProfileForm.website] : [],
+          vertical: waBizProfileForm.vertical || undefined,
+        }),
+      });
+      if (data?.ok) {
+        showToast('Perfil de WhatsApp Business actualizado', 'success');
+      } else {
+        showToast(data?.message || 'Error al actualizar el perfil', 'error');
+      }
+    } catch {
+      showToast('Error al guardar el perfil', 'error');
+    }
+    setWaBizProfileSaving(false);
+  };
+
+  const onWaBizPhotoChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setWaBizPhotoFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setWaBizPhotoPreview(ev.target.result);
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const uploadWaBizPhoto = async () => {
+    if (!waBizPhotoFile) return;
+    setWaBizPhotoUploading(true);
+    try {
+      const canvas = document.createElement('canvas');
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(waBizPhotoFile);
+      await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = objectUrl; });
+      const MAX = 640;
+      const scale = Math.min(1, MAX / img.width, MAX / img.height);
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(objectUrl);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+      const base64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => resolve(ev.target.result.split(',')[1]);
+        reader.readAsDataURL(blob);
+      });
+      const data = await apiCall('/api/customer/whatsapp-profile/photo', {
+        method: 'POST',
+        body: JSON.stringify({ imageBase64: base64, mimeType: 'image/jpeg' }),
+      });
+      if (data?.ok) {
+        showToast('Foto de perfil actualizada en WhatsApp', 'success');
+        setWaBizPhotoFile(null);
+      } else {
+        showToast(data?.message || 'Error al subir la foto', 'error');
+      }
+    } catch {
+      showToast('Error al procesar la imagen', 'error');
+    }
+    setWaBizPhotoUploading(false);
+  };
 
   function planDisplayName(planId) {
     return plansByCheapest.find((p) => p.id === planId)?.name || planId || 'Plan';
@@ -1801,6 +1908,140 @@ export function Dashboard({ mockData = null }) {
                 </div>
               )}
             </div>
+            <div className="p-card" style={{ marginBottom: 16 }}>
+              <div className="p-card-header">
+                <span className="p-card-title">Perfil de WhatsApp Business</span>
+                {waBizProfileLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}><i className="fa-solid fa-circle-notch fa-spin" /></span>}
+              </div>
+              {waBizProfileReason === 'no_meta_credentials' ? (
+                <div className="p-empty">
+                  <i className="fa-brands fa-whatsapp" />
+                  <p>Configura tus credenciales de Meta en <strong>Ajustes de WhatsApp</strong> para gestionar tu perfil.</p>
+                </div>
+              ) : (
+                <form onSubmit={saveWaBizProfile}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 20, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
+                    <div
+                      style={{ position: 'relative', cursor: 'pointer', flexShrink: 0 }}
+                      onClick={() => waBizPhotoInputRef.current?.click()}
+                      title="Cambiar foto de perfil"
+                    >
+                      <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', border: '2px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {(waBizPhotoPreview || waBizProfile?.profile_picture_url) ? (
+                          <img src={waBizPhotoPreview || waBizProfile.profile_picture_url} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <i className="fa-solid fa-store" style={{ fontSize: 26, color: 'var(--muted)' }} />
+                        )}
+                      </div>
+                      <div style={{ position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, borderRadius: '50%', background: 'var(--em)', color: '#00120a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>
+                        <i className="fa-solid fa-camera" />
+                      </div>
+                    </div>
+                    <input ref={waBizPhotoInputRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={onWaBizPhotoChange} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Foto de perfil</div>
+                      <div style={{ fontSize: 12, color: 'var(--soft)', marginBottom: waBizPhotoFile ? 8 : 0 }}>JPG, PNG o WebP · máx. 5 MB · visible para tus contactos en WhatsApp</div>
+                      {waBizPhotoFile && (
+                        <button type="button" className="btn-save-form" style={{ margin: 0, padding: '6px 14px', fontSize: 12 }} onClick={uploadWaBizPhoto} disabled={waBizPhotoUploading}>
+                          {waBizPhotoUploading ? <><i className="fa-solid fa-circle-notch fa-spin" /> Subiendo…</> : <><i className="fa-solid fa-upload" /> Subir foto</>}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="settings-2col">
+                    <div className="form-group full">
+                      <label className="form-label">
+                        Estado / About
+                        <span style={{ color: 'var(--muted)', fontWeight: 400, marginLeft: 6 }}>{waBizProfileForm.about.length}/139</span>
+                      </label>
+                      <input
+                        className="form-input"
+                        maxLength={139}
+                        value={waBizProfileForm.about}
+                        onChange={(e) => setWaBizProfileForm({ ...waBizProfileForm, about: e.target.value })}
+                        placeholder="Atención al cliente 24/7 · Reservas y consultas por WhatsApp"
+                      />
+                    </div>
+                    <div className="form-group full">
+                      <label className="form-label">Descripción del negocio</label>
+                      <textarea
+                        className="form-input"
+                        rows={2}
+                        style={{ resize: 'vertical', fontFamily: "'Plus Jakarta Sans',sans-serif" }}
+                        value={waBizProfileForm.description}
+                        onChange={(e) => setWaBizProfileForm({ ...waBizProfileForm, description: e.target.value })}
+                        placeholder="Describe brevemente tu empresa o servicio"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Dirección</label>
+                      <input
+                        className="form-input"
+                        value={waBizProfileForm.address}
+                        onChange={(e) => setWaBizProfileForm({ ...waBizProfileForm, address: e.target.value })}
+                        placeholder="Calle Mayor 12, Madrid"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Email de contacto</label>
+                      <input
+                        className="form-input"
+                        type="email"
+                        value={waBizProfileForm.email}
+                        onChange={(e) => setWaBizProfileForm({ ...waBizProfileForm, email: e.target.value })}
+                        placeholder="hola@tunegocio.com"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Sitio web</label>
+                      <input
+                        className="form-input"
+                        type="url"
+                        value={waBizProfileForm.website}
+                        onChange={(e) => setWaBizProfileForm({ ...waBizProfileForm, website: e.target.value })}
+                        placeholder="https://tunegocio.com"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Categoría de negocio</label>
+                      <select
+                        className="form-input"
+                        value={waBizProfileForm.vertical}
+                        onChange={(e) => setWaBizProfileForm({ ...waBizProfileForm, vertical: e.target.value })}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <option value="">Seleccionar…</option>
+                        <option value="AUTO">Automoción</option>
+                        <option value="BEAUTY">Belleza y estética</option>
+                        <option value="APPAREL">Moda y ropa</option>
+                        <option value="EDU">Educación</option>
+                        <option value="ENTERTAIN">Entretenimiento</option>
+                        <option value="EVENT_PLAN">Eventos</option>
+                        <option value="FINANCE">Finanzas</option>
+                        <option value="GROCERY">Alimentación</option>
+                        <option value="GOVT">Administración pública</option>
+                        <option value="HOTEL">Hostelería y turismo</option>
+                        <option value="HEALTH">Salud y bienestar</option>
+                        <option value="NONPROFIT">Sin ánimo de lucro</option>
+                        <option value="PROF_SERVICES">Servicios profesionales</option>
+                        <option value="RETAIL">Comercio</option>
+                        <option value="TRAVEL">Viajes</option>
+                        <option value="RESTAURANT">Restauración</option>
+                        <option value="OTHER">Otro</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                    <button type="submit" className="btn-save-form" disabled={waBizProfileSaving}>
+                      {waBizProfileSaving
+                        ? <><i className="fa-solid fa-circle-notch fa-spin" /> Guardando…</>
+                        : <><i className="fa-solid fa-floppy-disk" /> Guardar perfil</>}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+
             <div className="p-card">
               <div className="p-card-header"><span className="p-card-title">¿Cómo funciona?</span></div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '4px 0' }}>
